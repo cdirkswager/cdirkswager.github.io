@@ -1,0 +1,164 @@
+.map-container {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-primary);
+  cursor: crosshair;
+  aspect-ratio: 16 / 10;
+}
+
+.map-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.map-click-area {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.map-click-area.placing {
+  cursor: crosshair;
+}
+
+.map-pin {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  padding: 12px;
+}
+
+.map-pin.dragging {
+  cursor: grabbing;
+  z-index: 10;
+}
+
+.pin-dot {
+  width: 20px;
+  height: 20px;
+  background: var(--pin-color, #c9a84c);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 12px var(--pin-color);
+  transition: transform 0.15s ease;
+}
+
+.map-pin:hover .pin-dot,
+.map-pin:active .pin-dot {
+  transform: scale(1.4);
+}
+
+.pin-dot::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid var(--pin-color, #c9a84c);
+}
+
+.pin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pin-detail {
+  text-align: center;
+}
+
+.pin-detail-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.pin-form input,
+.pin-form textarea,
+.pin-form select {
+  margin-top: 4px;
+}
+
+.color-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0 !important;
+  min-width: unset;
+  min-height: unset;
+}
+
+.color-swatch.active {
+  border-color: white;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.map-actions {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .map-container {
+    aspect-ratio: auto;
+    min-height: 300px;
+    max-height: 60vh;
+  }
+
+  .pin-dot {
+    width: 24px;
+    height: 24px;
+  }
+
+  .map-pin {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-container {
+    min-height: 250px;
+  }
+}
