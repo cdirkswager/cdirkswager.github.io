@@ -1,29 +1,49 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   getPlayers, getMapPins, getQuestionnaires,
   deletePlayer, deleteMapPin, deleteQuestionnaire,
   exportData, importData, resetData,
 } from '../../data/store'
+import {
+  getAccessRequests, approveRequest, denyRequest,
+  getAllUsers, deleteUser, setPlayerIdForUser,
+  currentUser, getSession, logout as authLogout,
+} from '../../data/auth'
 import Modal from '../common/Modal'
 import './DMTools.css'
 
 export default function DMTools() {
+  const navigate = useNavigate()
   const [players, setPlayers] = useState([])
   const [pins, setPins] = useState([])
   const [questionnaires, setQuestionnaires] = useState([])
+  const [requests, setRequests] = useState([])
+  const [users, setUsers] = useState([])
   const [showImport, setShowImport] = useState(false)
   const [importText, setImportText] = useState('')
   const [importStatus, setImportStatus] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [showUsers, setShowUsers] = useState(false)
+  const [selectedReq, setSelectedReq] = useState(null)
+  const [editingReqPlayer, setEditingReqPlayer] = useState('')
 
   const refresh = () => {
     setPlayers(getPlayers())
     setPins(getMapPins())
     setQuestionnaires(getQuestionnaires())
+    setRequests(getAccessRequests())
+    setUsers(getAllUsers())
   }
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    const session = getSession()
+    if (!session || session.role !== 'dm') {
+      navigate('/login', { replace: true })
+      return
+    }
+    refresh()
+  }, [navigate])
 
   const handleExport = () => {
     const data = exportData()
@@ -73,6 +93,43 @@ export default function DMTools() {
     }
   }
 
+  const handleApprove = (req) => {
+    setSelectedReq(req)
+    setEditingReqPlayer(req.playerId || '')
+  }
+
+  const confirmApprove = () => {
+    if (!selectedReq || !editingReqPlayer) return
+    approveRequest(selectedReq.id, editingReqPlayer, selectedReq.username)
+    setPlayerIdForUser(selectedReq.username, editingReqPlayer)
+    setSelectedReq(null)
+    refresh()
+  }
+
+  const handleDeny = (reqId) => {
+    if (confirm('Deny this request?')) {
+      denyRequest(reqId)
+      refresh()
+    }
+  }
+
+  const handleDeleteUser = (userId) => {
+    const session = currentUser()
+    if (session && session.userId === userId) {
+      if (!confirm('Delete your own account? You will be logged out.')) return
+      deleteUser(userId)
+      authLogout()
+      navigate('/')
+      return
+    }
+    if (confirm('Delete this user?')) {
+      deleteUser(userId)
+      refresh()
+    }
+  }
+
+  const pendingRequests = requests.filter(r => r.status === 'pending')
+
   return (
     <div className="page">
       <div className="container">
@@ -84,6 +141,7 @@ export default function DMTools() {
           <div className="dm-header-actions">
             <button className="btn btn-sm" onClick={handleExport}>📤 Export</button>
             <button className="btn btn-sm" onClick={() => setShowImport(true)}>📥 Import</button>
+            <button className="btn btn-sm" onClick={() => setShowUsers(true)}>👥 Users</button>
             <button className="btn btn-sm btn-danger" onClick={() => setConfirmReset(true)}>⚠️ Reset</button>
           </div>
         </div>
@@ -101,7 +159,51 @@ export default function DMTools() {
             <span className="dm-stat-number">{questionnaires.length}</span>
             <span className="dm-stat-label">Questionnaires</span>
           </div>
+          <div className="dm-stat-card card gold-border">
+            <span className="dm-stat-number">{users.length}</span>
+            <span className="dm-stat-label">Users</span>
+          </div>
         </div>
+
+        {pendingRequests.length > 0 && (
+          <div className="card gold-border mb-2" style={{ borderColor: '#d4522a' }}>
+            <div className="flex-between mb-2">
+              <h3 className="widget-title" style={{ color: '#d4522a' }}>
+                🔔 Access Requests ({pendingRequests.length})
+              </h3>
+            </div>
+            <div className="dm-list">
+              {pendingRequests.map(req => (
+                <div key={req.id} className="dm-list-item">
+                  <div className="dm-list-info">
+                    <span className="dm-list-dot" style={{ background: '#d4522a' }} />
+                    <div>
+                      <span className="dm-list-name">{req.username}</span>
+                      {req.playerId && (
+                        <span className="dm-list-detail">
+                          wants: {players.find(p => p.id === req.playerId)?.name || 'Unknown'}
+                        </span>
+                      )}
+                      {req.message && (
+                        <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                          "{req.message}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="dm-list-actions">
+                    <button className="btn btn-sm btn-primary" onClick={() => handleApprove(req)}>
+                      ✅ Approve
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleDeny(req.id)}>
+                      ❌ Deny
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
@@ -206,6 +308,63 @@ export default function DMTools() {
           </div>
         </Modal>
       )}
+
+      {showUsers && (
+        <Modal title="👥 Campaign Users" onClose={() => setShowUsers(false)} large>
+          {users.length === 0 ? (
+            <p className="text-muted">No users registered.</p>
+          ) : (
+            <div className="dm-list">
+              {users.map(u => (
+                <div key={u.id} className="dm-list-item">
+                  <div className="dm-list-info">
+                    <span className={`dm-list-dot ${u.role === 'dm' ? 'dm-role-dot' : ''}`}
+                      style={{ background: u.role === 'dm' ? '#d4522a' : '#6a4cc9' }} />
+                    <div>
+                      <span className="dm-list-name">{u.username}</span>
+                      <span className="dm-list-detail">
+                        {u.role === 'dm' ? '⚔️ DM' : '🎭 Player'}
+                        {u.playerId && ` — ${players.find(p => p.id === u.playerId)?.name || 'Unknown'}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="dm-list-actions">
+                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u.id)}>🗑️</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {selectedReq && (
+        <Modal title="✅ Approve Access Request" onClose={() => setSelectedReq(null)}>
+          <p className="mb-2">
+            Approve <strong>{selectedReq.username}</strong> for which character?
+          </p>
+          <div className="mb-2">
+            <label>Character</label>
+            <select
+              value={editingReqPlayer}
+              onChange={e => setEditingReqPlayer(e.target.value)}
+            >
+              <option value="">— Select —</option>
+              {players.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setSelectedReq(null)}>Cancel</button>
+            <button className="btn btn-primary" onClick={confirmApprove} disabled={!editingReqPlayer}>
+              ✅ Approve
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
+
+

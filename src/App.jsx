@@ -7,6 +7,9 @@ import PlayerEditor from './components/PlayerEditor/PlayerEditor'
 import DMTools from './components/DM/DMTools'
 import Questionnaire from './components/Questionnaire/Questionnaire'
 import QuestionnaireBuilder from './components/Questionnaire/QuestionnaireBuilder'
+import Login from './components/Auth/Login'
+import Register from './components/Auth/Register'
+import { RequireDM } from './components/Auth/ProtectedRoute'
 import './App.css'
 
 export default function App() {
@@ -16,12 +19,14 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/player/:id" element={<PlayerPage />} />
-        <Route path="/dm/player/:id" element={<PlayerEditor />} />
-        <Route path="/dm/players" element={<PlayerEditor />} />
-        <Route path="/dm" element={<DMTools />} />
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
-        <Route path="/dm/questionnaire/new" element={<QuestionnaireBuilder />} />
-        <Route path="/dm/questionnaire/:id" element={<QuestionnaireBuilder />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dm" element={<RequireDM><DMTools /></RequireDM>} />
+        <Route path="/dm/players" element={<RequireDM><PlayerEditor /></RequireDM>} />
+        <Route path="/dm/player/:id" element={<RequireDM><PlayerEditor /></RequireDM>} />
+        <Route path="/dm/questionnaire/new" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
+        <Route path="/dm/questionnaire/:id" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
       </Routes>
     </Layout>
   )

@@ -1,27 +1,38 @@
 import { useEffect, useRef } from 'react'
 import './common.css'
 
-export default function Modal({ isOpen, onClose, title, children, large }) {
+export default function Modal({ onClose, title, children, large }) {
   const overlayRef = useRef()
+  const contentRef = useRef()
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
+    document.body.style.overflow = 'hidden'
+    contentRef.current?.focus()
     return () => { document.body.style.overflow = '' }
-  }, [isOpen])
+  }, [])
 
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose()
+      if (e.key === 'Tab') {
+        const focusable = contentRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (!focusable || focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
     }
-    if (isOpen) window.addEventListener('keydown', handleKey)
+    window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
+  }, [onClose])
 
   return (
     <div

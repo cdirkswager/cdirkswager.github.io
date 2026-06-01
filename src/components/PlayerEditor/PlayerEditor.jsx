@@ -74,6 +74,8 @@ export default function PlayerEditor() {
 
   const saveWidget = () => {
     if (!widgetForm.type) return
+    if (['description', 'bio', 'music'].includes(widgetForm.type) && !widgetForm.content?.trim()) return
+    if (widgetForm.type === 'image' && !widgetForm.content?.trim()) return
     const newWidgets = [...form.widgets]
     if (editingWidget === null) {
       newWidgets.push(widgetForm)

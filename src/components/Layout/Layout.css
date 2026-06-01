@@ -101,16 +101,40 @@
   font-size: 1.1rem;
 }
 
-.dm-badge {
+.nav-session {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 0.8rem;
   font-family: var(--font-display);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  background: var(--accent-fire);
-  color: white;
-  padding: 3px 8px;
-  border-radius: 4px;
-  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.session-dm {
+  background: rgba(212, 82, 42, 0.1);
+  border: 1px solid rgba(212, 82, 42, 0.3);
+  color: var(--accent-fire);
+}
+
+.session-player {
+  background: rgba(106, 76, 201, 0.1);
+  border: 1px solid rgba(106, 76, 201, 0.3);
+  color: var(--accent-magic);
+}
+
+.nav-logout {
+  min-width: unset !important;
+  min-height: unset !important;
+  padding: 4px 8px !important;
+  font-size: 1rem;
 }
 
 .nav-overlay {

@@ -55,9 +55,9 @@ export default function Questionnaire() {
           <div className="animate__animated animate__fadeIn">
             <h2 className="text-gold mb-2">✅ Submitted!</h2>
             <p className="mb-3">Your responses have been recorded.</p>
-            <Link to={`/questionnaire/${id}`} className="btn btn-primary">
+            <button className="btn btn-primary" onClick={() => { setSubmitted(false); setAnswers({}); setPlayerId('') }}>
               📝 Submit Another Response
-            </Link>
+            </button>
           </div>
         </div>
       </div>

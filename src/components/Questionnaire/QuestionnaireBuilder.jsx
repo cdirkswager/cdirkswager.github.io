@@ -97,18 +97,11 @@ export default function QuestionnaireBuilder() {
     e.preventDefault()
     if (!form.title.trim()) return
     const cleanQuestions = form.questions.map(q => {
-      const cleaned = { ...q }
-      if (['select', 'radio', 'checkbox'].includes(q.type)) {
-        cleaned.options = q.options.filter(o => o.trim())
-      } else {
-        delete cleaned.options
-      }
-      if (q.type !== 'scale') {
-        delete cleaned.scaleMin
-        delete cleaned.scaleMax
-        delete cleaned.scaleStart
-        delete cleaned.scaleEnd
-      }
+      const cleaned = { id: q.id, type: q.type, label: q.label, required: q.required }
+      if (q.type === 'text' || q.type === 'textarea') cleaned.placeholder = q.placeholder
+      if (q.type === 'number') { cleaned.min = q.min; cleaned.max = q.max }
+      if (['select', 'radio', 'checkbox'].includes(q.type)) cleaned.options = q.options?.filter(o => o.trim()) || []
+      if (q.type === 'scale') { cleaned.scaleMin = q.scaleMin; cleaned.scaleMax = q.scaleMax; cleaned.scaleStart = q.scaleStart; cleaned.scaleEnd = q.scaleEnd }
       return cleaned
     })
     const saved_q = saveQuestionnaire({ ...form, questions: cleanQuestions, id: id || undefined })

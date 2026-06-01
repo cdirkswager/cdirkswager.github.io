@@ -1,18 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getMapPins, saveMapPin, deleteMapPin, getPlayers } from '../../data/store'
+import { currentUser } from '../../data/auth'
 import Modal from '../common/Modal'
 import ContinentMap from '../../assets/ContinentMap.png'
 import './MapPage.css'
+
+const pinColors = ['#c9a84c', '#d4522a', '#6a4cc9', '#4c9a6a', '#4c7ac9', '#c94c6a', '#c98a2a', '#6a9a4c']
 
 export default function MapPage() {
   const [pins, setPins] = useState([])
   const [players, setPlayers] = useState([])
   const [selectedPin, setSelectedPin] = useState(null)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newPin, setNewPin] = useState({ x: 50, y: 50, label: '', description: '', color: '#c9a84c', addedBy: '' })
-  const [placingMode, setPlacingMode] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState({ label: '', description: '', color: '#c9a84c' })
+  const [placingPos, setPlacingPos] = useState(null)
+  const [tooltipPin, setTooltipPin] = useState(null)
   const [dragging, setDragging] = useState(null)
+  const [dragStart, setDragStart] = useState(null)
+  const [editPin, setEditPin] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [confirmDeletePin, setConfirmDeletePin] = useState(null)
+  const [focusedPin, setFocusedPin] = useState(null)
   const mapRef = useRef()
+  const longPressTimer = useRef(null)
 
   const refresh = useCallback(() => {
     setPins(getMapPins())
@@ -21,221 +31,326 @@ export default function MapPage() {
 
   useEffect(() => { refresh() }, [refresh])
 
-  const handleMapClick = useCallback((e) => {
-    if (!placingMode) return
-    const rect = mapRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    setNewPin({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, label: '', description: '', color: '#c9a84c', addedBy: players[0]?.id || '' })
-    setPlacingMode(false)
-    setShowAddModal(true)
-  }, [placingMode, players])
+  const session = currentUser()
 
-  const handleTouchPlace = useCallback((e) => {
-    if (!placingMode) return
-    e.preventDefault()
-    const touch = e.touches[0]
+  const getPosFromEvent = useCallback((e) => {
     const rect = mapRef.current.getBoundingClientRect()
-    const x = ((touch.clientX - rect.left) / rect.width) * 100
-    const y = ((touch.clientY - rect.top) / rect.height) * 100
-    setNewPin({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, label: '', description: '', color: '#c9a84c', addedBy: players[0]?.id || '' })
-    setPlacingMode(false)
-    setShowAddModal(true)
-  }, [placingMode, players])
-
-  const handlePinDrag = useCallback((e, pinId) => {
-    const rect = mapRef.current.getBoundingClientRect()
-    const clientX = e.clientX ?? e.touches?.[0]?.clientX
-    const clientY = e.clientY ?? e.touches?.[0]?.clientY
-    if (!clientX) return
-    const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100))
-    const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100))
-    setDragging({ id: pinId, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 })
+    const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
+    const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
+    return {
+      x: Math.min(100, Math.max(0, Math.round(((cx - rect.left) / rect.width) * 1000) / 10)),
+      y: Math.min(100, Math.max(0, Math.round(((cy - rect.top) / rect.height) * 1000) / 10)),
+    }
   }, [])
 
-  const handleDragEnd = useCallback(() => {
-    if (dragging) {
-      const pin = pins.find(p => p.id === dragging.id)
-      if (pin) {
-        saveMapPin({ ...pin, x: dragging.x, y: dragging.y })
-        refresh()
-      }
+  const handleMapTap = useCallback((e) => {
+    if (dragging) return
+    const pos = getPosFromEvent(e)
+    const tapped = pins.find(p =>
+      Math.abs(p.x - pos.x) < 3 && Math.abs(p.y - pos.y) < 3
+    )
+    if (tapped) {
+      setTooltipPin(tapped)
+      setPlacingPos(null)
+      return
     }
-    setDragging(null)
-  }, [dragging, pins, refresh])
+    setTooltipPin(null)
+    setPlacingPos(pos)
+    setFormData({ label: '', description: '', color: '#c9a84c' })
+    setShowForm(true)
+  }, [pins, dragging, getPosFromEvent])
+
+  const handleMapTouch = useCallback((e) => {
+    if (e.touches.length > 1) return
+    const touch = e.touches[0]
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (el?.closest('.map-pin')) return
+    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+    longPressTimer.current = setTimeout(() => {
+      handleMapTap({ clientX: touch.clientX, clientY: touch.clientY })
+    }, 500)
+  }, [handleMapTap])
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
+
+  const handlePinPointerDown = useCallback((e, pin) => {
+    e.stopPropagation()
+    setTooltipPin(pin)
+    const pos = getPosFromEvent(e)
+    setDragStart({ x: pos.x, y: pos.y, id: pin.id, pinX: pin.x, pinY: pin.y })
+  }, [getPosFromEvent])
 
   useEffect(() => {
-    if (!dragging) return
+    if (!dragStart) return
     const handleMove = (e) => {
       e.preventDefault()
-      handlePinDrag(e, dragging.id)
+      const pos = getPosFromEvent(e)
+      const dx = pos.x - dragStart.x
+      const dy = pos.y - dragStart.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist > 2) {
+        setDragging({
+          id: dragStart.id,
+          x: Math.min(100, Math.max(0, Math.round((dragStart.pinX + dx) * 10) / 10)),
+          y: Math.min(100, Math.max(0, Math.round((dragStart.pinY + dy) * 10) / 10)),
+        })
+      }
     }
-    const handleUp = () => handleDragEnd()
+    const handleUp = () => {
+      if (dragging && dragStart) {
+        const pin = pins.find(p => p.id === dragging.id)
+        if (pin) {
+          saveMapPin({ ...pin, x: dragging.x, y: dragging.y })
+          refresh()
+        }
+      }
+      setDragging(null)
+      setDragStart(null)
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current)
+        longPressTimer.current = null
+      }
+    }
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
     window.addEventListener('touchmove', handleMove, { passive: false })
     window.addEventListener('touchend', handleUp)
+    window.addEventListener('touchcancel', handleUp)
     return () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
       window.removeEventListener('touchmove', handleMove)
       window.removeEventListener('touchend', handleUp)
+      window.removeEventListener('touchcancel', handleUp)
     }
-  }, [dragging, handlePinDrag, handleDragEnd])
+  }, [dragStart, dragging, pins, refresh, getPosFromEvent])
 
-  const savePin = () => {
-    if (!newPin.label.trim()) return
-    saveMapPin(newPin)
-    setShowAddModal(false)
-    setNewPin({ x: 50, y: 50, label: '', description: '', color: '#c9a84c', addedBy: '' })
+  const saveNewPin = () => {
+    if (!formData.label.trim()) return
+    saveMapPin({
+      x: placingPos.x,
+      y: placingPos.y,
+      label: formData.label.trim(),
+      description: formData.description.trim(),
+      color: formData.color,
+      addedBy: session?.playerId || session?.username || '',
+    })
+    setShowForm(false)
+    setPlacingPos(null)
+    setFormData({ label: '', description: '', color: '#c9a84c' })
+    refresh()
+  }
+
+  const openEditPin = (pin) => {
+    setEditPin(pin)
+    setFormData({ label: pin.label, description: pin.description || '', color: pin.color })
+    setShowEditModal(true)
+    setTooltipPin(null)
+  }
+
+  const saveEditPin = () => {
+    if (!formData.label.trim() || !editPin) return
+    saveMapPin({ ...editPin, label: formData.label.trim(), description: formData.description.trim(), color: formData.color })
+    setShowEditModal(false)
+    setEditPin(null)
+    setSelectedPin(null)
     refresh()
   }
 
   const removePin = (id) => {
     deleteMapPin(id)
     setSelectedPin(null)
+    setTooltipPin(null)
+    setShowEditModal(false)
+    setConfirmDeletePin(null)
+    setEditPin(null)
     refresh()
   }
 
-  const getPlayerName = (playerId) => {
-    return players.find(p => p.id === playerId)?.name || 'Unknown'
-  }
-
-  const pinColors = ['#c9a84c', '#d4522a', '#6a4cc9', '#4c9a6a', '#4c7ac9', '#c94c6a', '#c98a2a', '#6a9a4c']
-
   return (
-    <div className="page">
-      <div className="container">
-        <div className="flex-between mb-2">
-          <div>
-            <h1 className="text-gold">🗺️ The Realm</h1>
-            <p className="text-muted">Explore the continent and mark your discoveries</p>
-          </div>
-          <div className="map-actions">
-            <button
-              className={`btn ${placingMode ? 'btn-primary' : ''}`}
-              onClick={() => { setPlacingMode(!placingMode); setSelectedPin(null) }}
-            >
-              {placingMode ? '🔖 Click Map to Pin' : '📍 Add Pin'}
-            </button>
-          </div>
+    <div className="map-page">
+      <div className="map-header">
+        <div className="map-header-left">
+          <h1 className="map-title">🗺️ The Realm</h1>
         </div>
-
-        <div className="map-container gold-border" ref={mapRef}>
-          <img
-            src={ContinentMap}
-            alt="Continent Map"
-            className="map-image"
-            draggable={false}
-          />
-          <div
-            className={`map-click-area ${placingMode ? 'placing' : ''}`}
-            onClick={handleMapClick}
-            onTouchEnd={handleTouchPlace}
-          />
-          {pins.map(pin => {
-            const isDragging = dragging?.id === pin.id
-            return (
-              <div
-                key={pin.id}
-                className={`map-pin ${isDragging ? 'dragging' : ''}`}
-                style={{
-                  left: `${isDragging ? dragging.x : pin.x}%`,
-                  top: `${isDragging ? dragging.y : pin.y}%`,
-                  '--pin-color': pin.color,
-                }}
-                onClick={(e) => { e.stopPropagation(); setSelectedPin(pin) }}
-                onMouseDown={(e) => { e.stopPropagation(); setDragging({ id: pin.id, x: pin.x, y: pin.y }) }}
-                onTouchStart={(e) => { e.stopPropagation(); setDragging({ id: pin.id, x: pin.x, y: pin.y }) }}
-              >
-                <div className="pin-dot" />
-              </div>
-            )
-          })}
+        <div className="map-header-center">
+          <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
         </div>
-
-        <div className="pin-legend">
-          {pinColors.map(c => (
-            <div key={c} className="legend-item">
-              <span className="legend-dot" style={{ background: c }} />
-              <span className="legend-label">{pins.filter(p => p.color === c).length} pins</span>
-            </div>
-          ))}
-        </div>
+        {!showForm && (
+          <button className="btn btn-primary btn-sm map-add-btn" onClick={() => setShowForm(true)}>
+            📍 Add Pin
+          </button>
+        )}
       </div>
 
-      {selectedPin && (
-        <Modal title={`📍 ${selectedPin.label}`} onClose={() => setSelectedPin(null)}>
-          <div className="pin-detail">
-            <div className="pin-detail-dot" style={{ background: selectedPin.color }} />
-            <p className="text-muted mt-1">
-              Added by: {getPlayerName(selectedPin.addedBy)}
-            </p>
-            {selectedPin.description && (
-              <p className="mt-2">{selectedPin.description}</p>
-            )}
-            <p className="text-muted mt-1" style={{ fontSize: '0.8rem' }}>
-              Position: {selectedPin.x}%, {selectedPin.y}%
-            </p>
-            <button className="btn btn-danger btn-sm mt-2" onClick={() => removePin(selectedPin.id)}>
-              🗑️ Remove Pin
-            </button>
+      <div className="map-area" ref={mapRef}>
+        <img
+          src={ContinentMap}
+          alt="Continent Map"
+          className="map-image"
+          draggable={false}
+        />
+
+        <div
+          className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
+          tabIndex={0}
+          role="application"
+          aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
+          onClick={handleMapTap}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              const center = getPosFromEvent({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 })
+              setTooltipPin(null)
+              setPlacingPos(center)
+              setFormData({ label: '', description: '', color: '#c9a84c' })
+              setShowForm(true)
+            }
+            if (e.key.startsWith('Arrow') && focusedPin) {
+              e.preventDefault()
+              const pin = pins.find(p => p.id === focusedPin)
+              if (!pin) return
+              const step = 1
+              const moves = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] }
+              const [dx, dy] = moves[e.key]
+              const newX = Math.min(100, Math.max(0, Math.round((pin.x + dx) * 10) / 10))
+              const newY = Math.min(100, Math.max(0, Math.round((pin.y + dy) * 10) / 10))
+              const updated = { ...pin, x: newX, y: newY }
+              saveMapPin(updated)
+              refresh()
+            }
+            if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {
+              setFocusedPin(pins[0].id)
+              setTooltipPin(pins[0])
+            }
+          }}
+          onTouchStart={handleMapTouch}
+          onTouchEnd={cancelLongPress}
+          onTouchMove={cancelLongPress}
+        />
+
+        {pins.map(pin => {
+          const isDragging = dragging?.id === pin.id
+          const showTooltip = tooltipPin?.id === pin.id && !isDragging
+          return (
+            <div
+              key={pin.id}
+              className={`map-pin ${isDragging ? 'dragging' : ''}`}
+              style={{
+                left: `${isDragging ? dragging.x : pin.x}%`,
+                top: `${isDragging ? dragging.y : pin.y}%`,
+                '--pin-color': pin.color,
+              }}
+              tabIndex={-1}
+              onMouseDown={(e) => handlePinPointerDown(e, pin)}
+              onFocus={() => { setFocusedPin(pin.id); setTooltipPin(pin) }}
+              onTouchStart={(e) => handlePinPointerDown(e, pin)}
+            >
+              <div className="pin-dot" />
+              <span className="pin-label">{pin.label}</span>
+              {showTooltip && (
+                <div className="pin-tooltip" onClick={(e) => e.stopPropagation()}>
+                  <strong>{pin.label}</strong>
+                  {pin.description && <p className="pin-tooltip-desc">{pin.description}</p>}
+                  <div className="pin-tooltip-actions">
+                    <button className="btn btn-sm" onClick={() => openEditPin(pin)}>✏️ Edit</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmDeletePin(pin)}>🗑️</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {placingPos && showForm && (
+          <div
+            className="map-inline-form animate__animated animate__fadeIn"
+            style={{
+              left: `${Math.min(placingPos.x + 5, 85)}%`,
+              top: `${Math.min(placingPos.y + 5, 80)}%`,
+            }}
+          >
+            <div className="inline-form-header">
+              <span className="inline-form-title">📍 New Pin</span>
+              <button className="inline-form-close" onClick={() => { setShowForm(false); setPlacingPos(null) }}>&times;</button>
+            </div>
+            <input
+              value={formData.label}
+              onChange={e => setFormData({ ...formData, label: e.target.value })}
+              placeholder="Pin name..."
+              autoFocus
+            />
+            <textarea
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Description (optional)"
+              rows={2}
+            />
+            <div className="inline-colors">
+              {pinColors.map(c => (
+                <button
+                  key={c}
+                  className={`inline-swatch ${formData.color === c ? 'active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setFormData({ ...formData, color: c })}
+                />
+              ))}
+            </div>
+            <div className="inline-form-actions">
+              <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                {placingPos.x}%, {placingPos.y}%
+              </span>
+              <button className="btn btn-primary btn-sm" onClick={saveNewPin}>💾 Save</button>
+            </div>
+          </div>
+        )}
+
+        {!showForm && !tooltipPin && (
+          <div className="map-hint">
+            Tap the map to add a pin — drag pins to move them
+          </div>
+        )}
+      </div>
+
+      {showEditModal && editPin && (
+        <Modal title={`✏️ Edit: ${editPin.label}`} onClose={() => { setShowEditModal(false); setEditPin(null) }}>
+          <div className="mb-2">
+            <label>Label</label>
+            <input value={formData.label} onChange={e => setFormData({ ...formData, label: e.target.value })} />
+          </div>
+          <div className="mb-2">
+            <label>Description</label>
+            <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={3} />
+          </div>
+          <div className="mb-2">
+            <label>Color</label>
+            <div className="color-picker">
+              {pinColors.map(c => (
+                <button key={c} className={`color-swatch ${formData.color === c ? 'active' : ''}`} style={{ background: c }} onClick={() => setFormData({ ...formData, color: c })} />
+              ))}
+            </div>
+          </div>
+          <div className="flex-between">
+            <button className="btn btn-danger btn-sm" onClick={() => setConfirmDeletePin(editPin)}>🗑️ Delete</button>
+            <div className="flex gap-1">
+              <button className="btn" onClick={() => { setShowEditModal(false); setEditPin(null) }}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEditPin}>💾 Save</button>
+            </div>
           </div>
         </Modal>
       )}
 
-      {showAddModal && (
-        <Modal title="📍 New Pin" onClose={() => setShowAddModal(false)}>
-          <div className="pin-form">
-            <div className="mb-2">
-              <label>Label</label>
-              <input
-                value={newPin.label}
-                onChange={e => setNewPin({ ...newPin, label: e.target.value })}
-                placeholder="e.g., The Dark Forest"
-              />
-            </div>
-            <div className="mb-2">
-              <label>Description</label>
-              <textarea
-                value={newPin.description}
-                onChange={e => setNewPin({ ...newPin, description: e.target.value })}
-                placeholder="What's at this location?"
-              />
-            </div>
-            <div className="mb-2">
-              <label>Color</label>
-              <div className="color-picker">
-                {pinColors.map(c => (
-                  <button
-                    key={c}
-                    className={`color-swatch ${newPin.color === c ? 'active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => setNewPin({ ...newPin, color: c })}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="mb-2">
-              <label>Added By</label>
-              <select
-                value={newPin.addedBy}
-                onChange={e => setNewPin({ ...newPin, addedBy: e.target.value })}
-              >
-                <option value="">DM</option>
-                {players.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-between">
-              <p className="text-muted" style={{ fontSize: '0.8rem' }}>
-                Position: {newPin.x}%, {newPin.y}%
-              </p>
-              <button className="btn btn-primary" onClick={savePin}>
-                💾 Save Pin
-              </button>
-            </div>
+      {confirmDeletePin && (
+        <Modal title="🗑️ Delete Pin" onClose={() => setConfirmDeletePin(null)}>
+          <p className="mb-2">Remove <strong>{confirmDeletePin.label}</strong> from the map?</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmDeletePin(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => removePin(confirmDeletePin.id)}>🗑️ Delete</button>
           </div>
         </Modal>
       )}

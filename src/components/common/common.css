@@ -58,7 +58,3 @@
   padding: 20px 24px 24px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}

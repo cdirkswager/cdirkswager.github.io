@@ -257,10 +257,6 @@ label {
     --nav-height: 56px;
   }
 
-  .hide-mobile {
-    display: none !important;
-  }
-
   button, .btn {
     padding: 10px 20px;
     font-size: 0.85rem;
