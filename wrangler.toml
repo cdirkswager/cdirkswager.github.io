@@ -1,0 +1,7 @@
+name = "hunt-website"
+compatibility_date = "2025-06-01"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "HUNT_DATA"
+id = "a2ffa3840e274be99544ddb97162922c"

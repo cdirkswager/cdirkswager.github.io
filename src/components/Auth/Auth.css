@@ -55,6 +55,32 @@
   color: var(--accent-gold);
 }
 
+.auth-footer-sep {
+  margin: 0 6px;
+  opacity: 0.4;
+}
+
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: var(--accent-gold);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-link-btn:hover {
+  color: var(--accent-fire);
+}
+
+.auth-recovery {
+  margin-top: 12px;
+  padding: 12px;
+}
+
 .auth-submit {
   width: 100%;
   margin-top: 8px;

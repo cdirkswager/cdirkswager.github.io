@@ -93,7 +93,7 @@ export default function QuestionnaireBuilder() {
     updateQuestion(qIndex, { options })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
     const cleanQuestions = form.questions.map(q => {
@@ -104,7 +104,7 @@ export default function QuestionnaireBuilder() {
       if (q.type === 'scale') { cleaned.scaleMin = q.scaleMin; cleaned.scaleMax = q.scaleMax; cleaned.scaleStart = q.scaleStart; cleaned.scaleEnd = q.scaleEnd }
       return cleaned
     })
-    const saved_q = saveQuestionnaire({ ...form, questions: cleanQuestions, id: id || undefined })
+    const saved_q = await saveQuestionnaire({ ...form, questions: cleanQuestions, id: id || undefined })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     if (!id) navigate(`/dm/questionnaire/${saved_q.id}`, { replace: true })

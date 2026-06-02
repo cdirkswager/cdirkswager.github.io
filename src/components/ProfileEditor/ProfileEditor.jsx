@@ -153,10 +153,10 @@ export default function ProfileEditor() {
     markDirty({ ...form, theme: { ...form.theme, [key]: value } })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name || !form.name.trim()) return
-    const savedPlayer = savePlayer(form)
+    const savedPlayer = await savePlayer(form)
     setPlayer(savedPlayer)
     setSaved(true)
     dirtyRef.current = false

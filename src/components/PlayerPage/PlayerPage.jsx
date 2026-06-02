@@ -241,7 +241,7 @@ export default function PlayerPage() {
     setEditCss(generated.css)
   }
 
-  const saveSource = () => {
+  const saveSource = async () => {
     if (!player) return
     const updated = {
       ...player,
@@ -251,7 +251,7 @@ export default function PlayerPage() {
         css: editCss,
       },
     }
-    savePlayer(updated)
+    await savePlayer(updated)
     setPlayer(updated)
     setSourceSaved(true)
     setTimeout(() => setSourceSaved(false), 2000)

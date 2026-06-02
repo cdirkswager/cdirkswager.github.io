@@ -79,13 +79,13 @@ export default function PlayerEditor() {
     }
   }, [selectedId])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return
     const player = selectedId === 'new'
       ? { ...form, id: undefined }
       : { ...form, id: selectedId }
-    const saved_player = savePlayer(player)
+    const saved_player = await savePlayer(player)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     if (selectedId === 'new') {

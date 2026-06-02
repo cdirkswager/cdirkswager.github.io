@@ -81,8 +81,8 @@ export default function DMTools() {
     URL.revokeObjectURL(url)
   }
 
-  const handleImport = () => {
-    if (importData(importText)) {
+  const handleImport = async () => {
+    if (await importData(importText)) {
       setImportStatus('✅ Data imported successfully!')
       refresh()
       setTimeout(() => { setShowImport(false); setImportStatus('') }, 1500)
@@ -91,8 +91,8 @@ export default function DMTools() {
     }
   }
 
-  const handleFullExport = () => {
-    const data = exportFullData()
+  const handleFullExport = async () => {
+    const data = await exportFullData()
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -102,8 +102,8 @@ export default function DMTools() {
     URL.revokeObjectURL(url)
   }
 
-  const handleFullImport = () => {
-    const result = importFullData(fullImportText)
+  const handleFullImport = async () => {
+    const result = await importFullData(fullImportText)
     if (result.ok) {
       localStorage.setItem('hunt-users', JSON.stringify(result.users))
       localStorage.setItem('hunt-access-requests', JSON.stringify(result.requests))
@@ -115,27 +115,27 @@ export default function DMTools() {
     }
   }
 
-  const handleReset = () => {
-    resetData()
+  const handleReset = async () => {
+    await resetData()
     setConfirmReset(false)
     refresh()
   }
 
   const handleDeletePlayer = async (id) => {
     await unclaimPlayerId(id)
-    deletePlayer(id)
+    await deletePlayer(id)
     setConfirmPlayerDelete(null)
     refresh()
   }
 
-  const handleDeletePin = (id) => {
-    deleteMapPin(id)
+  const handleDeletePin = async (id) => {
+    await deleteMapPin(id)
     setConfirmPinDelete(null)
     refresh()
   }
 
-  const handleDeleteQuestionnaire = (id) => {
-    deleteQuestionnaire(id)
+  const handleDeleteQuestionnaire = async (id) => {
+    await deleteQuestionnaire(id)
     setConfirmQuestionnaireDelete(null)
     refresh()
   }
@@ -146,10 +146,10 @@ export default function DMTools() {
     setShowAddYearModal(true)
   }
 
-  const confirmAddYear = () => {
+  const confirmAddYear = async () => {
     const yearNum = parseInt(addYearValue)
     if (isNaN(yearNum)) return
-    addYear(yearNum)
+    await addYear(yearNum)
     setShowAddYearModal(false)
     refresh()
   }
@@ -160,13 +160,13 @@ export default function DMTools() {
     setShowSeasonModal(true)
   }
 
-  const handleSaveSeason = () => {
+  const handleSaveSeason = async () => {
     if (!seasonForm.name.trim()) return
     const existing = editingSeason
     if (existing) {
-      saveMap({ ...existing, name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim() })
+      await saveMap({ ...existing, name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim() })
     } else {
-      saveMap({ name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim(), year: addSeasonYear ?? 0 })
+      await saveMap({ name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim(), year: addSeasonYear ?? 0 })
     }
     setShowSeasonModal(false)
     setEditingSeason(null)
@@ -174,14 +174,14 @@ export default function DMTools() {
     refresh()
   }
 
-  const handleDeleteSeason = (id) => {
-    deleteMap(id)
+  const handleDeleteSeason = async (id) => {
+    await deleteMap(id)
     setConfirmSeasonDelete(null)
     refresh()
   }
 
-  const handleDeleteYear = (year) => {
-    deleteYear(year)
+  const handleDeleteYear = async (year) => {
+    await deleteYear(year)
     setConfirmYearDelete(null)
     refresh()
   }
@@ -462,7 +462,7 @@ export default function DMTools() {
                         <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>{c.text}</p>
                       </div>
                       <div className="dm-list-actions">
-                        <button className="btn btn-sm btn-danger" onClick={() => { deleteComment(c.id, c.playerId); refresh() }}>🗑️</button>
+                        <button className="btn btn-sm btn-danger" onClick={async () => { await deleteComment(c.id, c.playerId); refresh() }}>🗑️</button>
                       </div>
                     </div>
                   )

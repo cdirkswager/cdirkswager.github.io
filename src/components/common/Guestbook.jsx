@@ -20,14 +20,14 @@ export default function Guestbook({ playerId }) {
     e.preventDefault()
     if (!text.trim() || !session || submitting) return
     setSubmitting(true)
-    addComment(playerId, session.username, text.trim())
+    await addComment(playerId, session.username, text.trim())
     setText('')
     refresh()
     setSubmitting(false)
   }
 
-  const handleDelete = (commentId) => {
-    deleteComment(commentId, playerId)
+  const handleDelete = async (commentId) => {
+    await deleteComment(commentId, playerId)
     setConfirmingId(null)
     refresh()
   }

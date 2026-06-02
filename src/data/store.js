@@ -1,75 +1,18 @@
-import { pushToWorker } from './sync'
-const STORE_KEY = 'hunt-campaign-data'
-const SEED_KEY = 'hunt-data-seeded'
+import api from './api'
 
+const SEED_KEY = 'hunt-data-seeded'
 export const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
 
 const defaultData = {
-  players: [
-    {
-      id: 'player-1',
-      name: 'Player One',
-      class: 'Fighter',
-      race: 'Human',
-      level: 1,
-      bio: 'A brave adventurer beginning their journey...',
-      title: 'The Wanderer',
-      layout: 'single',
-      musicUrl: '',
-      commentsEnabled: true,
-      avatarUrl: '',
-      theme: {
-        bgColor: '#0d0d0d',
-        textColor: '#e0d5c1',
-        accentColor: '#c9a84c',
-        fontFamily: 'IM Fell English, serif',
-        bgImage: '',
-      },
-      customCode: { enabled: false, html: '', css: '' },
-      widgets: [
-        { id: 'w-1', type: 'stats', content: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
-        { id: 'w-2', type: 'description', content: 'A mysterious figure from a distant land.' },
-      ],
-      createdAt: Date.now(),
-    },
-    {
-      id: 'player-2',
-      name: 'Player Two',
-      class: 'Wizard',
-      race: 'Elf',
-      level: 1,
-      bio: 'A student of the arcane arts...',
-      title: 'The Scholar',
-      layout: 'single',
-      musicUrl: '',
-      commentsEnabled: true,
-      avatarUrl: '',
-      theme: {
-        bgColor: '#0a0a1a',
-        textColor: '#c1d0e0',
-        accentColor: '#6a4cc9',
-        fontFamily: 'IM Fell English, serif',
-        bgImage: '',
-      },
-      customCode: { enabled: false, html: '', css: '' },
-      widgets: [
-        { id: 'w-3', type: 'stats', content: { str: 8, dex: 12, con: 10, int: 16, wis: 14, cha: 12 } },
-        { id: 'w-4', type: 'description', content: 'A studious elf who spends more time in libraries than in battle.' },
-      ],
-      createdAt: Date.now(),
-    },
-  ],
-  maps: [
-    { id: 'map-1', name: 'Spring', imageUrl: '', year: 1, season: 0 },
-    { id: 'map-2', name: 'Summer', imageUrl: '', year: 1, season: 1 },
-    { id: 'map-3', name: 'Autumn', imageUrl: '', year: 1, season: 2 },
-    { id: 'map-4', name: 'Winter', imageUrl: '', year: 1, season: 3 },
-  ],
+  players: [],
+  maps: [],
   mapPins: [],
   questionnaires: [],
   responses: [],
   comments: {},
 }
+
+let dataCache = null
 
 function migrateData(data) {
   if (!data) return data
@@ -96,20 +39,41 @@ function migrateData(data) {
   return data
 }
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY)
-    if (raw) {
-      const data = JSON.parse(raw)
-      return migrateData(data)
-    }
-  } catch (e) { /* ignore */ }
-  return { players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
+function flushSeed() {
+  try { localStorage.removeItem(SEED_KEY) } catch {}
 }
 
-function saveData(data) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(migrateData(data)))
-  pushToWorker()
+function getStore() {
+  if (!dataCache) {
+    dataCache = { ...defaultData, players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
+  }
+  return dataCache
+}
+
+async function saveData(data) {
+  dataCache = migrateData(data)
+  const res = await api('/data', { method: 'POST', body: dataCache })
+  if (!res.ok) console.warn('Failed to save to server:', res.error)
+}
+
+async function loadFromServer() {
+  const res = await api('/data')
+  if (res.ok && res.players) {
+    dataCache = migrateData(res)
+  } else {
+    dataCache = migrateData({ ...defaultData })
+  }
+  return dataCache
+}
+
+export async function initStore() {
+  await loadFromServer()
+  flushSeed()
+  return dataCache
+}
+
+export function seedIfNeeded() {
+  flushSeed()
 }
 
 export function sanitizeHtml(str) {
@@ -333,17 +297,6 @@ ${bodyHtml || '<p style="text-align:center;opacity:0.5">No widgets configured ye
   return { html: htmlDoc, css }
 }
 
-export function seedIfNeeded() {
-  if (!localStorage.getItem(SEED_KEY)) {
-    saveData(defaultData)
-    localStorage.setItem(SEED_KEY, 'true')
-  }
-}
-
-export function getStore() {
-  return loadData()
-}
-
 export function getPlayers() {
   return getStore().players
 }
@@ -352,7 +305,7 @@ export function getPlayer(id) {
   return getStore().players.find(p => p.id === id) || null
 }
 
-export function savePlayer(player) {
+export async function savePlayer(player) {
   const data = getStore()
   const idx = data.players.findIndex(p => p.id === player.id)
   let widgetCounter = Date.now()
@@ -381,14 +334,14 @@ export function savePlayer(player) {
     player.createdAt = Date.now()
     data.players.push(player)
   }
-  saveData(data)
+  await saveData(data)
   return player
 }
 
-export function deletePlayer(id) {
+export async function deletePlayer(id) {
   const data = getStore()
   data.players = data.players.filter(p => p.id !== id)
-  saveData(data)
+  await saveData(data)
 }
 
 export function getMaps() {
@@ -421,7 +374,7 @@ export function getYears() {
     }))
 }
 
-export function addYear(startYear) {
+export async function addYear(startYear) {
   const data = getStore()
   let newYear
   if (startYear !== undefined) {
@@ -429,20 +382,22 @@ export function addYear(startYear) {
   } else {
     newYear = Math.max(data.maps.reduce((max, m) => Math.max(max, m.year ?? 0), 0) + 1, 1)
   }
-  SEASON_NAMES.forEach((name, i) => {
-    const map = { name, imageUrl: '', year: newYear, season: i }
-    saveMap(map)
-  })
+  for (let i = 0; i < SEASON_NAMES.length; i++) {
+    const map = { name: SEASON_NAMES[i], imageUrl: '', year: newYear, season: i }
+    await saveMap(map)
+  }
   return newYear
 }
 
-export function deleteYear(year) {
+export async function deleteYear(year) {
   const data = getStore()
   const idsToDelete = data.maps.filter(m => m.year === year).map(m => m.id)
-  idsToDelete.forEach(id => deleteMap(id))
+  for (const id of idsToDelete) {
+    await deleteMap(id)
+  }
 }
 
-export function saveMap(map) {
+export async function saveMap(map) {
   const data = getStore()
   if (map.id) {
     const idx = data.maps.findIndex(m => m.id === map.id)
@@ -453,15 +408,15 @@ export function saveMap(map) {
     if (map.season === undefined) map.season = data.maps.filter(m => m.year === map.year).length
     data.maps.push(map)
   }
-  saveData(data)
+  await saveData(data)
   return map
 }
 
-export function deleteMap(id) {
+export async function deleteMap(id) {
   const data = getStore()
   data.maps = data.maps.filter(m => m.id !== id)
   data.mapPins = data.mapPins.filter(p => p.mapId !== id)
-  saveData(data)
+  await saveData(data)
 }
 
 export function getMapPins(mapId) {
@@ -470,7 +425,7 @@ export function getMapPins(mapId) {
   return pins
 }
 
-export function saveMapPin(pin) {
+export async function saveMapPin(pin) {
   const data = getStore()
   if (pin.id) {
     const idx = data.mapPins.findIndex(p => p.id === pin.id)
@@ -480,14 +435,14 @@ export function saveMapPin(pin) {
     pin.timestamp = Date.now()
     data.mapPins.push(pin)
   }
-  saveData(data)
+  await saveData(data)
   return pin
 }
 
-export function deleteMapPin(id) {
+export async function deleteMapPin(id) {
   const data = getStore()
   data.mapPins = data.mapPins.filter(p => p.id !== id)
-  saveData(data)
+  await saveData(data)
 }
 
 export function getQuestionnaires() {
@@ -498,7 +453,7 @@ export function getQuestionnaire(id) {
   return getStore().questionnaires.find(q => q.id === id) || null
 }
 
-export function saveQuestionnaire(q) {
+export async function saveQuestionnaire(q) {
   const data = getStore()
   if (q.id) {
     const idx = data.questionnaires.findIndex(x => x.id === q.id)
@@ -508,22 +463,22 @@ export function saveQuestionnaire(q) {
     q.createdAt = Date.now()
     data.questionnaires.push(q)
   }
-  saveData(data)
+  await saveData(data)
   return q
 }
 
-export function deleteQuestionnaire(id) {
+export async function deleteQuestionnaire(id) {
   const data = getStore()
   data.questionnaires = data.questionnaires.filter(q => q.id !== id)
-  saveData(data)
+  await saveData(data)
 }
 
-export function saveResponse(response) {
+export async function saveResponse(response) {
   const data = getStore()
   response.id = 'r-' + Date.now()
   response.submittedAt = Date.now()
   data.responses.push(response)
-  saveData(data)
+  await saveData(data)
   return response
 }
 
@@ -537,7 +492,7 @@ export function getComments(playerId) {
   return data.comments?.[playerId] || []
 }
 
-export function addComment(playerId, author, text) {
+export async function addComment(playerId, author, text) {
   const data = getStore()
   if (!data.comments) data.comments = {}
   if (!data.comments[playerId]) data.comments[playerId] = []
@@ -549,15 +504,15 @@ export function addComment(playerId, author, text) {
     playerId,
   }
   data.comments[playerId].push(comment)
-  saveData(data)
+  await saveData(data)
   return comment
 }
 
-export function deleteComment(commentId, playerId) {
+export async function deleteComment(commentId, playerId) {
   const data = getStore()
   if (!data.comments?.[playerId]) return
   data.comments[playerId] = data.comments[playerId].filter(c => c.id !== commentId)
-  saveData(data)
+  await saveData(data)
 }
 
 export function getAllComments() {
@@ -575,36 +530,33 @@ export function exportData() {
   return JSON.stringify(getStore(), null, 2)
 }
 
-export function importData(jsonStr) {
+export async function importData(jsonStr) {
   try {
     const data = JSON.parse(jsonStr)
     if (data.players && data.mapPins && data.questionnaires) {
-      saveData(data)
-      localStorage.setItem(SEED_KEY, 'true')
+      await saveData(data)
       return true
     }
   } catch (e) { /* ignore */ }
   return false
 }
 
-export function resetData() {
-  localStorage.removeItem(STORE_KEY)
-  localStorage.removeItem(SEED_KEY)
-  seedIfNeeded()
+export async function resetData() {
+  dataCache = { ...defaultData }
+  await saveData(dataCache)
 }
 
-export function exportFullData() {
-  const users = getAllUsers()
-  const requests = getAllAccessRequests()
+export async function exportFullData() {
+  const users = await getAllUsers()
+  const requests = await getAllAccessRequests()
   return JSON.stringify({ campaign: getStore(), users, requests }, null, 2)
 }
 
-export function importFullData(jsonStr) {
+export async function importFullData(jsonStr) {
   try {
     const data = JSON.parse(jsonStr)
     if (data.campaign && data.users && data.requests) {
-      saveData(data.campaign)
-      localStorage.setItem(SEED_KEY, 'true')
+      await saveData(data.campaign)
       return { ok: true, users: data.users, requests: data.requests }
     }
   } catch (e) { /* ignore */ }

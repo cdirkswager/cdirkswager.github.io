@@ -163,11 +163,11 @@ export default function MapPage() {
         })
       }
     }
-    const handleUp = () => {
+    const handleUp = async () => {
       if (dragging && dragStart) {
         const pin = pins.find(p => p.id === dragging.id)
         if (pin) {
-          saveMapPin({ ...pin, x: dragging.x, y: dragging.y })
+          await saveMapPin({ ...pin, x: dragging.x, y: dragging.y })
           refresh()
         }
       }
@@ -202,9 +202,9 @@ export default function MapPage() {
     setConfirmDeletePin(null)
   }
 
-  const saveNewPin = () => {
+  const saveNewPin = async () => {
     if (!formData.label.trim() || !selectedMapId) return
-    saveMapPin({
+    await saveMapPin({
       mapId: selectedMapId,
       x: placingPos.x,
       y: placingPos.y,
@@ -226,17 +226,17 @@ export default function MapPage() {
     setTooltipPin(null)
   }
 
-  const saveEditPin = () => {
+  const saveEditPin = async () => {
     if (!formData.label.trim() || !editPin) return
-    saveMapPin({ ...editPin, label: formData.label.trim(), description: formData.description.trim(), color: formData.color })
+    await saveMapPin({ ...editPin, label: formData.label.trim(), description: formData.description.trim(), color: formData.color })
     setShowEditModal(false)
     setEditPin(null)
     setSelectedPin(null)
     refresh()
   }
 
-  const removePin = (id) => {
-    deleteMapPin(id)
+  const removePin = async (id) => {
+    await deleteMapPin(id)
     setSelectedPin(null)
     setTooltipPin(null)
     setShowEditModal(false)
@@ -321,7 +321,7 @@ export default function MapPage() {
           role="application"
           aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
           onClick={handleMapTap}
-          onKeyDown={(e) => {
+          onKeyDown={async (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
               const center = getPosFromEvent({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 })
@@ -340,7 +340,7 @@ export default function MapPage() {
               const newX = Math.min(100, Math.max(0, Math.round((pin.x + dx) * 10) / 10))
               const newY = Math.min(100, Math.max(0, Math.round((pin.y + dy) * 10) / 10))
               const updated = { ...pin, x: newX, y: newY }
-              saveMapPin(updated)
+              await saveMapPin(updated)
               refresh()
             }
             if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {

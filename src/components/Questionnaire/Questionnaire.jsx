@@ -28,10 +28,10 @@ export default function Questionnaire() {
     )
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!playerId) return
-    saveResponse({ questionnaireId: id, playerId, answers })
+    await saveResponse({ questionnaireId: id, playerId, answers })
     setSubmitted(true)
     setResponses(getResponses(id))
   }
