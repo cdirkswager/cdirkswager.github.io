@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  getPlayers, getMaps, getMapPins, getQuestionnaires,
+  getPlayers, getMaps, getSortedMaps, getYears, getMapPins, getQuestionnaires,
   deletePlayer, saveMap, deleteMap, deleteMapPin, deleteQuestionnaire,
+  addYear, deleteYear,
   exportData, importData, resetData,
   exportFullData, importFullData,
   getAllComments, deleteComment,
@@ -34,10 +35,16 @@ export default function DMTools() {
   const [selectedReq, setSelectedReq] = useState(null)
   const [editingReqPlayer, setEditingReqPlayer] = useState('')
   const [confirmUserDelete, setConfirmUserDelete] = useState(null)
-  const [showMapModal, setShowMapModal] = useState(false)
-  const [editingMap, setEditingMap] = useState(null)
-  const [mapForm, setMapForm] = useState({ name: '', imageUrl: '' })
-  const [confirmMapDelete, setConfirmMapDelete] = useState(null)
+  const [showSeasonModal, setShowSeasonModal] = useState(false)
+  const [editingSeason, setEditingSeason] = useState(null)
+  const [seasonForm, setSeasonForm] = useState({ name: '', imageUrl: '', year: 0, season: 0 })
+  const [confirmSeasonDelete, setConfirmSeasonDelete] = useState(null)
+  const [confirmYearDelete, setConfirmYearDelete] = useState(null)
+  const [addSeasonYear, setAddSeasonYear] = useState(null)
+  const [confirmPinDelete, setConfirmPinDelete] = useState(null)
+  const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
+  const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
+  const [confirmDenyReq, setConfirmDenyReq] = useState(null)
 
   const refresh = () => {
     setPlayers(getPlayers())
@@ -109,50 +116,58 @@ export default function DMTools() {
   }
 
   const handleDeletePlayer = (id) => {
-    if (confirm('Delete this player? This cannot be undone.')) {
-      unclaimPlayerId(id)
-      deletePlayer(id)
-      refresh()
-    }
-  }
-
-  const handleDeletePin = (id) => {
-    if (confirm('Delete this pin?')) {
-      deleteMapPin(id)
-      refresh()
-    }
-  }
-
-  const handleDeleteQuestionnaire = (id) => {
-    if (confirm('Delete this questionnaire?')) {
-      deleteQuestionnaire(id)
-      refresh()
-    }
-  }
-
-  const handleAddMap = () => {
-    setEditingMap(null)
-    setMapForm({ name: '', imageUrl: '' })
-    setShowMapModal(true)
-  }
-
-  const handleEditMap = (map) => {
-    setEditingMap(map)
-    setMapForm({ name: map.name, imageUrl: map.imageUrl || '' })
-    setShowMapModal(true)
-  }
-
-  const handleSaveMap = () => {
-    if (!mapForm.name.trim()) return
-    saveMap(editingMap ? { ...editingMap, name: mapForm.name.trim(), imageUrl: mapForm.imageUrl.trim() } : { name: mapForm.name.trim(), imageUrl: mapForm.imageUrl.trim() })
-    setShowMapModal(false)
-    setEditingMap(null)
+    unclaimPlayerId(id)
+    deletePlayer(id)
+    setConfirmPlayerDelete(null)
     refresh()
   }
 
-  const handleDeleteMap = (id) => {
+  const handleDeletePin = (id) => {
+    deleteMapPin(id)
+    setConfirmPinDelete(null)
+    refresh()
+  }
+
+  const handleDeleteQuestionnaire = (id) => {
+    deleteQuestionnaire(id)
+    setConfirmQuestionnaireDelete(null)
+    refresh()
+  }
+
+  const handleAddYear = () => {
+    addYear()
+    refresh()
+  }
+
+  const handleEditSeason = (map) => {
+    setEditingSeason(map)
+    setSeasonForm({ name: map.name, imageUrl: map.imageUrl || '', year: map.year ?? 0, season: map.season ?? 0 })
+    setShowSeasonModal(true)
+  }
+
+  const handleSaveSeason = () => {
+    if (!seasonForm.name.trim()) return
+    const existing = editingSeason
+    if (existing) {
+      saveMap({ ...existing, name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim() })
+    } else {
+      saveMap({ name: seasonForm.name.trim(), imageUrl: seasonForm.imageUrl.trim(), year: addSeasonYear ?? 0 })
+    }
+    setShowSeasonModal(false)
+    setEditingSeason(null)
+    setAddSeasonYear(null)
+    refresh()
+  }
+
+  const handleDeleteSeason = (id) => {
     deleteMap(id)
-    setConfirmMapDelete(null)
+    setConfirmSeasonDelete(null)
+    refresh()
+  }
+
+  const handleDeleteYear = (year) => {
+    deleteYear(year)
+    setConfirmYearDelete(null)
     refresh()
   }
 
@@ -170,10 +185,9 @@ export default function DMTools() {
   }
 
   const handleDeny = (reqId) => {
-    if (confirm('Deny this request?')) {
-      denyRequest(reqId)
-      refresh()
-    }
+    denyRequest(reqId)
+    setConfirmDenyReq(null)
+    refresh()
   }
 
   const handleDeleteUser = (userId) => {
@@ -256,7 +270,7 @@ export default function DMTools() {
                     <button className="btn btn-sm btn-primary" onClick={() => handleApprove(req)}>
                       ✅ Approve
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeny(req.id)}>
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmDenyReq(req)}>
                       ❌ Deny
                     </button>
                   </div>
@@ -295,7 +309,7 @@ export default function DMTools() {
                     <div className="dm-list-actions">
                       <Link to={`/player/${p.id}`} className="btn btn-sm">👤 View</Link>
                       <Link to={`/dm/player/${p.id}`} className="btn btn-sm">✏️ Edit</Link>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDeletePlayer(p.id)}>🗑️</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmPlayerDelete(p)}>🗑️</button>
                     </div>
                   </div>
                 )
@@ -306,30 +320,46 @@ export default function DMTools() {
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
-            <h3 className="widget-title">🗺️ Maps</h3>
-            <button className="btn btn-sm btn-primary" onClick={handleAddMap}>➕ Add Map</button>
+            <h3 className="widget-title">🗺️ Timeline</h3>
+            <button className="btn btn-sm btn-primary" onClick={handleAddYear}>➕ Add Year</button>
           </div>
           {maps.length === 0 ? (
-            <p className="text-muted">No maps yet.</p>
+            <p className="text-muted">No timeline layers yet.</p>
           ) : (
             <div className="dm-list">
-              {maps.map(m => {
-                const mapPinCount = pins.filter(p => p.mapId === m.id).length
-                return (
-                  <div key={m.id} className="dm-list-item">
-                    <div className="dm-list-info">
-                      <span className="dm-list-name">{m.name}</span>
-                      <span className="dm-list-detail">{mapPinCount} pin{mapPinCount !== 1 ? 's' : ''}</span>
-                      {m.imageUrl && <span className="dm-list-detail" style={{ fontSize: '0.75rem' }}>custom image</span>}
-                    </div>
-                    <div className="dm-list-actions">
-                      <Link to="/map" className="btn btn-sm">🗺️ View</Link>
-                      <button className="btn btn-sm" onClick={() => handleEditMap(m)}>✏️</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmMapDelete(m)}>🗑️</button>
-                    </div>
+              {getYears().map(({ year, seasons }) => (
+                <div key={year} className="dm-year-group">
+                  <div className="dm-year-header">
+                    <span className="dm-year-title">📅 Year {year + 1}</span>
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmYearDelete(year)} title="Delete this year and all its seasons">🗑️ Year</button>
                   </div>
-                )
-              })}
+                  {seasons.map(m => {
+                    const seasonPinCount = pins.filter(p => p.mapId === m.id).length
+                    return (
+                      <div key={m.id} className="dm-list-item dm-season-item">
+                        <div className="dm-list-info">
+                          <span className="dm-season-icon">
+                            {m.season === 0 ? '🌱' : m.season === 1 ? '☀️' : m.season === 2 ? '🍂' : '❄️'}
+                          </span>
+                          <div>
+                            <span className="dm-list-name">{m.name}</span>
+                            <span className="dm-list-detail">{seasonPinCount} pin{seasonPinCount !== 1 ? 's' : ''}</span>
+                            {m.imageUrl && <span className="dm-list-detail" style={{ fontSize: '0.75rem' }}>custom image</span>}
+                          </div>
+                        </div>
+                        <div className="dm-list-actions">
+                          <Link to="/map" className="btn btn-sm">🗺️</Link>
+                          <button className="btn btn-sm" onClick={() => handleEditSeason(m)}>✏️</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => setConfirmSeasonDelete(m)}>🗑️</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <button className="btn btn-sm dm-add-season-btn" onClick={() => { setAddSeasonYear(year); setEditingSeason(null); setSeasonForm({ name: '', imageUrl: '', year, season: 0 }); setShowSeasonModal(true) }}>
+                    ➕ Add Season to Year {year + 1}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -353,12 +383,12 @@ export default function DMTools() {
                       <span className="dm-list-detail">{pin.x}%, {pin.y}%</span>
                       {pinMap && (
                         <span className="dm-list-detail" style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>
-                          {pinMap.name}
+                          {pinMap.name} {pinMap.year !== undefined ? `(Year ${pinMap.year + 1})` : ''}
                         </span>
                       )}
                     </div>
                     <div className="dm-list-actions">
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDeletePin(pin.id)}>🗑️</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmPinDelete(pin)}>🗑️</button>
                     </div>
                   </div>
                 )
@@ -385,7 +415,7 @@ export default function DMTools() {
                   <div className="dm-list-actions">
                     <Link to={`/questionnaire/${q.id}`} className="btn btn-sm">📝 Fill</Link>
                     <Link to={`/dm/questionnaire/${q.id}`} className="btn btn-sm">✏️ Edit</Link>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteQuestionnaire(q.id)}>🗑️</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmQuestionnaireDelete(q)}>🗑️</button>
                   </div>
                 </div>
               ))}
@@ -534,35 +564,92 @@ export default function DMTools() {
         </Modal>
       )}
 
-      {showMapModal && (
-        <Modal title={editingMap ? `✏️ Edit Map: ${editingMap.name}` : '🗺️ Add Map'} onClose={() => { setShowMapModal(false); setEditingMap(null) }}>
+      {showSeasonModal && (
+        <Modal title={editingSeason ? `✏️ Edit: ${editingSeason.name}` : '➕ Add Season'} onClose={() => { setShowSeasonModal(false); setEditingSeason(null); setAddSeasonYear(null) }}>
           <div className="mb-2">
-            <label>Map Name</label>
-            <input value={mapForm.name} onChange={e => setMapForm({ ...mapForm, name: e.target.value })} placeholder="Season 2 - The Frozen North" autoFocus />
+            <label>Season Name</label>
+            <input value={seasonForm.name} onChange={e => setSeasonForm({ ...seasonForm, name: e.target.value })} placeholder="Spring, The Thaw, etc." autoFocus />
           </div>
           <div className="mb-2">
             <label>Map Image URL (optional)</label>
-            <input value={mapForm.imageUrl} onChange={e => setMapForm({ ...mapForm, imageUrl: e.target.value })} placeholder="https://example.com/new-map.jpg" />
+            <input value={seasonForm.imageUrl} onChange={e => setSeasonForm({ ...seasonForm, imageUrl: e.target.value })} placeholder="https://example.com/season-map.jpg" />
             <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
-              Leave empty to use the default ContinentMap. Paste a direct link to a custom map image.
+              Leave empty to use the default ContinentMap.
             </p>
           </div>
+          {!editingSeason && addSeasonYear !== null && (
+            <p className="text-muted" style={{ fontSize: '0.85rem' }}>
+              Adding to <strong>Year {addSeasonYear + 1}</strong>
+            </p>
+          )}
           <div className="text-center">
-            <button className="btn btn-primary" onClick={handleSaveMap} disabled={!mapForm.name.trim()}>
-              {editingMap ? '💾 Save' : '➕ Add'}
+            <button className="btn btn-primary" onClick={handleSaveSeason} disabled={!seasonForm.name.trim()}>
+              {editingSeason ? '💾 Save' : '➕ Add'}
             </button>
           </div>
         </Modal>
       )}
 
-      {confirmMapDelete && (
-        <Modal title="🗑️ Delete Map" onClose={() => setConfirmMapDelete(null)}>
+      {confirmSeasonDelete && (
+        <Modal title="🗑️ Delete Season" onClose={() => setConfirmSeasonDelete(null)}>
           <p className="mb-2">
-            Delete <strong>{confirmMapDelete.name}</strong> and all its pins? This cannot be undone.
+            Delete <strong>{confirmSeasonDelete.name}</strong> and all its pins? This cannot be undone.
           </p>
           <div className="flex-between">
-            <button className="btn" onClick={() => setConfirmMapDelete(null)}>Cancel</button>
-            <button className="btn btn-danger" onClick={() => handleDeleteMap(confirmMapDelete.id)}>🗑️ Delete</button>
+            <button className="btn" onClick={() => setConfirmSeasonDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeleteSeason(confirmSeasonDelete.id)}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmYearDelete && (
+        <Modal title="🗑️ Delete Year" onClose={() => setConfirmYearDelete(null)}>
+          <p className="mb-2">
+            Delete <strong>Year {confirmYearDelete + 1}</strong> and all its seasons and pins? This cannot be undone.
+          </p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmYearDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeleteYear(confirmYearDelete)}>🗑️ Delete All Seasons</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmPlayerDelete && (
+        <Modal title="🗑️ Delete Player" onClose={() => setConfirmPlayerDelete(null)}>
+          <p className="mb-2">Delete <strong>{confirmPlayerDelete.name}</strong> and unlink their user? This cannot be undone.</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmPlayerDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeletePlayer(confirmPlayerDelete.id)}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmPinDelete && (
+        <Modal title="🗑️ Delete Pin" onClose={() => setConfirmPinDelete(null)}>
+          <p className="mb-2">Delete <strong>{confirmPinDelete.label}</strong> from the map? This cannot be undone.</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmPinDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeletePin(confirmPinDelete.id)}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmDenyReq && (
+        <Modal title="❌ Deny Access Request" onClose={() => setConfirmDenyReq(null)}>
+          <p className="mb-2">Deny access request from <strong>{confirmDenyReq.username}</strong>?</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmDenyReq(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeny(confirmDenyReq.id)}>❌ Deny</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmQuestionnaireDelete && (
+        <Modal title="🗑️ Delete Questionnaire" onClose={() => setConfirmQuestionnaireDelete(null)}>
+          <p className="mb-2">Delete <strong>{confirmQuestionnaireDelete.title}</strong> and all its responses? This cannot be undone.</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmQuestionnaireDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeleteQuestionnaire(confirmQuestionnaireDelete.id)}>🗑️ Delete</button>
           </div>
         </Modal>
       )}

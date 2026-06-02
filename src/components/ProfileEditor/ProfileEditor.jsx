@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getSession } from '../../data/auth'
-import { getPlayer, savePlayer } from '../../data/store'
+import { getPlayer, savePlayer, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import WidgetEditor from '../common/WidgetEditor'
+import Modal from '../common/Modal'
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -79,7 +80,24 @@ export default function ProfileEditor() {
   const [showWidgetModal, setShowWidgetModal] = useState(false)
   const [editingWidgetIdx, setEditingWidgetIdx] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [sourceTab, setSourceTab] = useState('html')
+  const [showSourcePreview, setShowSourcePreview] = useState(false)
   const dirtyRef = useRef(false)
+
+  const sourcePreviewDoc = useMemo(() => {
+    const cc = form?.customCode || { html: '', css: '' }
+    if (!cc.html) return ''
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<style>${sanitizeCss(cc.css)}</style>
+</head>
+<body>${sanitizeHtml(cc.html.replace(/<!DOCTYPE[\s\S]*?>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, ''))}</body>
+</html>`
+  }, [form?.customCode])
 
   useEffect(() => {
     const mq = window.matchMedia('(pointer: coarse)')
@@ -185,6 +203,15 @@ export default function ProfileEditor() {
     const anims = { ...(form.widgetAnimations || {}) }
     anims[widgetId] = value
     markDirty({ ...form, widgetAnimations: anims })
+  }
+
+  const regenerateSource = () => {
+    const generated = generatePageSource(form)
+    markDirty({ ...form, customCode: { ...(form.customCode || {}), html: generated.html, css: generated.css } })
+  }
+
+  const handleSourceChange = (field, value) => {
+    markDirty({ ...form, customCode: { ...(form.customCode || { enabled: false, html: '', css: '' }), [field]: value } })
   }
 
   return (
@@ -361,6 +388,50 @@ export default function ProfileEditor() {
             </DndContext>
           </div>
 
+          <div className="card gold-border mb-2">
+            <div className="flex-between mb-2">
+              <h3 className="widget-title">📝 Custom Page Source</h3>
+              <div className="flex gap-1">
+                <button type="button" className="btn btn-sm" onClick={regenerateSource}>🔄 Regenerate</button>
+                <button type="button" className="btn btn-sm" onClick={() => setShowSourcePreview(true)}>👁️ Preview</button>
+              </div>
+            </div>
+            <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+              Write raw HTML and CSS for full control over your character page. When enabled, this replaces the widget layout.
+              Your custom code is rendered in a sandboxed iframe for security.
+            </p>
+            <div className="source-editor-tabs" style={{ marginBottom: 8 }}>
+              <button type="button" className={`source-tab ${sourceTab === 'html' ? 'active' : ''}`} onClick={() => setSourceTab('html')}>HTML</button>
+              <button type="button" className={`source-tab ${sourceTab === 'css' ? 'active' : ''}`} onClick={() => setSourceTab('css')}>CSS</button>
+            </div>
+            {sourceTab === 'html' && (
+              <textarea
+                className="source-code-input"
+                value={form.customCode?.html || ''}
+                onChange={e => handleSourceChange('html', e.target.value)}
+                placeholder="<!-- Your custom HTML here -->"
+                spellCheck={false}
+                rows={10}
+              />
+            )}
+            {sourceTab === 'css' && (
+              <textarea
+                className="source-code-input"
+                value={form.customCode?.css || ''}
+                onChange={e => handleSourceChange('css', e.target.value)}
+                placeholder="/* Your custom CSS here */"
+                spellCheck={false}
+                rows={10}
+              />
+            )}
+            <div className="mt-2">
+              <label className="source-toggle-label">
+                <input type="checkbox" checked={form.customCode?.enabled || false} onChange={e => handleSourceChange('enabled', e.target.checked)} />
+                <span>Use custom code instead of widgets</span>
+              </label>
+            </div>
+          </div>
+
           <div className="text-center mb-3">
             <button type="submit" className="btn btn-primary">
               {saved ? '✅ Saved!' : '💾 Save Profile'}
@@ -375,6 +446,19 @@ export default function ProfileEditor() {
           onSave={saveWidget}
           onClose={() => { setShowWidgetModal(false); setEditingWidgetIdx(null) }}
         />
+      )}
+
+      {showSourcePreview && (
+        <Modal title="👁️ Source Preview" onClose={() => setShowSourcePreview(false)} large>
+          <div className="source-preview-frame-wrapper">
+            <iframe
+              className="source-preview-frame"
+              sandbox="allow-scripts"
+              srcDoc={sourcePreviewDoc}
+              title="Source Preview"
+            />
+          </div>
+        </Modal>
       )}
     </div>
   )

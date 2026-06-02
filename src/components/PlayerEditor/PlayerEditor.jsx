@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getPlayer, savePlayer, getPlayers } from '../../data/store'
+import { getPlayer, savePlayer, getPlayers, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import WidgetEditor from '../common/WidgetEditor'
+import Modal from '../common/Modal'
 import './PlayerEditor.css'
 
 export default function PlayerEditor() {
@@ -13,10 +14,28 @@ export default function PlayerEditor() {
     name: '', class: '', race: '', level: 1, title: '', bio: '',
     theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '' },
     widgets: [],
+    customCode: { enabled: false, html: '', css: '' },
   })
   const [showWidgetModal, setShowWidgetModal] = useState(false)
   const [editingWidget, setEditingWidget] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [sourceTab, setSourceTab] = useState('html')
+  const [showSourcePreview, setShowSourcePreview] = useState(false)
+
+  const sourcePreviewDoc = useMemo(() => {
+    const cc = form?.customCode || { html: '', css: '' }
+    if (!cc.html) return ''
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<style>${sanitizeCss(cc.css)}</style>
+</head>
+<body>${sanitizeHtml(cc.html.replace(/<!DOCTYPE[\s\S]*?>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, ''))}</body>
+</html>`
+  }, [form?.customCode])
 
   const refresh = useCallback(() => {
     setPlayers(getPlayers())
@@ -35,6 +54,7 @@ export default function PlayerEditor() {
         theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '' },
         widgets: [],
         widgetAnimations: {},
+        customCode: { enabled: false, html: '', css: '' },
       })
     } else {
       const p = getPlayer(selectedId)
@@ -53,6 +73,7 @@ export default function PlayerEditor() {
           theme: { ...p.theme },
           widgets: [...(p.widgets || [])],
           widgetAnimations: { ...(p.widgetAnimations || {}) },
+          customCode: { ...(p.customCode || { enabled: false, html: '', css: '' }) },
         })
       }
     }
@@ -360,6 +381,53 @@ export default function PlayerEditor() {
             </div>
           </div>
 
+          <div className="card gold-border mb-2">
+            <div className="flex-between mb-2">
+              <h3 className="widget-title">📝 Custom Page Source</h3>
+              <div className="flex gap-1">
+                <button type="button" className="btn btn-sm" onClick={() => {
+                  const generated = generatePageSource(form)
+                  setForm({ ...form, customCode: { ...(form.customCode || {}), html: generated.html, css: generated.css } })
+                }}>🔄 Regenerate</button>
+                <button type="button" className="btn btn-sm" onClick={() => setShowSourcePreview(true)}>👁️ Preview</button>
+              </div>
+            </div>
+            <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+              Raw HTML and CSS for full page control. When enabled, replaces the widget layout.
+              Rendered in a sandboxed iframe.
+            </p>
+            <div className="source-editor-tabs" style={{ marginBottom: 8 }}>
+              <button type="button" className={`source-tab ${sourceTab === 'html' ? 'active' : ''}`} onClick={() => setSourceTab('html')}>HTML</button>
+              <button type="button" className={`source-tab ${sourceTab === 'css' ? 'active' : ''}`} onClick={() => setSourceTab('css')}>CSS</button>
+            </div>
+            {sourceTab === 'html' && (
+              <textarea
+                className="source-code-input"
+                value={form.customCode?.html || ''}
+                onChange={e => setForm({ ...form, customCode: { ...(form.customCode || { enabled: false, html: '', css: '' }), html: e.target.value } })}
+                placeholder="<!-- Your custom HTML here -->"
+                spellCheck={false}
+                rows={10}
+              />
+            )}
+            {sourceTab === 'css' && (
+              <textarea
+                className="source-code-input"
+                value={form.customCode?.css || ''}
+                onChange={e => setForm({ ...form, customCode: { ...(form.customCode || { enabled: false, html: '', css: '' }), css: e.target.value } })}
+                placeholder="/* Your custom CSS here */"
+                spellCheck={false}
+                rows={10}
+              />
+            )}
+            <div className="mt-2">
+              <label className="source-toggle-label">
+                <input type="checkbox" checked={form.customCode?.enabled || false} onChange={e => setForm({ ...form, customCode: { ...(form.customCode || { enabled: false, html: '', css: '' }), enabled: e.target.checked } })} />
+                <span>Use custom code instead of widgets</span>
+              </label>
+            </div>
+          </div>
+
           <div className="text-center mb-3">
             <button type="submit" className="btn btn-primary">
               {saved ? '✅ Saved!' : '💾 Save Player'}
@@ -374,6 +442,19 @@ export default function PlayerEditor() {
           onSave={saveWidget}
           onClose={() => { setShowWidgetModal(false); setEditingWidget(null) }}
         />
+      )}
+
+      {showSourcePreview && (
+        <Modal title="👁️ Source Preview" onClose={() => setShowSourcePreview(false)} large>
+          <div className="source-preview-frame-wrapper">
+            <iframe
+              className="source-preview-frame"
+              sandbox="allow-scripts"
+              srcDoc={sourcePreviewDoc}
+              title="Source Preview"
+            />
+          </div>
+        </Modal>
       )}
     </div>
   )

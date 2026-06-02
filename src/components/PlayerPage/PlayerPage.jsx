@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getPlayer, getPlayers, getComments, addComment, deleteComment } from '../../data/store'
+import { getPlayer, getPlayers, getComments, addComment, deleteComment, savePlayer, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import { getSession } from '../../data/auth'
 import Guestbook from '../common/Guestbook'
+import Modal from '../common/Modal'
 import './PlayerPage.css'
 
 function BackgroundMusicPlayer({ url }) {
@@ -183,11 +184,80 @@ export default function PlayerPage() {
   const [avatarError, setAvatarError] = useState(false)
   const session = getSession()
 
+  const [showSourcePanel, setShowSourcePanel] = useState(false)
+  const [sourceTab, setSourceTab] = useState('html')
+  const [editHtml, setEditHtml] = useState('')
+  const [editCss, setEditCss] = useState('')
+  const [sourceEnabled, setSourceEnabled] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [sourceSaved, setSourceSaved] = useState(false)
+  const iframeRef = useRef(null)
+
   useEffect(() => {
-    setPlayer(getPlayer(id))
+    const p = getPlayer(id)
+    setPlayer(p)
     setAllPlayers(getPlayers())
     setAvatarError(false)
+    if (p?.customCode) {
+      setEditHtml(p.customCode.html || '')
+      setEditCss(p.customCode.css || '')
+      setSourceEnabled(p.customCode.enabled || false)
+    }
   }, [id])
+
+  const customCodeEnabled = player?.customCode?.enabled && player?.customCode?.html?.trim()
+
+  const fullDoc = useMemo(() => {
+    if (!editHtml) return ''
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<style>${sanitizeCss(editCss)}</style>
+</head>
+<body>${sanitizeHtml(editHtml.replace(/<!DOCTYPE[\s\S]*?>[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, ''))}</body>
+</html>`
+  }, [editHtml, editCss])
+
+  const openSourcePanel = () => {
+    if (!player) return
+    const cc = player.customCode || { enabled: false, html: '', css: '' }
+    if (!cc.html && !cc.css) {
+      const generated = generatePageSource(player)
+      setEditHtml(generated.html)
+      setEditCss(generated.css)
+    } else {
+      setEditHtml(cc.html)
+      setEditCss(cc.css)
+    }
+    setSourceEnabled(cc.enabled)
+    setSourceTab('html')
+    setShowSourcePanel(true)
+  }
+
+  const regenerateSource = () => {
+    const generated = generatePageSource(player)
+    setEditHtml(generated.html)
+    setEditCss(generated.css)
+  }
+
+  const saveSource = () => {
+    if (!player) return
+    const updated = {
+      ...player,
+      customCode: {
+        enabled: sourceEnabled,
+        html: sanitizeHtml(editHtml),
+        css: sanitizeCss(editCss),
+      },
+    }
+    savePlayer(updated)
+    setPlayer(updated)
+    setSourceSaved(true)
+    setTimeout(() => setSourceSaved(false), 2000)
+  }
 
   if (!player) {
     return (
@@ -222,8 +292,10 @@ export default function PlayerPage() {
 
   const hasAvatar = player.avatarUrl && !avatarError
 
+  const useCustomCode = player.customCode?.enabled && player.customCode?.html?.trim()
+
   return (
-    <div className="player-page" style={sectionStyle}>
+    <div className={`player-page ${useCustomCode ? 'player-page-source' : ''}`} style={sectionStyle}>
       {player.musicUrl && <BackgroundMusicPlayer url={player.musicUrl} />}
 
       <div className="player-profile">
@@ -261,45 +333,67 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        <div className={`container player-body ${isTwoColumn ? 'player-body-two-col' : ''}`}>
-          {(!player.widgets || player.widgets.length === 0) && (
-            <div className="card gold-border text-center">
-              <p className="text-muted">This character has no widgets yet.</p>
-              {canEdit && (
-                <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="btn btn-primary btn-sm mt-2">
-                  ✏️ Edit Profile
-                </Link>
-              )}
-            </div>
-          )}
+        {useCustomCode ? (
+          <div className="container player-source-container">
+            <iframe
+              ref={iframeRef}
+              className="player-source-frame"
+              sandbox="allow-scripts"
+              srcDoc={fullDoc}
+              title="Character Page"
+            />
+            {canEdit && (
+              <div className="text-center mt-2">
+                <button className="btn" onClick={openSourcePanel}>
+                  🔧 Edit Source
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={`container player-body ${isTwoColumn ? 'player-body-two-col' : ''}`}>
+            {(!player.widgets || player.widgets.length === 0) && (
+              <div className="card gold-border text-center">
+                <p className="text-muted">This character has no widgets yet.</p>
+                {canEdit && (
+                  <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="btn btn-primary btn-sm mt-2">
+                    ✏️ Edit Profile
+                  </Link>
+                )}
+              </div>
+            )}
 
             {!isTwoColumn && player.widgets?.map((widget, i) => (
-            <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
-          ))}
+              <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+            ))}
 
-          {isTwoColumn && (
-            <>
-              <div className="player-col-left">
-                {leftWidgets.map((widget, i) => (
-                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
-                ))}
-              </div>
-              <div className="player-col-right">
-                {rightWidgets.map((widget, i) => (
-                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
-                ))}
-              </div>
-            </>
-          )}
+            {isTwoColumn && (
+              <>
+                <div className="player-col-left">
+                  {leftWidgets.map((widget, i) => (
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+                  ))}
+                </div>
+                <div className="player-col-right">
+                  {rightWidgets.map((widget, i) => (
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+                  ))}
+                </div>
+              </>
+            )}
 
-          {canEdit && player.widgets?.length > 0 && (
-            <div className="text-center mt-2">
-              <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="btn btn-primary">
-                ✏️ {isOwner ? 'Edit My Profile' : 'Edit Profile (DM)'}
-              </Link>
-            </div>
-          )}
-        </div>
+            {canEdit && (
+              <div className="text-center mt-2" style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="btn btn-primary">
+                  ✏️ {isOwner ? 'Edit My Profile' : 'Edit Profile (DM)'}
+                </Link>
+                <button className="btn" onClick={openSourcePanel}>
+                  🔧 Edit Source
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {player.commentsEnabled !== false && (
@@ -326,6 +420,77 @@ export default function PlayerPage() {
           )}
         </div>
       </div>
+
+      {showSourcePanel && (
+        <div className="source-editor-overlay" onClick={() => setShowSourcePanel(false)}>
+          <div className="source-editor-panel animate__animated animate__slideInUp" onClick={e => e.stopPropagation()}>
+            <div className="source-editor-header">
+              <h3 className="source-editor-title">📝 Page Source</h3>
+              <div className="source-editor-header-actions">
+                <button className="btn btn-sm" onClick={regenerateSource} title="Rebuild from your widget data">
+                  🔄 Regenerate
+                </button>
+                <button className="btn btn-sm" onClick={() => setShowPreview(true)} title="Preview your custom code">
+                  👁️ Preview
+                </button>
+                <button className="source-editor-close" onClick={() => setShowSourcePanel(false)}>✕</button>
+              </div>
+            </div>
+
+            <div className="source-editor-tabs">
+              <button className={`source-tab ${sourceTab === 'html' ? 'active' : ''}`} onClick={() => setSourceTab('html')}>HTML</button>
+              <button className={`source-tab ${sourceTab === 'css' ? 'active' : ''}`} onClick={() => setSourceTab('css')}>CSS</button>
+            </div>
+
+            <div className="source-editor-body">
+              {sourceTab === 'html' && (
+                <textarea
+                  className="source-code-input"
+                  value={editHtml}
+                  onChange={e => setEditHtml(e.target.value)}
+                  placeholder="<!-- Your custom HTML here -->"
+                  spellCheck={false}
+                />
+              )}
+              {sourceTab === 'css' && (
+                <textarea
+                  className="source-code-input"
+                  value={editCss}
+                  onChange={e => setEditCss(e.target.value)}
+                  placeholder="/* Your custom CSS here */"
+                  spellCheck={false}
+                />
+              )}
+            </div>
+
+            <div className="source-editor-footer">
+              <label className="source-toggle-label">
+                <input type="checkbox" checked={sourceEnabled} onChange={e => setSourceEnabled(e.target.checked)} />
+                <span>Use custom code instead of widgets</span>
+              </label>
+              <div className="source-editor-footer-actions">
+                <button className="btn" onClick={() => setShowSourcePanel(false)}>Cancel</button>
+                <button className="btn btn-primary" onClick={saveSource}>
+                  {sourceSaved ? '✅ Saved!' : '💾 Save Source'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPreview && (
+        <Modal title="👁️ Source Preview" onClose={() => setShowPreview(false)} large>
+          <div className="source-preview-frame-wrapper">
+            <iframe
+              className="source-preview-frame"
+              sandbox="allow-scripts"
+              srcDoc={fullDoc}
+              title="Source Preview"
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

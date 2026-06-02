@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { getMaps, getMapPins, saveMapPin, deleteMapPin, getPlayers } from '../../data/store'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { getSortedMaps, getMaps, getMapPins, saveMapPin, deleteMapPin, getPlayers } from '../../data/store'
 import { currentUser } from '../../data/auth'
 import Modal from '../common/Modal'
 import ContinentMap from '../../assets/ContinentMap.png'
@@ -7,9 +7,17 @@ import './MapPage.css'
 
 const pinColors = ['#c9a84c', '#d4522a', '#6a4cc9', '#4c9a6a', '#4c7ac9', '#c94c6a', '#c98a2a', '#6a9a4c']
 
+function layerOpacity(index, activeIndex) {
+  if (index === activeIndex) return 1
+  const dist = Math.abs(index - activeIndex)
+  return Math.max(0.06, 0.35 - (dist - 1) * 0.12)
+}
+
 export default function MapPage() {
   const [maps, setMaps] = useState([])
   const [selectedMapId, setSelectedMapId] = useState(null)
+  const [timelineMode, setTimelineMode] = useState(false)
+  const [timelineIndex, setTimelineIndex] = useState(0)
   const [pins, setPins] = useState([])
   const [players, setPlayers] = useState([])
   const [selectedPin, setSelectedPin] = useState(null)
@@ -26,7 +34,21 @@ export default function MapPage() {
   const mapRef = useRef()
   const longPressTimer = useRef(null)
 
-  const currentMap = maps.find(m => m.id === selectedMapId) || maps[0] || null
+  const sortedMaps = useMemo(() => getSortedMaps(), [maps])
+  const yearGroups = useMemo(() => {
+    const groups = []
+    sortedMaps.forEach((m, i) => {
+      const y = m.year ?? 0
+      if (!groups.length || groups[groups.length - 1].year !== y) {
+        groups.push({ year: y, startIndex: i, count: 0 })
+      }
+      groups[groups.length - 1].count++
+    })
+    return groups
+  }, [sortedMaps])
+
+  const displayMaps = timelineMode ? sortedMaps : maps
+  const currentMap = displayMaps.find(m => m.id === selectedMapId) || displayMaps[0] || null
 
   const refresh = useCallback(() => {
     setPlayers(getPlayers())
@@ -52,6 +74,24 @@ export default function MapPage() {
       setPlacingPos(null)
     }
   }, [selectedMapId])
+
+  useEffect(() => {
+    if (timelineMode && sortedMaps[timelineIndex]) {
+      setSelectedMapId(sortedMaps[timelineIndex].id)
+    }
+  }, [timelineMode, timelineIndex, sortedMaps])
+
+  const toggleTimeline = () => {
+    if (timelineMode) {
+      setTimelineMode(false)
+    } else if (maps.length > 1) {
+      setTimelineIndex(sortedMaps.length - 1)
+      setTimelineMode(true)
+      setShowForm(false)
+      setPlacingPos(null)
+      setTooltipPin(null)
+    }
+  }
 
   const session = currentUser()
 
@@ -206,22 +246,41 @@ export default function MapPage() {
   }
 
   return (
-    <div className="map-page">
+    <div className={`map-page ${timelineMode ? 'map-page-timeline' : ''}`}>
       <div className="map-header">
         <div className="map-header-left">
-          <h1 className="map-title">🗺️ {currentMap?.name || 'The Realm'}</h1>
+          <h1 className="map-title">
+            {timelineMode && currentMap ? (
+              <>📅 Year {currentMap.year !== undefined ? currentMap.year + 1 : '?'} &mdash; {currentMap.name}</>
+            ) : (
+              <>🗺️ {currentMap?.name || 'The Realm'}</>
+            )}
+          </h1>
         </div>
         <div className="map-header-center">
-          <select
-            className="map-selector"
-            value={selectedMapId || ''}
-            onChange={e => switchMap(e.target.value)}
-          >
-            {maps.map(m => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-          <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
+          {timelineMode ? (
+            <span className="map-pin-count">
+              {sortedMaps[timelineIndex]?.name || ''} &middot; {pins.length} pin{pins.length !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <>
+              <select
+                className="map-selector"
+                value={selectedMapId || ''}
+                onChange={e => switchMap(e.target.value)}
+              >
+                {maps.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
+            </>
+          )}
+          {maps.length > 1 && (
+            <button className={`btn btn-sm ${timelineMode ? 'btn-primary' : ''}`} onClick={toggleTimeline}>
+              {timelineMode ? '🗺️ Single Map' : '📜 Overview'}
+            </button>
+          )}
         </div>
         {!showForm && selectedMapId && (
           <button className="btn btn-primary btn-sm map-add-btn" onClick={() => setShowForm(true)}>
@@ -231,12 +290,26 @@ export default function MapPage() {
       </div>
 
       <div className="map-area" ref={mapRef}>
-        <img
-          src={currentMap?.imageUrl || ContinentMap}
-          alt={currentMap?.name || 'Map'}
-          className="map-image"
-          draggable={false}
-        />
+        {timelineMode ? (
+          <div className="map-layers">
+            {sortedMaps.map((m, i) => (
+              <div
+                key={m.id}
+                className={`map-layer ${i === timelineIndex ? 'active' : ''}`}
+                style={{ opacity: layerOpacity(i, timelineIndex) }}
+              >
+                <img src={m.imageUrl || ContinentMap} alt={m.name} draggable={false} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <img
+            src={currentMap?.imageUrl || ContinentMap}
+            alt={currentMap?.name || 'Map'}
+            className="map-image"
+            draggable={false}
+          />
+        )}
 
         <div
           className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
@@ -355,6 +428,49 @@ export default function MapPage() {
         {!showForm && !tooltipPin && (
           <div className="map-hint">
             Tap the map to add a pin — drag pins to move them
+          </div>
+        )}
+
+        {timelineMode && sortedMaps.length > 1 && (
+          <div className="timeline-bar">
+            <div className="timeline-track">
+              <input
+                type="range"
+                className="timeline-slider"
+                min={0}
+                max={sortedMaps.length - 1}
+                value={timelineIndex}
+                onChange={e => setTimelineIndex(parseInt(e.target.value))}
+                step={1}
+              />
+              <div className="timeline-labels">
+                {sortedMaps.map((m, i) => (
+                  <button
+                    key={m.id}
+                    className={`timeline-label ${i === timelineIndex ? 'active' : ''}`}
+                    onClick={() => setTimelineIndex(i)}
+                    type="button"
+                    title={`${m.name} (Year ${(m.year ?? 0) + 1})`}
+                  >
+                    {m.name.substring(0, 3)}
+                  </button>
+                ))}
+              </div>
+              <div className="timeline-year-groups">
+                {yearGroups.map(g => (
+                  <span
+                    key={g.year}
+                    className="timeline-year-group"
+                    style={{
+                      left: `${(g.startIndex / sortedMaps.length) * 100}%`,
+                      width: `${(g.count / sortedMaps.length) * 100}%`,
+                    }}
+                  >
+                    Year {g.year + 1}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

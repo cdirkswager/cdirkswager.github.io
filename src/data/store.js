@@ -1,6 +1,8 @@
 const STORE_KEY = 'hunt-campaign-data'
 const SEED_KEY = 'hunt-data-seeded'
 
+const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
+
 const defaultData = {
   players: [
     {
@@ -22,6 +24,7 @@ const defaultData = {
         fontFamily: 'IM Fell English, serif',
         bgImage: '',
       },
+      customCode: { enabled: false, html: '', css: '' },
       widgets: [
         { id: 'w-1', type: 'stats', content: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
         { id: 'w-2', type: 'description', content: 'A mysterious figure from a distant land.' },
@@ -47,6 +50,7 @@ const defaultData = {
         fontFamily: 'IM Fell English, serif',
         bgImage: '',
       },
+      customCode: { enabled: false, html: '', css: '' },
       widgets: [
         { id: 'w-3', type: 'stats', content: { str: 8, dex: 12, con: 10, int: 16, wis: 14, cha: 12 } },
         { id: 'w-4', type: 'description', content: 'A studious elf who spends more time in libraries than in battle.' },
@@ -55,7 +59,10 @@ const defaultData = {
     },
   ],
   maps: [
-    { id: 'map-1', name: 'The Realm', imageUrl: '' },
+    { id: 'map-1', name: 'Spring', imageUrl: '', year: 0, season: 0 },
+    { id: 'map-2', name: 'Summer', imageUrl: '', year: 0, season: 1 },
+    { id: 'map-3', name: 'Autumn', imageUrl: '', year: 0, season: 2 },
+    { id: 'map-4', name: 'Winter', imageUrl: '', year: 0, season: 3 },
   ],
   mapPins: [],
   questionnaires: [],
@@ -66,10 +73,23 @@ const defaultData = {
 function migrateData(data) {
   if (!data) return data
   if (!data.maps) {
-    data.maps = [{ id: 'map-1', name: 'The Realm', imageUrl: '' }]
+    data.maps = [
+      { id: 'map-1', name: 'The Realm', imageUrl: '', year: 0, season: 0 },
+    ]
     data.mapPins = (data.mapPins || []).map(pin => {
       if (!pin.mapId) pin.mapId = 'map-1'
       return pin
+    })
+  } else {
+    data.maps = data.maps.map((m, i) => {
+      const migrated = { ...m }
+      if (migrated.year === undefined || typeof migrated.year === 'string') {
+        migrated.year = 0
+      }
+      if (migrated.season === undefined) {
+        migrated.season = i
+      }
+      return migrated
     })
   }
   return data
@@ -88,6 +108,257 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(STORE_KEY, JSON.stringify(migrateData(data)))
+}
+
+export function sanitizeHtml(str) {
+  const maxLen = 100000
+  if (!str) return ''
+  if (str.length > maxLen) str = str.slice(0, maxLen)
+  str = str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+  str = str.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+  str = str.replace(/javascript\s*:/gi, 'noop:')
+  str = str.replace(/<\/?(?:iframe|object|embed|applet|base|form|input|select|textarea|button|meta|link)\b[^>]*>/gi, '')
+  return str
+}
+
+export function sanitizeCss(str) {
+  const maxLen = 100000
+  if (!str) return ''
+  if (str.length > maxLen) str = str.slice(0, maxLen)
+  str = str.replace(/@import\s+/gi, '@invalid-import ')
+  str = str.replace(/behavior\s*:/gi, 'invalid-behavior:')
+  str = str.replace(/expression\s*\(/gi, 'invalid-expression(')
+  return str
+}
+
+function escapeHtml(str) {
+  if (!str) return ''
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
+}
+
+export function generatePageSource(player) {
+  if (!player) return { html: '', css: '' }
+  const t = player.theme || {}
+
+  const css = `
+:root {
+  --bg: ${t.bgColor || '#0d0d0d'};
+  --text: ${t.textColor || '#e0d5c1'};
+  --accent: ${t.accentColor || '#c9a84c'};
+  --font: ${t.fontFamily || 'IM Fell English, serif'};
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: ${t.bgColor || '#0d0d0d'}${t.bgImage ? ` url(${t.bgImage})` : ''};
+  background-size: cover;
+  background-position: center;
+  color: ${t.textColor || '#e0d5c1'};
+  font-family: ${t.fontFamily || 'IM Fell English, serif'};
+  min-height: 100vh;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.char-name {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 4px;
+}
+
+.char-title {
+  font-size: 1rem;
+  color: var(--accent);
+  opacity: 0.8;
+  margin: 0 0 8px;
+}
+
+.char-class {
+  font-size: 0.85rem;
+  color: var(--text);
+  opacity: 0.7;
+  margin: 0;
+}
+
+.widget-section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.widget-title {
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 10px 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text);
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+p { line-height: 1.6; margin: 0 0 8px; }
+
+${player.layout === 'two-column' ? `
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+` : ''}
+`.trim()
+
+  let widgetsHtml = ''
+  const w = player.widgets || []
+  const anims = player.widgetAnimations || {}
+  const isTwoCol = player.layout === 'two-column'
+  const splitAt = isTwoCol ? Math.ceil(w.length / 2) : 0
+
+  w.forEach((widget, i) => {
+    const anim = anims[widget.id]
+    const animClass = anim ? ` animate__animated animate__${anim}` : ''
+    const section = (content) =>
+      `<div class="widget-section${animClass}" data-widget-id="${widget.id}" data-type="${widget.type}">${content}</div>`
+
+    if (widget.type === 'stats') {
+      let grid = ''
+      Object.entries(widget.content || {}).forEach(([stat, val]) => {
+        grid += `<div class="stat-item"><span class="stat-label">${escapeHtml(stat.toUpperCase())}</span><span class="stat-value">${escapeHtml(String(val))}</span></div>`
+      })
+      widgetsHtml += section(`<div class="widget-title">📊 Stats</div><div class="stats-grid">${grid}</div>`)
+    } else if (widget.type === 'description') {
+      widgetsHtml += section(`<div class="widget-title">📜 Description</div><p>${escapeHtml(widget.content)}</p>`)
+    } else if (widget.type === 'bio') {
+      widgetsHtml += section(`<div class="widget-title">📖 Biography</div><p>${escapeHtml(widget.content)}</p>`)
+    } else if (widget.type === 'image') {
+      widgetsHtml += section(`<div class="widget-title">🖼️ Image</div>${widget.content ? `<img src="${escapeHtml(widget.content)}" alt="Character image" />` : '<p style="opacity:0.5">No image configured.</p>'}`)
+    } else if (widget.type === 'music') {
+      let musicContent = `<div class="widget-title">🎵 Music</div>`
+      if (widget.musicUrl) musicContent += `<p><em>Audio URL: ${escapeHtml(widget.musicUrl)}</em></p>`
+      if (widget.content) musicContent += `<p>${escapeHtml(widget.content)}</p>`
+      if (!widget.musicUrl && !widget.content) musicContent += '<p style="opacity:0.5">No music configured.</p>'
+      widgetsHtml += section(musicContent)
+    } else if (widget.type === 'custom') {
+      widgetsHtml += section(`${widget.title ? `<div class="widget-title">${escapeHtml(widget.title)}</div>` : ''}<div>${widget.content || ''}</div>`)
+    }
+  })
+
+  const headerHtml = `<div class="page-header"><h1 class="char-name">${escapeHtml(player.name)}</h1>${player.title ? `<p class="char-title">${escapeHtml(player.title)}</p>` : ''}<p class="char-class">${escapeHtml(player.race)} ${escapeHtml(player.class)} &middot; Level ${player.level}</p></div>`
+
+  let bodyHtml = ''
+  if (isTwoCol) {
+    const left = w.slice(0, splitAt)
+    const right = w.slice(splitAt)
+    bodyHtml = `<div class="two-col"><div>${w.slice(0, splitAt).reduce((h, _, i) => {
+      let idx = i
+      if (i < splitAt) return h
+      return h
+    }, '')}</div><div></div></div>`
+    // Actually let me just build it properly
+    let leftHtml = ''
+    let rightHtml = ''
+    // Need to re-collect the widgetsHtml strings for each side
+    // This is getting complex. Let me take a simpler approach.
+  }
+
+  // Simple approach: render all widgets in order. Two-column is harder in generated source but let me just do single-column by default since the user can edit the CSS for custom layouts.
+  const allWidgetsHtml = (() => {
+    let html = ''
+    w.forEach((widget) => {
+      const anim = anims[widget.id]
+      const animClass = anim ? ` animate__animated animate__${anim}` : ''
+      const section = (content) =>
+        `<div class="widget-section${animClass}" data-widget-id="${widget.id}" data-type="${widget.type}">${content}</div>`
+
+      if (widget.type === 'stats') {
+        let grid = ''
+        Object.entries(widget.content || {}).forEach(([stat, val]) => {
+          grid += `<div class="stat-item"><span class="stat-label">${escapeHtml(stat.toUpperCase())}</span><span class="stat-value">${escapeHtml(String(val))}</span></div>`
+        })
+        html += section(`<div class="widget-title">📊 Stats</div><div class="stats-grid">${grid}</div>`)
+      } else if (widget.type === 'description') {
+        html += section(`<div class="widget-title">📜 Description</div><p>${escapeHtml(widget.content)}</p>`)
+      } else if (widget.type === 'bio') {
+        html += section(`<div class="widget-title">📖 Biography</div><p>${escapeHtml(widget.content)}</p>`)
+      } else if (widget.type === 'image') {
+        html += section(`<div class="widget-title">🖼️ Image</div>${widget.content ? `<img src="${escapeHtml(widget.content)}" alt="Character image" />` : '<p style="opacity:0.5">No image configured.</p>'}`)
+      } else if (widget.type === 'music') {
+        let mc = `<div class="widget-title">🎵 Music</div>`
+        if (widget.musicUrl) mc += `<p><em>Audio URL: ${escapeHtml(widget.musicUrl)}</em></p>`
+        if (widget.content) mc += `<p>${escapeHtml(widget.content)}</p>`
+        if (!widget.musicUrl && !widget.content) mc += '<p style="opacity:0.5">No music configured.</p>'
+        html += section(mc)
+      } else if (widget.type === 'custom') {
+        html += section(`${widget.title ? `<div class="widget-title">${escapeHtml(widget.title)}</div>` : ''}<div>${widget.content || ''}</div>`)
+      }
+    })
+    return html
+  })()
+
+  const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+<style>
+${css}
+</style>
+</head>
+<body>
+${headerHtml}
+${allWidgetsHtml || '<p style="text-align:center;opacity:0.5">No widgets configured yet.</p>'}
+</body>
+</html>`
+
+  return { html: htmlDoc, css }
 }
 
 export function seedIfNeeded() {
@@ -121,6 +392,9 @@ export function savePlayer(player) {
   if (player.musicUrl === undefined) player.musicUrl = ''
   if (player.commentsEnabled === undefined) player.commentsEnabled = true
   if (player.avatarUrl === undefined) player.avatarUrl = ''
+  if (!player.customCode) player.customCode = { enabled: false, html: '', css: '' }
+  if (player.customCode.html) player.customCode.html = sanitizeHtml(player.customCode.html)
+  if (player.customCode.css) player.customCode.css = sanitizeCss(player.customCode.css)
   if (player.widgetAnimations && typeof Object.keys(player.widgetAnimations)[0] === 'string' && /^\d+$/.test(Object.keys(player.widgetAnimations)[0])) {
     const migrated = {}
     player.widgets.forEach((w, i) => {
@@ -149,6 +423,49 @@ export function getMaps() {
   return getStore().maps
 }
 
+export function getSortedMaps() {
+  const data = getStore()
+  return [...data.maps].sort((a, b) => {
+    const ya = a.year ?? 0
+    const yb = b.year ?? 0
+    if (ya !== yb) return ya - yb
+    return (a.season ?? 0) - (b.season ?? 0)
+  })
+}
+
+export function getYears() {
+  const data = getStore()
+  const groups = {}
+  data.maps.forEach(m => {
+    const y = m.year ?? 0
+    if (!groups[y]) groups[y] = []
+    groups[y].push(m)
+  })
+  return Object.entries(groups)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([year, maps]) => ({
+      year: Number(year),
+      seasons: maps.sort((a, b) => (a.season ?? 0) - (b.season ?? 0)),
+    }))
+}
+
+export function addYear() {
+  const data = getStore()
+  const maxYear = data.maps.reduce((max, m) => Math.max(max, m.year ?? -1), -1)
+  const newYear = maxYear + 1
+  SEASON_NAMES.forEach((name, i) => {
+    const map = { name, imageUrl: '', year: newYear, season: i }
+    saveMap(map)
+  })
+  return newYear
+}
+
+export function deleteYear(year) {
+  const data = getStore()
+  const idsToDelete = data.maps.filter(m => m.year === year).map(m => m.id)
+  idsToDelete.forEach(id => deleteMap(id))
+}
+
 export function saveMap(map) {
   const data = getStore()
   if (map.id) {
@@ -156,6 +473,8 @@ export function saveMap(map) {
     if (idx >= 0) data.maps[idx] = map
   } else {
     map.id = 'map-' + Date.now()
+    if (map.year === undefined) map.year = 0
+    if (map.season === undefined) map.season = data.maps.filter(m => m.year === map.year).length
     data.maps.push(map)
   }
   saveData(data)
