@@ -1,6 +1,9 @@
 const AUTH_KEY = 'hunt-auth-session'
 const USERS_KEY = 'hunt-users'
 
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin'
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
+
 function hash(str) {
   let h = 0;
   for (let i = 0; i < str.length; i++) {
@@ -9,6 +12,8 @@ function hash(str) {
   }
   return 'h' + Math.abs(h).toString(36);
 }
+
+const ADMIN_PASS_HASH = hash(ADMIN_PASSWORD)
 
 function getUsers() {
   try {
@@ -21,6 +26,22 @@ function getUsers() {
 function saveUsers(users) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users))
 }
+
+function seedAdmin() {
+  const users = getUsers()
+  if (users.some(u => u.username === ADMIN_USERNAME)) return
+  users.push({
+    id: 'user-admin',
+    username: ADMIN_USERNAME,
+    passwordHash: ADMIN_PASS_HASH,
+    role: 'dm',
+    playerId: null,
+    createdAt: Date.now(),
+  })
+  saveUsers(users)
+}
+
+seedAdmin()
 
 export function isPlayerClaimed(playerId) {
   if (!playerId) return false
@@ -52,25 +73,26 @@ export function register(username, password, playerId) {
   if (password.length < 4) {
     return { ok: false, error: 'Password must be at least 4 characters' }
   }
-  const usersCount = users.length
-  const isDM = usersCount === 0
-  if (!isDM && !playerId) {
+  if (username.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
+    return { ok: false, error: 'That username is reserved' }
+  }
+  if (!playerId) {
     return { ok: false, error: 'You must select a character to play' }
   }
-  if (playerId && isPlayerClaimed(playerId)) {
+  if (isPlayerClaimed(playerId)) {
     return { ok: false, error: 'That character is already claimed by another player' }
   }
   const user = {
     id: 'user-' + Date.now(),
     username,
     passwordHash: hash(password),
-    role: isDM ? 'dm' : 'player',
-    playerId: playerId || null,
+    role: 'player',
+    playerId,
     createdAt: Date.now(),
   }
   users.push(user)
   saveUsers(users)
-  return { ok: true, user, isDM }
+  return { ok: true, user, isDM: false }
 }
 
 export function login(username, password) {
@@ -167,8 +189,10 @@ export function getAllUsers() {
 }
 
 export function deleteUser(userId) {
-  const users = getUsers().filter(u => u.id !== userId)
-  saveUsers(users)
+  const users = getUsers()
+  const target = users.find(u => u.id === userId)
+  if (!target || target.username === ADMIN_USERNAME) return
+  saveUsers(users.filter(u => u.id !== userId))
 }
 
 export function unclaimPlayerId(playerId) {

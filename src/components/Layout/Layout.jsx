@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../data/auth'
+import RateLimitBanner from '../common/RateLimitBanner'
+import { onStatusChange } from '../../data/sync'
 import './Layout.css'
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [session, setSession] = useState(getSession())
+  const [pendingChanges, setPendingChanges] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const unsub = onStatusChange(s => setPendingChanges(s.localChanges))
+    return unsub
+  }, [])
 
   useEffect(() => {
     setSession(getSession())
@@ -53,15 +61,19 @@ export default function Layout({ children }) {
 
           <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
             {navLinks.map(link => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`nav-link ${location.pathname === link.path ? 'active' : ''}`}
-                onClick={() => setMenuOpen(false)}
-              >
-                <span className="nav-link-icon">{link.icon}</span>
-                {link.label}
-              </Link>
+              <div key={link.path} className="nav-link-wrapper">
+                <Link
+                  to={link.path}
+                  className={`nav-link ${location.pathname === link.path ? 'active' : ''}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="nav-link-icon">{link.icon}</span>
+                  {link.label}
+                </Link>
+                {link.path === '/dm' && pendingChanges && (
+                  <span className="nav-pending-badge" title="Unsaved changes — push to GitHub to sync">📝</span>
+                )}
+              </div>
             ))}
 
             {session ? (
@@ -90,6 +102,8 @@ export default function Layout({ children }) {
       {menuOpen && (
         <div className="nav-overlay" onClick={() => setMenuOpen(false)} />
       )}
+
+      <RateLimitBanner />
 
       <main className="main-content">
         {children}

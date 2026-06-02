@@ -1,3 +1,4 @@
+import { markLocalChanges } from './sync'
 const STORE_KEY = 'hunt-campaign-data'
 const SEED_KEY = 'hunt-data-seeded'
 
@@ -108,6 +109,7 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(STORE_KEY, JSON.stringify(migrateData(data)))
+  markLocalChanges()
 }
 
 export function sanitizeHtml(str) {

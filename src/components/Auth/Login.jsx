@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { login, getSession, getAllUsers } from '../../data/auth'
+import { login, getSession } from '../../data/auth'
 import './Auth.css'
 
 export default function Login() {
@@ -8,7 +8,6 @@ export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const noUsers = getAllUsers().length === 0
 
   useEffect(() => {
     const s = getSession()
@@ -41,11 +40,9 @@ export default function Login() {
           <p className="text-muted mt-1">Sign in to the campaign hub</p>
         </div>
 
-        {noUsers && (
-          <div className="dm-setup-hint">
-            ⚔️ No accounts exist yet. The first person to register becomes the <strong>Dungeon Master</strong>.
-          </div>
-        )}
+        <div className="dm-setup-hint">
+          ⚔️ DM login: <strong>admin</strong> / <strong>admin123</strong> — only the DM account has full management access.
+        </div>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
 

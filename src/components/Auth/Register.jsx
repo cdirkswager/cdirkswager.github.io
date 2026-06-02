@@ -15,8 +15,7 @@ export default function Register() {
   const [success, setSuccess] = useState('')
   const [players, setPlayers] = useState([])
 
-  const noUsers = getAllUsers().length === 0
-  const claimedIds = noUsers ? {} : getClaimedPlayerIds()
+  const claimedIds = getClaimedPlayerIds()
   const availablePlayers = players.filter(p => !claimedIds[p.id])
 
   useEffect(() => {
@@ -40,16 +39,11 @@ export default function Register() {
     const result = register(username.trim(), password, playerId || null)
     if (result.ok) {
       login(username.trim(), password)
-      if (result.isDM) {
-        setSuccess('🎉 You are now the Dungeon Master! Redirecting...')
-        setTimeout(() => navigate('/dm', { replace: true }), 1000)
-      } else {
-        if (playerId) {
-          saveAccessRequest({ username: username.trim(), playerId, message: requestMessage.trim() || '' })
-        }
-        setSuccess('✅ Account created! Welcome, adventurer.')
-        setTimeout(() => navigate('/', { replace: true }), 1000)
+      if (playerId) {
+        saveAccessRequest({ username: username.trim(), playerId, message: requestMessage.trim() || '' })
       }
+      setSuccess('✅ Account created! Welcome, adventurer.')
+      setTimeout(() => navigate('/', { replace: true }), 1000)
     } else {
       setError(result.error)
     }
@@ -61,19 +55,8 @@ export default function Register() {
         <div className="auth-header">
           <div className="auth-icon">📜</div>
           <h2 className="text-gold">Join the Adventure</h2>
-          <p className="text-muted mt-1">
-            {noUsers
-              ? 'First user becomes the Dungeon Master'
-              : 'Create a player account'
-            }
-          </p>
+          <p className="text-muted mt-1">Create a player account to join the campaign</p>
         </div>
-
-        {noUsers && (
-          <div className="dm-setup-hint">
-            ⚔️ <strong>First registration = Dungeon Master!</strong> You'll get full DM access.
-          </div>
-        )}
 
         {error && <div className="auth-error" role="alert">{error}</div>}
         {success && <div className="auth-success" role="status">{success}</div>}
@@ -110,47 +93,43 @@ export default function Register() {
             />
           </div>
 
-          {!noUsers && (
-            <>
-              <div className="mb-2">
-                <label>Choose Your Character *</label>
-                <select
-                  value={playerId}
-                  onChange={e => setPlayerId(e.target.value)}
-                  required
-                >
-                  <option value="">— Select a character —</option>
-                  {availablePlayers.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                {availablePlayers.length === 0 && (
-                  <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
-                    All characters have been claimed. Ask the DM to create more.
-                  </p>
-                )}
-                {players.length > 0 && availablePlayers.length < players.length && (
-                  <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
-                    {players.length - availablePlayers.length} character{players.length - availablePlayers.length !== 1 ? 's' : ''} already claimed
-                  </p>
-                )}
-              </div>
-              {playerId && (
-                <div className="mb-2">
-                  <label>Message to the DM</label>
-                  <textarea
-                    value={requestMessage}
-                    onChange={e => setRequestMessage(e.target.value)}
-                    placeholder="Tell the DM why you chose this character..."
-                    rows={3}
-                  />
-                </div>
-              )}
-            </>
+          <div className="mb-2">
+            <label>Choose Your Character *</label>
+            <select
+              value={playerId}
+              onChange={e => setPlayerId(e.target.value)}
+              required
+            >
+              <option value="">— Select a character —</option>
+              {availablePlayers.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            {availablePlayers.length === 0 && (
+              <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
+                All characters have been claimed. Ask the DM to create more.
+              </p>
+            )}
+            {players.length > 0 && availablePlayers.length < players.length && (
+              <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
+                {players.length - availablePlayers.length} character{players.length - availablePlayers.length !== 1 ? 's' : ''} already claimed
+              </p>
+            )}
+          </div>
+          {playerId && (
+            <div className="mb-2">
+              <label>Message to the DM</label>
+              <textarea
+                value={requestMessage}
+                onChange={e => setRequestMessage(e.target.value)}
+                placeholder="Tell the DM why you chose this character..."
+                rows={3}
+              />
+            </div>
           )}
 
-          <button type="submit" className="btn btn-primary auth-submit" disabled={!noUsers && availablePlayers.length === 0}>
-            {noUsers ? '⚔️ Become Dungeon Master' : '📜 Join the Party'}
+          <button type="submit" className="btn btn-primary auth-submit" disabled={availablePlayers.length === 0}>
+            📜 Join the Party
           </button>
         </form>
 

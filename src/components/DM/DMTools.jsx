@@ -14,6 +14,7 @@ import {
   currentUser, getSession, logout as authLogout, unclaimPlayerId,
 } from '../../data/auth'
 import Modal from '../common/Modal'
+import { createGist, disconnect as syncDisconnect, getPat, getGistId, getRawUrl, pushToGist, pullFromGist, onStatusChange, onRateLimitChange, getRateLimitState, checkRateLimit, storeGistId } from '../../data/sync'
 import './DMTools.css'
 
 export default function DMTools() {
@@ -47,6 +48,24 @@ export default function DMTools() {
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
   const [confirmDenyReq, setConfirmDenyReq] = useState(null)
+  const [syncPatInput, setSyncPatInput] = useState('')
+  const [syncStatus, setSyncStatus] = useState({ status: 'disconnected', lastSynced: null, error: null, localChanges: false })
+  const [syncSetupError, setSyncSetupError] = useState('')
+  const [syncSetupSuccess, setSyncSetupSuccess] = useState('')
+  const [rateLimit, setRateLimit] = useState(null)
+  const [pushResult, setPushResult] = useState(null)
+  const [checkingUsage, setCheckingUsage] = useState(false)
+
+  useEffect(() => {
+    const unsub = onStatusChange(setSyncStatus)
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    setRateLimit(getRateLimitState())
+    const unsub = onRateLimitChange(setRateLimit)
+    return unsub
+  }, [])
 
   const refresh = () => {
     setPlayers(getPlayers())
@@ -290,6 +309,141 @@ export default function DMTools() {
             </div>
           </div>
         )}
+
+        <div className="card gold-border mb-2">
+          <div className="flex-between mb-2">
+            <h3 className="widget-title">☁️ GitHub Sync</h3>
+          </div>
+          {syncStatus.status === 'disconnected' ? (
+            <div>
+              <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
+                Sync campaign data via a secret GitHub Gist. Players read from the Gist automatically.
+                Requires a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-gold)' }}>GitHub classic PAT</a> with <strong>gist</strong> scope.
+              </p>
+              <div className="mb-2">
+                <label>GitHub Personal Access Token</label>
+                <input
+                  type="password"
+                  value={syncPatInput}
+                  onChange={e => setSyncPatInput(e.target.value)}
+                  placeholder="ghp_..."
+                  autoComplete="off"
+                />
+              </div>
+              {syncSetupError && <p className="auth-error" style={{ fontSize: '0.85rem', marginBottom: 8 }}>{syncSetupError}</p>}
+              {syncSetupSuccess && <p className="auth-success" style={{ fontSize: '0.85rem', marginBottom: 8 }}>{syncSetupSuccess}</p>}
+              <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    setSyncSetupError('')
+                    setSyncSetupSuccess('')
+                    if (!syncPatInput.trim()) { setSyncSetupError('Enter a PAT'); return }
+                    try {
+                      const id = await createGist(syncPatInput.trim())
+                      setSyncSetupSuccess(`✅ Gist created! ID: ${id}`)
+                      setSyncPatInput('')
+                      refresh()
+                    } catch (e) {
+                      setSyncSetupError(e.message || 'Failed to create Gist')
+                    }
+                  }}
+                >
+                  🌐 Create Sync Gist
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setSyncSetupError('')
+                    setSyncSetupSuccess('')
+                    if (!syncPatInput.trim()) { setSyncSetupError('Enter a PAT'); return }
+                    const gistId = prompt('Paste the Gist ID to connect:')
+                    if (!gistId) return
+                    storeGistId(gistId.trim())
+                    localStorage.setItem('hunt-github-pat', syncPatInput.trim())
+                    setSyncSetupSuccess('✅ Connected!')
+                    setSyncPatInput('')
+                    refresh()
+                  }}
+                >
+                  🔗 Connect Existing
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {syncStatus.localChanges && (
+                <div className="sync-local-banner">
+                  <span className="sync-local-icon">📝</span>
+                  <span className="sync-local-text">
+                    <strong>Local changes pending</strong> &mdash; Your edits are saved in this browser. Click below to push them to the shared Gist so other players see them.
+                  </span>
+                </div>
+              )}
+
+              <div className="sync-primary-action">
+                <button
+                  className={`btn btn-primary btn-lg sync-push-btn ${syncStatus.status === 'syncing' ? 'syncing' : ''}`}
+                  disabled={syncStatus.status === 'syncing'}
+                  onClick={async () => {
+                    setPushResult(null)
+                    const result = await pushToGist()
+                    setPushResult(result)
+                    if (result.ok) {
+                      setTimeout(() => setPushResult(null), 3000)
+                    }
+                    refresh()
+                  }}
+                >
+                  {syncStatus.status === 'syncing' ? (
+                    <><span className="sync-spinner" /> Pushing...</>
+                  ) : (
+                    '📤 Push to GitHub'
+                  )}
+                </button>
+                {pushResult && !pushResult.ok && (
+                  <p className="sync-push-error">{pushResult.error}</p>
+                )}
+                {pushResult && pushResult.ok && (
+                  <p className="sync-push-success">✅ Pushed successfully!</p>
+                )}
+                {syncStatus.lastSynced && (
+                  <p className="sync-last-synced">
+                    Last synced: {new Date(syncStatus.lastSynced).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="sync-secondary-actions">
+                <button className="btn btn-sm" onClick={async () => { await pullFromGist(); refresh(); setPushResult(null) }}>📥 Pull from GitHub</button>
+                <button className="btn btn-sm" onClick={async () => { setCheckingUsage(true); await checkRateLimit(); setCheckingUsage(false) }} disabled={checkingUsage}>
+                  {checkingUsage ? '🔄 Checking...' : '📊 Check API Usage'}
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => { syncDisconnect(); refresh() }}>⛔ Disconnect</button>
+              </div>
+
+              {rateLimit && (
+                <div className="sync-rate-info">
+                  <span className="text-muted">GitHub API:</span>
+                  <span className={`sync-rate-remaining ${rateLimit.remaining < 100 ? 'low' : ''} ${rateLimit.remaining <= 0 ? 'exhausted' : ''}`}>
+                    {rateLimit.remaining}/{rateLimit.limit} remaining
+                  </span>
+                  {rateLimit.remaining <= 0 && (
+                    <span className="sync-rate-reset">
+                      Resets ~{new Date(rateLimit.reset * 1000).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="sync-share-info">
+                <span className="text-muted" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                  📋 Share: <code>{window.location.origin}/?gist_id={getGistId()}</code>
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
