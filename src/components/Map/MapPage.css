@@ -44,6 +44,19 @@
   white-space: nowrap;
 }
 
+.map-selector {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  width: auto;
+  max-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
 .map-add-btn {
   flex-shrink: 0;
   padding: 8px 16px;

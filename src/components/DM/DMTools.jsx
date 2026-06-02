@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  getPlayers, getMapPins, getQuestionnaires,
-  deletePlayer, deleteMapPin, deleteQuestionnaire,
+  getPlayers, getMaps, getMapPins, getQuestionnaires,
+  deletePlayer, saveMap, deleteMap, deleteMapPin, deleteQuestionnaire,
   exportData, importData, resetData,
   exportFullData, importFullData,
   getAllComments, deleteComment,
@@ -18,6 +18,7 @@ import './DMTools.css'
 export default function DMTools() {
   const navigate = useNavigate()
   const [players, setPlayers] = useState([])
+  const [maps, setMaps] = useState([])
   const [pins, setPins] = useState([])
   const [questionnaires, setQuestionnaires] = useState([])
   const [requests, setRequests] = useState([])
@@ -33,9 +34,14 @@ export default function DMTools() {
   const [selectedReq, setSelectedReq] = useState(null)
   const [editingReqPlayer, setEditingReqPlayer] = useState('')
   const [confirmUserDelete, setConfirmUserDelete] = useState(null)
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [editingMap, setEditingMap] = useState(null)
+  const [mapForm, setMapForm] = useState({ name: '', imageUrl: '' })
+  const [confirmMapDelete, setConfirmMapDelete] = useState(null)
 
   const refresh = () => {
     setPlayers(getPlayers())
+    setMaps(getMaps())
     setPins(getMapPins())
     setQuestionnaires(getQuestionnaires())
     setRequests(getAccessRequests())
@@ -122,6 +128,32 @@ export default function DMTools() {
       deleteQuestionnaire(id)
       refresh()
     }
+  }
+
+  const handleAddMap = () => {
+    setEditingMap(null)
+    setMapForm({ name: '', imageUrl: '' })
+    setShowMapModal(true)
+  }
+
+  const handleEditMap = (map) => {
+    setEditingMap(map)
+    setMapForm({ name: map.name, imageUrl: map.imageUrl || '' })
+    setShowMapModal(true)
+  }
+
+  const handleSaveMap = () => {
+    if (!mapForm.name.trim()) return
+    saveMap(editingMap ? { ...editingMap, name: mapForm.name.trim(), imageUrl: mapForm.imageUrl.trim() } : { name: mapForm.name.trim(), imageUrl: mapForm.imageUrl.trim() })
+    setShowMapModal(false)
+    setEditingMap(null)
+    refresh()
+  }
+
+  const handleDeleteMap = (id) => {
+    deleteMap(id)
+    setConfirmMapDelete(null)
+    refresh()
   }
 
   const handleApprove = (req) => {
@@ -274,6 +306,36 @@ export default function DMTools() {
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
+            <h3 className="widget-title">🗺️ Maps</h3>
+            <button className="btn btn-sm btn-primary" onClick={handleAddMap}>➕ Add Map</button>
+          </div>
+          {maps.length === 0 ? (
+            <p className="text-muted">No maps yet.</p>
+          ) : (
+            <div className="dm-list">
+              {maps.map(m => {
+                const mapPinCount = pins.filter(p => p.mapId === m.id).length
+                return (
+                  <div key={m.id} className="dm-list-item">
+                    <div className="dm-list-info">
+                      <span className="dm-list-name">{m.name}</span>
+                      <span className="dm-list-detail">{mapPinCount} pin{mapPinCount !== 1 ? 's' : ''}</span>
+                      {m.imageUrl && <span className="dm-list-detail" style={{ fontSize: '0.75rem' }}>custom image</span>}
+                    </div>
+                    <div className="dm-list-actions">
+                      <Link to="/map" className="btn btn-sm">🗺️ View</Link>
+                      <button className="btn btn-sm" onClick={() => handleEditMap(m)}>✏️</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmMapDelete(m)}>🗑️</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="card gold-border mb-2">
+          <div className="flex-between mb-2">
             <h3 className="widget-title">📍 Map Pins</h3>
             <Link to="/map" className="btn btn-sm">🗺️ Open Map</Link>
           </div>
@@ -281,18 +343,26 @@ export default function DMTools() {
             <p className="text-muted">No pins on the map yet.</p>
           ) : (
             <div className="dm-list">
-              {pins.map(pin => (
-                <div key={pin.id} className="dm-list-item">
-                  <div className="dm-list-info">
-                    <span className="dm-list-dot" style={{ background: pin.color }} />
-                    <span className="dm-list-name">{pin.label}</span>
-                    <span className="dm-list-detail">{pin.x}%, {pin.y}%</span>
+              {pins.map(pin => {
+                const pinMap = maps.find(m => m.id === pin.mapId)
+                return (
+                  <div key={pin.id} className="dm-list-item">
+                    <div className="dm-list-info">
+                      <span className="dm-list-dot" style={{ background: pin.color }} />
+                      <span className="dm-list-name">{pin.label}</span>
+                      <span className="dm-list-detail">{pin.x}%, {pin.y}%</span>
+                      {pinMap && (
+                        <span className="dm-list-detail" style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>
+                          {pinMap.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="dm-list-actions">
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDeletePin(pin.id)}>🗑️</button>
+                    </div>
                   </div>
-                  <div className="dm-list-actions">
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeletePin(pin.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -460,6 +530,39 @@ export default function DMTools() {
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmUserDelete(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={() => { deleteUser(confirmUserDelete); setConfirmUserDelete(null); refresh() }}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {showMapModal && (
+        <Modal title={editingMap ? `✏️ Edit Map: ${editingMap.name}` : '🗺️ Add Map'} onClose={() => { setShowMapModal(false); setEditingMap(null) }}>
+          <div className="mb-2">
+            <label>Map Name</label>
+            <input value={mapForm.name} onChange={e => setMapForm({ ...mapForm, name: e.target.value })} placeholder="Season 2 - The Frozen North" autoFocus />
+          </div>
+          <div className="mb-2">
+            <label>Map Image URL (optional)</label>
+            <input value={mapForm.imageUrl} onChange={e => setMapForm({ ...mapForm, imageUrl: e.target.value })} placeholder="https://example.com/new-map.jpg" />
+            <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+              Leave empty to use the default ContinentMap. Paste a direct link to a custom map image.
+            </p>
+          </div>
+          <div className="text-center">
+            <button className="btn btn-primary" onClick={handleSaveMap} disabled={!mapForm.name.trim()}>
+              {editingMap ? '💾 Save' : '➕ Add'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmMapDelete && (
+        <Modal title="🗑️ Delete Map" onClose={() => setConfirmMapDelete(null)}>
+          <p className="mb-2">
+            Delete <strong>{confirmMapDelete.name}</strong> and all its pins? This cannot be undone.
+          </p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmMapDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeleteMap(confirmMapDelete.id)}>🗑️ Delete</button>
           </div>
         </Modal>
       )}

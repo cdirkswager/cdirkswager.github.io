@@ -28,8 +28,13 @@ export default function PlayerEditor() {
     if (selectedId === 'new') {
       setForm({
         name: '', class: '', race: '', level: 1, title: '', bio: '',
+        avatarUrl: '',
+        layout: 'single',
+        musicUrl: '',
+        commentsEnabled: true,
         theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '' },
         widgets: [],
+        widgetAnimations: {},
       })
     } else {
       const p = getPlayer(selectedId)
@@ -41,8 +46,13 @@ export default function PlayerEditor() {
           level: p.level,
           title: p.title || '',
           bio: p.bio || '',
+          avatarUrl: p.avatarUrl || '',
+          layout: p.layout || 'single',
+          musicUrl: p.musicUrl || '',
+          commentsEnabled: p.commentsEnabled !== false,
           theme: { ...p.theme },
           widgets: [...(p.widgets || [])],
+          widgetAnimations: { ...(p.widgetAnimations || {}) },
         })
       }
     }
@@ -83,6 +93,14 @@ export default function PlayerEditor() {
 
   const removeWidget = (index) => {
     setForm({ ...form, widgets: form.widgets.filter((_, i) => i !== index) })
+  }
+
+  const moveWidget = (idx, dir) => {
+    const newWidgets = [...form.widgets]
+    const target = idx + dir
+    if (target < 0 || target >= newWidgets.length) return
+    ;[newWidgets[idx], newWidgets[target]] = [newWidgets[target], newWidgets[idx]]
+    setForm({ ...form, widgets: newWidgets })
   }
 
   return (
@@ -332,6 +350,8 @@ export default function PlayerEditor() {
                     </select>
                   </div>
                   <div className="widget-item-actions">
+                    <button type="button" className="btn btn-sm" onClick={() => moveWidget(i, -1)} disabled={i === 0}>↑</button>
+                    <button type="button" className="btn btn-sm" onClick={() => moveWidget(i, 1)} disabled={i === form.widgets.length - 1}>↓</button>
                     <button type="button" className="btn btn-sm" onClick={() => openWidget(w, i)}>✏️</button>
                     <button type="button" className="btn btn-sm btn-danger" onClick={() => removeWidget(i)}>🗑️</button>
                   </div>

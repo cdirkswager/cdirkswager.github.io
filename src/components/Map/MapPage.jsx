@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getMapPins, saveMapPin, deleteMapPin, getPlayers } from '../../data/store'
+import { getMaps, getMapPins, saveMapPin, deleteMapPin, getPlayers } from '../../data/store'
 import { currentUser } from '../../data/auth'
 import Modal from '../common/Modal'
 import ContinentMap from '../../assets/ContinentMap.png'
@@ -8,6 +8,8 @@ import './MapPage.css'
 const pinColors = ['#c9a84c', '#d4522a', '#6a4cc9', '#4c9a6a', '#4c7ac9', '#c94c6a', '#c98a2a', '#6a9a4c']
 
 export default function MapPage() {
+  const [maps, setMaps] = useState([])
+  const [selectedMapId, setSelectedMapId] = useState(null)
   const [pins, setPins] = useState([])
   const [players, setPlayers] = useState([])
   const [selectedPin, setSelectedPin] = useState(null)
@@ -24,12 +26,32 @@ export default function MapPage() {
   const mapRef = useRef()
   const longPressTimer = useRef(null)
 
+  const currentMap = maps.find(m => m.id === selectedMapId) || maps[0] || null
+
   const refresh = useCallback(() => {
-    setPins(getMapPins())
+    setPlayers(getPlayers())
+    if (selectedMapId) {
+      setPins(getMapPins(selectedMapId))
+    }
+  }, [selectedMapId])
+
+  useEffect(() => {
+    const loadedMaps = getMaps()
+    setMaps(loadedMaps)
+    if (loadedMaps.length > 0) {
+      setSelectedMapId(prev => prev || loadedMaps[0].id)
+    }
     setPlayers(getPlayers())
   }, [])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    if (selectedMapId) {
+      setPins(getMapPins(selectedMapId))
+      setTooltipPin(null)
+      setShowForm(false)
+      setPlacingPos(null)
+    }
+  }, [selectedMapId])
 
   const session = currentUser()
 
@@ -130,9 +152,20 @@ export default function MapPage() {
     }
   }, [dragStart, dragging, pins, refresh, getPosFromEvent])
 
+  const switchMap = (mapId) => {
+    setSelectedMapId(mapId)
+    setTooltipPin(null)
+    setShowForm(false)
+    setPlacingPos(null)
+    setEditPin(null)
+    setShowEditModal(false)
+    setConfirmDeletePin(null)
+  }
+
   const saveNewPin = () => {
-    if (!formData.label.trim()) return
+    if (!formData.label.trim() || !selectedMapId) return
     saveMapPin({
+      mapId: selectedMapId,
       x: placingPos.x,
       y: placingPos.y,
       label: formData.label.trim(),
@@ -176,12 +209,21 @@ export default function MapPage() {
     <div className="map-page">
       <div className="map-header">
         <div className="map-header-left">
-          <h1 className="map-title">🗺️ The Realm</h1>
+          <h1 className="map-title">🗺️ {currentMap?.name || 'The Realm'}</h1>
         </div>
         <div className="map-header-center">
+          <select
+            className="map-selector"
+            value={selectedMapId || ''}
+            onChange={e => switchMap(e.target.value)}
+          >
+            {maps.map(m => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
           <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
         </div>
-        {!showForm && (
+        {!showForm && selectedMapId && (
           <button className="btn btn-primary btn-sm map-add-btn" onClick={() => setShowForm(true)}>
             📍 Add Pin
           </button>
@@ -190,8 +232,8 @@ export default function MapPage() {
 
       <div className="map-area" ref={mapRef}>
         <img
-          src={ContinentMap}
-          alt="Continent Map"
+          src={currentMap?.imageUrl || ContinentMap}
+          alt={currentMap?.name || 'Map'}
           className="map-image"
           draggable={false}
         />

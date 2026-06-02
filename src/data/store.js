@@ -54,22 +54,40 @@ const defaultData = {
       createdAt: Date.now(),
     },
   ],
+  maps: [
+    { id: 'map-1', name: 'The Realm', imageUrl: '' },
+  ],
   mapPins: [],
   questionnaires: [],
   responses: [],
   comments: {},
 }
 
+function migrateData(data) {
+  if (!data) return data
+  if (!data.maps) {
+    data.maps = [{ id: 'map-1', name: 'The Realm', imageUrl: '' }]
+    data.mapPins = (data.mapPins || []).map(pin => {
+      if (!pin.mapId) pin.mapId = 'map-1'
+      return pin
+    })
+  }
+  return data
+}
+
 function loadData() {
   try {
     const raw = localStorage.getItem(STORE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const data = JSON.parse(raw)
+      return migrateData(data)
+    }
   } catch (e) { /* ignore */ }
   return null
 }
 
 function saveData(data) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(data))
+  localStorage.setItem(STORE_KEY, JSON.stringify(migrateData(data)))
 }
 
 export function seedIfNeeded() {
@@ -127,8 +145,34 @@ export function deletePlayer(id) {
   saveData(data)
 }
 
-export function getMapPins() {
-  return getStore().mapPins
+export function getMaps() {
+  return getStore().maps
+}
+
+export function saveMap(map) {
+  const data = getStore()
+  if (map.id) {
+    const idx = data.maps.findIndex(m => m.id === map.id)
+    if (idx >= 0) data.maps[idx] = map
+  } else {
+    map.id = 'map-' + Date.now()
+    data.maps.push(map)
+  }
+  saveData(data)
+  return map
+}
+
+export function deleteMap(id) {
+  const data = getStore()
+  data.maps = data.maps.filter(m => m.id !== id)
+  data.mapPins = data.mapPins.filter(p => p.mapId !== id)
+  saveData(data)
+}
+
+export function getMapPins(mapId) {
+  const pins = getStore().mapPins
+  if (mapId) return pins.filter(p => p.mapId === mapId)
+  return pins
 }
 
 export function saveMapPin(pin) {
