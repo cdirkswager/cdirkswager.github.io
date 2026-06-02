@@ -132,14 +132,17 @@ export async function onRequest(context) {
 
     // POST /api/auth/bootstrap
     if (path === '/auth/bootstrap' && method === 'POST') {
+      const users = await getFromKv(env, 'users', [])
+      const hasAdmin = users.some(u => u.role === 'dm')
       const apiKey = request.headers.get('X-API-Key')
-      if (!apiKey || apiKey !== env.API_KEY) return json({ ok: false, error: 'Unauthorized' }, 401)
+      if (hasAdmin && (!apiKey || apiKey !== env.API_KEY)) {
+        return json({ ok: false, error: 'Unauthorized' }, 401)
+      }
 
       const { username, password } = body
       if (!username || username.length < 2) return json({ ok: false, error: 'Username must be at least 2 characters' }, 400)
       if (!password || password.length < 4) return json({ ok: false, error: 'Password must be at least 4 characters' }, 400)
 
-      const users = await getFromKv(env, 'users', [])
       const existing = users.find(u => u.username === username)
       if (existing) {
         existing.passwordHash = simpleHash(password)
@@ -271,11 +274,17 @@ export async function onRequest(context) {
 
     // ─── DATA ROUTES ───────────────────────────────────────────
 
-    // GET /api/data — full campaign data
+    // GET /api/data — full campaign data (handles legacy format migration)
     if (path === '/data' && method === 'GET') {
-      const data = await getFromKv(env, 'campaign-data', {
-        players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {},
-      })
+      let data = await getFromKv(env, 'campaign-data', null)
+      if (!data) {
+        data = { players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
+      } else if (data.campaign && !data.players) {
+        // Legacy format migration: old worker stored { campaign: {...}, users, requests }
+        data = data.campaign
+        // Save in new format for next time
+        await saveToKv(env, 'campaign-data', data)
+      }
       return json(data)
     }
 
@@ -284,7 +293,9 @@ export async function onRequest(context) {
       const apiKey = request.headers.get('X-API-Key')
       const authorized = (session && session.role === 'dm') || (apiKey && apiKey === env.API_KEY)
       if (!authorized) return json({ ok: false, error: 'Unauthorized' }, 401)
-      await saveToKv(env, 'campaign-data', body)
+      // If body is in legacy format { campaign, users, requests }, unwrap it
+      const toSave = (body.campaign && !body.players) ? body.campaign : body
+      await saveToKv(env, 'campaign-data', toSave)
       return json({ ok: true })
     }
 

@@ -148,6 +148,6 @@ export async function resetAdmin(username, password) {
   return await api('/auth/bootstrap', {
     method: 'POST',
     body: { username, password },
-    useApiKey: true,
+    useApiKey: false,
   })
 }
