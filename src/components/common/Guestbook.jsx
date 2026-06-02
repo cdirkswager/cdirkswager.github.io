@@ -5,6 +5,8 @@ import { getSession } from '../../data/auth'
 export default function Guestbook({ playerId }) {
   const [comments, setComments] = useState([])
   const [text, setText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [confirmingId, setConfirmingId] = useState(null)
   const session = getSession()
   const isDm = session?.role === 'dm'
 
@@ -14,16 +16,19 @@ export default function Guestbook({ playerId }) {
 
   useEffect(() => { refresh() }, [refresh])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!text.trim() || !session) return
+    if (!text.trim() || !session || submitting) return
+    setSubmitting(true)
     addComment(playerId, session.username, text.trim())
     setText('')
     refresh()
+    setSubmitting(false)
   }
 
   const handleDelete = (commentId) => {
     deleteComment(commentId, playerId)
+    setConfirmingId(null)
     refresh()
   }
 
@@ -51,9 +56,17 @@ export default function Guestbook({ playerId }) {
             </div>
             <p className="guestbook-text">{c.text}</p>
             {(isDm || session?.username === c.author) && (
-              <button className="btn btn-sm guestbook-delete" onClick={() => handleDelete(c.id)} aria-label="Delete comment">
-                🗑️
-              </button>
+              confirmingId === c.id ? (
+                <div className="guestbook-confirm">
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Delete?</span>
+                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(c.id)}>Yes</button>
+                  <button className="btn btn-sm" onClick={() => setConfirmingId(null)}>No</button>
+                </div>
+              ) : (
+                <button className="btn btn-sm guestbook-delete" onClick={() => setConfirmingId(c.id)} aria-label="Delete comment">
+                  🗑️
+                </button>
+              )
             )}
           </div>
         ))}
@@ -68,7 +81,9 @@ export default function Guestbook({ playerId }) {
             rows={2}
             required
           />
-          <button type="submit" className="btn btn-primary btn-sm">Post</button>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
+            {submitting ? '...' : 'Post'}
+          </button>
         </form>
       ) : (
         <p className="text-muted" style={{ fontSize: '0.9rem' }}>

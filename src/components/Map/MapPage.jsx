@@ -254,7 +254,7 @@ export default function MapPage() {
               <div className="pin-dot" />
               <span className="pin-label">{pin.label}</span>
               {showTooltip && (
-                <div className="pin-tooltip" onClick={(e) => e.stopPropagation()}>
+                <div className={'pin-tooltip' + (pin.y < 15 ? ' pin-tooltip-below' : '')} onClick={(e) => e.stopPropagation()}>
                   <strong>{pin.label}</strong>
                   {pin.description && <p className="pin-tooltip-desc">{pin.description}</p>}
                   <div className="pin-tooltip-actions">

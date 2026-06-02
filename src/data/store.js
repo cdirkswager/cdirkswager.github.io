@@ -14,6 +14,7 @@ const defaultData = {
       layout: 'single',
       musicUrl: '',
       commentsEnabled: true,
+      avatarUrl: '',
       theme: {
         bgColor: '#0d0d0d',
         textColor: '#e0d5c1',
@@ -38,6 +39,7 @@ const defaultData = {
       layout: 'single',
       musicUrl: '',
       commentsEnabled: true,
+      avatarUrl: '',
       theme: {
         bgColor: '#0a0a1a',
         textColor: '#c1d0e0',
@@ -70,7 +72,7 @@ function saveData(data) {
   localStorage.setItem(STORE_KEY, JSON.stringify(data))
 }
 
-function seedIfNeeded() {
+export function seedIfNeeded() {
   if (!localStorage.getItem(SEED_KEY)) {
     saveData(defaultData)
     localStorage.setItem(SEED_KEY, 'true')
@@ -78,7 +80,6 @@ function seedIfNeeded() {
 }
 
 export function getStore() {
-  seedIfNeeded()
   return loadData()
 }
 
@@ -101,6 +102,14 @@ export function savePlayer(player) {
   if (player.layout === undefined) player.layout = 'single'
   if (player.musicUrl === undefined) player.musicUrl = ''
   if (player.commentsEnabled === undefined) player.commentsEnabled = true
+  if (player.avatarUrl === undefined) player.avatarUrl = ''
+  if (player.widgetAnimations && typeof Object.keys(player.widgetAnimations)[0] === 'string' && /^\d+$/.test(Object.keys(player.widgetAnimations)[0])) {
+    const migrated = {}
+    player.widgets.forEach((w, i) => {
+      if (player.widgetAnimations[i]) migrated[w.id] = player.widgetAnimations[i]
+    })
+    player.widgetAnimations = migrated
+  }
   if (idx >= 0) {
     data.players[idx] = player
   } else {
@@ -243,4 +252,38 @@ export function resetData() {
   localStorage.removeItem(STORE_KEY)
   localStorage.removeItem(SEED_KEY)
   seedIfNeeded()
+}
+
+export function exportFullData() {
+  const users = getAllUsers()
+  const requests = getAllAccessRequests()
+  return JSON.stringify({ campaign: getStore(), users, requests }, null, 2)
+}
+
+export function importFullData(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr)
+    if (data.campaign && data.users && data.requests) {
+      saveData(data.campaign)
+      localStorage.setItem(SEED_KEY, 'true')
+      return { ok: true, users: data.users, requests: data.requests }
+    }
+  } catch (e) { /* ignore */ }
+  return { ok: false }
+}
+
+function getAllUsers() {
+  try {
+    const raw = localStorage.getItem('hunt-users')
+    if (raw) return JSON.parse(raw)
+  } catch (e) { /* ignore */ }
+  return []
+}
+
+function getAllAccessRequests() {
+  try {
+    const raw = localStorage.getItem('hunt-access-requests')
+    if (raw) return JSON.parse(raw)
+  } catch (e) { /* ignore */ }
+  return []
 }

@@ -7,16 +7,17 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
   const [form, setForm] = useState(widget ? { ...widget } : { ...defaultWidget })
 
   const handleTypeChange = (t) => {
-    const base = { ...form, type: t }
+    let base = { ...form, type: t }
     if (t === 'stats') base.content = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
     else if (t === 'custom') base.content = base.content || '<p>Custom HTML</p>'
+    else if (t === 'music') base = { ...base, content: base.content || '', musicUrl: base.musicUrl || '' }
     else base.content = base.content || ''
     setForm(base)
   }
 
   const isValid = () => {
     if (!form.type) return false
-    if (['description', 'bio', 'music'].includes(form.type) && !form.content?.trim()) return false
+    if (['description', 'bio'].includes(form.type) && !form.content?.trim()) return false
     if (form.type === 'image' && !form.content?.trim()) return false
     return true
   }
@@ -25,6 +26,8 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
     if (!isValid()) return
     onSave(form)
   }
+
+  const isSoundCloud = (url) => url && /soundcloud\.com/i.test(url)
 
   return (
     <Modal title={widget ? 'Edit Widget' : 'Add Widget'} onClose={onClose}>
@@ -36,7 +39,7 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
             <option value="bio">📖 Biography</option>
             <option value="stats">📊 Stats Block</option>
             <option value="image">🖼️ Image</option>
-            <option value="music">🎵 Music / Theme</option>
+            <option value="music">🎵 Music Player</option>
             <option value="custom">📝 Custom HTML</option>
           </select>
         </div>
@@ -60,7 +63,36 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
           <div className="mb-2">
             <label>Image URL</label>
             <input value={form.content || ''} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="https://example.com/portrait.jpg" />
+            <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+              Paste a direct link to an image file (.jpg, .png, .gif, .webp). Pinterest and other site links won't work — use the image's direct URL.
+            </p>
           </div>
+        )}
+
+        {form.type === 'music' && (
+          <>
+            <div className="mb-2">
+              <label>Music / SoundCloud URL</label>
+              <input value={form.musicUrl || ''} onChange={e => setForm({ ...form, musicUrl: e.target.value })} placeholder="https://soundcloud.com/artist/track or https://example.com/song.mp3" />
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                Paste a SoundCloud track URL for an embedded player, or a direct audio file link (.mp3, .ogg, .wav) for an audio player.
+              </p>
+              {isSoundCloud(form.musicUrl) && (
+                <p style={{ fontSize: '0.85rem', marginTop: 4, color: 'var(--accent-gold)' }}>
+                  ✅ SoundCloud URL detected — will embed a playable player
+                </p>
+              )}
+            </div>
+            <div className="mb-2">
+              <label>Description (optional)</label>
+              <textarea
+                value={form.content || ''}
+                onChange={e => setForm({ ...form, content: e.target.value })}
+                placeholder="A haunting melody drifts through the forest..."
+                rows={3}
+              />
+            </div>
+          </>
         )}
 
         {form.type === 'custom' && (
@@ -76,13 +108,13 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
           </>
         )}
 
-        {(form.type === 'description' || form.type === 'bio' || form.type === 'music') && (
+        {(form.type === 'description' || form.type === 'bio') && (
           <div className="mb-2">
             <label>Content</label>
             <textarea
               value={form.content || ''}
               onChange={e => setForm({ ...form, content: e.target.value })}
-              placeholder={form.type === 'music' ? 'A haunting melody drifts through the forest...' : 'Write your content here...'}
+              placeholder="Write your content here..."
               rows={4}
             />
           </div>

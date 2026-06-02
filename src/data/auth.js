@@ -179,6 +179,10 @@ export function unclaimPlayerId(playerId) {
   saveUsers(users)
 }
 
+export function getAllAccessRequests() {
+  return getAccessRequests()
+}
+
 export function setPlayerIdForUser(username, playerId) {
   const users = getUsers()
   const user = users.find(u => u.username === username)

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getSession } from '../../data/auth'
-import { getPlayer, savePlayer, getPlayers } from '../../data/store'
+import { getPlayer, savePlayer } from '../../data/store'
 import WidgetEditor from '../common/WidgetEditor'
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -47,7 +47,7 @@ function SortableWidget({ widget, index, onEdit, onRemove, onMoveUp, onMoveDown,
       <div className="widget-item-anim">
         <select
           value={animation || ''}
-          onChange={e => onAnimationChange(index, e.target.value)}
+          onChange={e => onAnimationChange(widget.id, e.target.value)}
           onClick={e => e.stopPropagation()}
           aria-label="Animation style"
         >
@@ -79,9 +79,14 @@ export default function ProfileEditor() {
   const [showWidgetModal, setShowWidgetModal] = useState(false)
   const [editingWidgetIdx, setEditingWidgetIdx] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
+  const dirtyRef = useRef(false)
 
   useEffect(() => {
-    setIsMobile(window.matchMedia('(pointer: coarse)').matches)
+    const mq = window.matchMedia('(pointer: coarse)')
+    setIsMobile(mq.matches)
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
   }, [])
 
   useEffect(() => {
@@ -90,9 +95,26 @@ export default function ProfileEditor() {
       if (p) {
         setPlayer(p)
         setForm(JSON.parse(JSON.stringify(p)))
+        dirtyRef.current = false
       }
     }
   }, [session?.playerId])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (dirtyRef.current) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
+  const markDirty = (next) => {
+    setForm(next)
+    dirtyRef.current = true
+  }
 
   if (!player || !form) {
     return (
@@ -103,11 +125,11 @@ export default function ProfileEditor() {
   }
 
   const handleChange = (field, value) => {
-    setForm({ ...form, [field]: value })
+    markDirty({ ...form, [field]: value })
   }
 
   const handleThemeChange = (key, value) => {
-    setForm({ ...form, theme: { ...form.theme, [key]: value } })
+    markDirty({ ...form, theme: { ...form.theme, [key]: value } })
   }
 
   const handleSubmit = (e) => {
@@ -116,6 +138,7 @@ export default function ProfileEditor() {
     const savedPlayer = savePlayer(form)
     setPlayer(savedPlayer)
     setSaved(true)
+    dirtyRef.current = false
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -132,13 +155,13 @@ export default function ProfileEditor() {
     } else {
       newWidgets[editingWidgetIdx] = widgetData
     }
-    setForm({ ...form, widgets: newWidgets })
+    markDirty({ ...form, widgets: newWidgets })
     setShowWidgetModal(false)
     setEditingWidgetIdx(null)
   }
 
   const removeWidget = (idx) => {
-    setForm({ ...form, widgets: form.widgets.filter((_, i) => i !== idx) })
+    markDirty({ ...form, widgets: form.widgets.filter((_, i) => i !== idx) })
   }
 
   const moveWidget = (idx, dir) => {
@@ -146,7 +169,7 @@ export default function ProfileEditor() {
     const target = idx + dir
     if (target < 0 || target >= newWidgets.length) return
     ;[newWidgets[idx], newWidgets[target]] = [newWidgets[target], newWidgets[idx]]
-    setForm({ ...form, widgets: newWidgets })
+    markDirty({ ...form, widgets: newWidgets })
   }
 
   const handleDragEnd = (event) => {
@@ -155,13 +178,13 @@ export default function ProfileEditor() {
     const oldIdx = form.widgets.findIndex(w => w.id === active.id)
     const newIdx = form.widgets.findIndex(w => w.id === over.id)
     if (oldIdx === -1 || newIdx === -1) return
-    setForm({ ...form, widgets: arrayMove(form.widgets, oldIdx, newIdx) })
+    markDirty({ ...form, widgets: arrayMove(form.widgets, oldIdx, newIdx) })
   }
 
-  const setAnimation = (idx, value) => {
+  const setAnimation = (widgetId, value) => {
     const anims = { ...(form.widgetAnimations || {}) }
-    anims[idx] = value
-    setForm({ ...form, widgetAnimations: anims })
+    anims[widgetId] = value
+    markDirty({ ...form, widgetAnimations: anims })
   }
 
   return (
@@ -205,6 +228,17 @@ export default function ProfileEditor() {
                 <label>Bio</label>
                 <textarea value={form.bio} onChange={e => handleChange('bio', e.target.value)} placeholder="Backstory..." rows={3} />
               </div>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🖼️ Avatar</h3>
+            <div className="mb-2">
+              <label>Avatar Image URL (optional)</label>
+              <input value={form.avatarUrl || ''} onChange={e => handleChange('avatarUrl', e.target.value)} placeholder="https://example.com/character-portrait.jpg" />
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                Paste a direct link to an image file for your character&apos;s portrait/token.
+              </p>
             </div>
           </div>
 
@@ -317,7 +351,7 @@ export default function ProfileEditor() {
                       onRemove={removeWidget}
                       onMoveUp={(idx) => moveWidget(idx, -1)}
                       onMoveDown={(idx) => moveWidget(idx, 1)}
-                      animation={form.widgetAnimations?.[i]}
+                      animation={form.widgetAnimations?.[w.id]}
                       onAnimationChange={setAnimation}
                       isMobile={isMobile}
                     />

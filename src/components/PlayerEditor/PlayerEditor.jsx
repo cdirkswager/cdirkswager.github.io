@@ -155,6 +155,17 @@ export default function PlayerEditor() {
           </div>
 
           <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🖼️ Avatar</h3>
+            <div className="mb-2">
+              <label>Avatar Image URL (optional)</label>
+              <input value={form.avatarUrl || ''} onChange={e => setForm({ ...form, avatarUrl: e.target.value })} placeholder="https://example.com/character-portrait.jpg" />
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                Direct link to an image file for the character&apos;s portrait/token.
+              </p>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
             <h3 className="widget-title mb-2">🎨 Theme (MySpace Style)</h3>
             <div className="theme-preview mb-2" style={{
               background: form.theme.bgColor,
@@ -243,6 +254,39 @@ export default function PlayerEditor() {
           </div>
 
           <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">📐 Page Layout</h3>
+            <div className="layout-options">
+              <label className={`layout-option ${form.layout === 'single' ? 'active' : ''}`}>
+                <input type="radio" name="player-layout" value="single" checked={form.layout === 'single'} onChange={e => setForm({ ...form, layout: e.target.value })} />
+                <span className="layout-icon">📄</span>
+                <span>Single Column</span>
+              </label>
+              <label className={`layout-option ${form.layout === 'two-column' ? 'active' : ''}`}>
+                <input type="radio" name="player-layout" value="two-column" checked={form.layout === 'two-column'} onChange={e => setForm({ ...form, layout: e.target.value })} />
+                <span className="layout-icon">📑</span>
+                <span>Two Column</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🎵 Background Music</h3>
+            <div className="mb-2">
+              <label>Music URL (audio file or embed link)</label>
+              <input value={form.musicUrl || ''} onChange={e => setForm({ ...form, musicUrl: e.target.value })} placeholder="https://example.com/theme.mp3" />
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                Supports MP3, OGG, WAV files.
+              </p>
+            </div>
+            <div>
+              <label className="checkbox-label">
+                <input type="checkbox" checked={form.commentsEnabled !== false} onChange={e => setForm({ ...form, commentsEnabled: e.target.checked })} />
+                Enable visitor guestbook on this page
+              </label>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
             <div className="flex-between mb-2">
               <h3 className="widget-title">🧩 Widgets (Page Sections)</h3>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => openWidget(null, null)}>
@@ -254,7 +298,7 @@ export default function PlayerEditor() {
             )}
             <div className="widget-list">
               {form.widgets.map((w, i) => (
-                <div key={i} className="widget-item">
+                <div key={w.id || i} className="widget-item">
                   <div className="widget-item-info">
                     <span className="widget-item-type">{w.type}</span>
                     <span className="widget-item-preview">
@@ -265,6 +309,27 @@ export default function PlayerEditor() {
                        w.type === 'music' ? '🎵 Music' :
                        w.type === 'custom' ? (w.title || '📝 Custom') : '📦 Widget'}
                     </span>
+                  </div>
+                  <div className="widget-item-anim">
+                    <select
+                      value={form.widgetAnimations?.[w.id] || ''}
+                      onChange={e => {
+                        const anims = { ...(form.widgetAnimations || {}) }
+                        anims[w.id] = e.target.value
+                        setForm({ ...form, widgetAnimations: anims })
+                      }}
+                      aria-label="Animation style"
+                    >
+                      <option value="">None</option>
+                      <option value="fadeIn">Fade In</option>
+                      <option value="fadeInUp">Fade In Up</option>
+                      <option value="fadeInDown">Fade In Down</option>
+                      <option value="slideInLeft">Slide In Left</option>
+                      <option value="slideInRight">Slide In Right</option>
+                      <option value="bounceIn">Bounce In</option>
+                      <option value="zoomIn">Zoom In</option>
+                      <option value="flipInX">Flip In</option>
+                    </select>
                   </div>
                   <div className="widget-item-actions">
                     <button type="button" className="btn btn-sm" onClick={() => openWidget(w, i)}>✏️</button>

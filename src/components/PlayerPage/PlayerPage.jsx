@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getPlayer, getPlayers, getComments, addComment, deleteComment } from '../../data/store'
 import { getSession } from '../../data/auth'
 import Guestbook from '../common/Guestbook'
 import './PlayerPage.css'
 
-function MusicPlayer({ url }) {
+function BackgroundMusicPlayer({ url }) {
   const [playing, setPlaying] = useState(false)
   const [showPlayer, setShowPlayer] = useState(true)
-  const audioRef = useState(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     if (!url) return
     const audio = new Audio(url)
     audio.loop = true
     audio.volume = 0.3
-    audioRef[0] = audio
+    audioRef.current = audio
     const playPromise = audio.play()
     if (playPromise !== undefined) {
       playPromise.then(() => setPlaying(true)).catch(() => {})
@@ -24,7 +24,7 @@ function MusicPlayer({ url }) {
   }, [url])
 
   const togglePlay = () => {
-    const audio = audioRef[0]
+    const audio = audioRef.current
     if (!audio) return
     if (playing) { audio.pause(); setPlaying(false) }
     else { audio.play().then(() => setPlaying(true)).catch(() => {}) }
@@ -39,6 +39,83 @@ function MusicPlayer({ url }) {
       </button>
       <span className="music-player-text">{playing ? 'Now Playing' : 'Click to Play'} </span>
       <button className="music-player-close" onClick={() => setShowPlayer(false)} aria-label="Close music player">✕</button>
+    </div>
+  )
+}
+
+function ImageWidget({ widget }) {
+  const [error, setError] = useState(false)
+  if (!widget.content) return null
+  if (error) {
+    return (
+      <div>
+        <h3 className="widget-title">🖼️ Image</h3>
+        <div className="widget-image-error">
+          <p>Could not load image. Make sure the URL points directly to an image file (.jpg, .png, .gif, .webp).</p>
+          <p className="text-muted" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{widget.content}</p>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <h3 className="widget-title">🖼️ Image</h3>
+      <img src={widget.content} alt="Character" className="widget-image" onError={() => setError(true)} />
+    </div>
+  )
+}
+
+function MusicWidget({ widget, theme }) {
+  const url = widget.musicUrl || ''
+  const description = widget.content || ''
+  const isSoundCloud = url && /soundcloud\.com/i.test(url)
+  const isAudioFile = url && /\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(url)
+  const [audioError, setAudioError] = useState(false)
+
+  return (
+    <div>
+      <h3 className="widget-title">🎵 Music</h3>
+      {isSoundCloud && (
+        <div className="widget-soundcloud">
+          <iframe
+            src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23c9a84c&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`}
+            width="100%"
+            height="166"
+            frameBorder="no"
+            scrolling="no"
+            allow="autoplay"
+            title="SoundCloud player"
+            style={{ borderRadius: 'var(--radius)' }}
+          />
+        </div>
+      )}
+      {isAudioFile && !audioError && (
+        <div className="widget-audio-player">
+          <audio controls preload="metadata" style={{ width: '100%' }}>
+            <source src={url} />
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+      )}
+      {isAudioFile && audioError && (
+        <p className="widget-text text-muted">Could not load audio from the provided URL.</p>
+      )}
+      {!isSoundCloud && !isAudioFile && url && (
+        <div className="widget-audio-player">
+          <audio controls preload="metadata" style={{ width: '100%' }} onError={() => setAudioError(true)}>
+            <source src={url} />
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+      )}
+      {description && (
+        <p className="widget-text" style={{ fontStyle: 'italic', marginTop: url ? 8 : 0 }}>
+          &ldquo;{description}&rdquo;
+        </p>
+      )}
+      {!url && !description && (
+        <p className="text-muted">No music configured.</p>
+      )}
     </div>
   )
 }
@@ -72,26 +149,14 @@ function WidgetContent({ widget, theme, animation }) {
           <p className="widget-text">{widget.content}</p>
         </div>
       )}
-      {widget.type === 'image' && widget.content && (
-        <div>
-          <h3 className="widget-title">🖼️ Image</h3>
-          <img src={widget.content} alt="Character" className="widget-image" />
-        </div>
-      )}
+      {widget.type === 'image' && <ImageWidget widget={widget} />}
       {widget.type === 'custom' && (
         <div>
           <h3 className="widget-title">{widget.title || 'Custom'}</h3>
           <div className="widget-text" dangerouslySetInnerHTML={{ __html: widget.content }} />
         </div>
       )}
-      {widget.type === 'music' && widget.content && (
-        <div>
-          <h3 className="widget-title">🎵 Theme</h3>
-          <p className="widget-text" style={{ fontStyle: 'italic' }}>
-            &ldquo;{widget.content}&rdquo;
-          </p>
-        </div>
-      )}
+      {widget.type === 'music' && <MusicWidget widget={widget} theme={theme} />}
     </div>
   )
 }
@@ -100,11 +165,13 @@ export default function PlayerPage() {
   const { id } = useParams()
   const [player, setPlayer] = useState(null)
   const [allPlayers, setAllPlayers] = useState([])
+  const [avatarError, setAvatarError] = useState(false)
   const session = getSession()
 
   useEffect(() => {
     setPlayer(getPlayer(id))
     setAllPlayers(getPlayers())
+    setAvatarError(false)
   }, [id])
 
   if (!player) {
@@ -138,9 +205,11 @@ export default function PlayerPage() {
   const leftWidgets = isTwoColumn ? (player.widgets || []).slice(0, splitAt) : []
   const rightWidgets = isTwoColumn ? (player.widgets || []).slice(splitAt) : []
 
+  const hasAvatar = player.avatarUrl && !avatarError
+
   return (
     <div className="player-page" style={sectionStyle}>
-      {player.musicUrl && <MusicPlayer url={player.musicUrl} />}
+      {player.musicUrl && <BackgroundMusicPlayer url={player.musicUrl} />}
 
       <div className="player-profile">
         <div className="player-banner" style={{
@@ -148,8 +217,19 @@ export default function PlayerPage() {
         }}>
           <div className="container">
             <div className="player-profile-inner">
-              <div className="player-avatar-large" style={{ borderColor: theme?.accentColor || '#c9a84c' }}>
-                {player.name.charAt(0)}
+              <div className="player-avatar-wrapper">
+                <div className="player-avatar-large" style={{ borderColor: theme?.accentColor || '#c9a84c' }}>
+                  {hasAvatar ? (
+                    <img src={player.avatarUrl} alt={player.name} className="player-avatar-img" onError={() => setAvatarError(true)} />
+                  ) : (
+                    player.name.charAt(0)
+                  )}
+                </div>
+                {canEdit && (
+                  <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="player-avatar-edit" title="Change avatar">
+                    📷
+                  </Link>
+                )}
               </div>
               <div className="player-profile-info">
                 <h1 className="player-name-display" style={{ fontFamily: theme?.fontFamily }}>
@@ -178,20 +258,20 @@ export default function PlayerPage() {
             </div>
           )}
 
-          {!isTwoColumn && player.widgets?.map((widget, i) => (
-            <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[i]} />
+            {!isTwoColumn && player.widgets?.map((widget, i) => (
+            <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
           ))}
 
           {isTwoColumn && (
             <>
               <div className="player-col-left">
                 {leftWidgets.map((widget, i) => (
-                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[i]} />
+                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
                 ))}
               </div>
               <div className="player-col-right">
                 {rightWidgets.map((widget, i) => (
-                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[splitAt + i]} />
+                  <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
                 ))}
               </div>
             </>

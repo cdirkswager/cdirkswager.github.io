@@ -4,6 +4,7 @@ import {
   getPlayers, getMapPins, getQuestionnaires,
   deletePlayer, deleteMapPin, deleteQuestionnaire,
   exportData, importData, resetData,
+  exportFullData, importFullData,
   getAllComments, deleteComment,
 } from '../../data/store'
 import {
@@ -25,9 +26,13 @@ export default function DMTools() {
   const [importText, setImportText] = useState('')
   const [importStatus, setImportStatus] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
+  const [showFullImport, setShowFullImport] = useState(false)
+  const [fullImportText, setFullImportText] = useState('')
+  const [fullImportStatus, setFullImportStatus] = useState('')
   const [showUsers, setShowUsers] = useState(false)
   const [selectedReq, setSelectedReq] = useState(null)
   const [editingReqPlayer, setEditingReqPlayer] = useState('')
+  const [confirmUserDelete, setConfirmUserDelete] = useState(null)
 
   const refresh = () => {
     setPlayers(getPlayers())
@@ -64,6 +69,30 @@ export default function DMTools() {
       setTimeout(() => { setShowImport(false); setImportStatus('') }, 1500)
     } else {
       setImportStatus('❌ Invalid data format. Please check the JSON.')
+    }
+  }
+
+  const handleFullExport = () => {
+    const data = exportFullData()
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `hunt-full-backup-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleFullImport = () => {
+    const result = importFullData(fullImportText)
+    if (result.ok) {
+      localStorage.setItem('hunt-users', JSON.stringify(result.users))
+      localStorage.setItem('hunt-access-requests', JSON.stringify(result.requests))
+      setFullImportStatus('✅ Full data imported successfully!')
+      refresh()
+      setTimeout(() => { setShowFullImport(false); setFullImportStatus('') }, 1500)
+    } else {
+      setFullImportStatus('❌ Invalid full backup format.')
     }
   }
 
@@ -118,16 +147,12 @@ export default function DMTools() {
   const handleDeleteUser = (userId) => {
     const session = currentUser()
     if (session && session.userId === userId) {
-      if (!confirm('Delete your own account? You will be logged out.')) return
       deleteUser(userId)
       authLogout()
       navigate('/')
       return
     }
-    if (confirm('Delete this user?')) {
-      deleteUser(userId)
-      refresh()
-    }
+    setConfirmUserDelete(userId)
   }
 
   const pendingRequests = requests.filter(r => r.status === 'pending')
@@ -143,6 +168,8 @@ export default function DMTools() {
           <div className="dm-header-actions">
             <button className="btn btn-sm" onClick={handleExport}>📤 Export</button>
             <button className="btn btn-sm" onClick={() => setShowImport(true)}>📥 Import</button>
+            <button className="btn btn-sm" onClick={handleFullExport}>💾 Full Backup</button>
+            <button className="btn btn-sm" onClick={() => setShowFullImport(true)}>📂 Restore Backup</button>
             <button className="btn btn-sm" onClick={() => setShowUsers(true)}>👥 Users</button>
             <button className="btn btn-sm btn-danger" onClick={() => setConfirmReset(true)}>⚠️ Reset</button>
           </div>
@@ -334,6 +361,25 @@ export default function DMTools() {
         </div>
       </div>
 
+      {showFullImport && (
+        <Modal title="📂 Restore Full Backup" onClose={() => { setShowFullImport(false); setFullImportStatus('') }} large>
+          <p className="mb-2 text-muted" style={{ fontSize: '0.85rem' }}>
+            This will restore campaign data, users, and access requests. Use the "Full Backup" export to get the file.
+          </p>
+          <textarea
+            value={fullImportText}
+            onChange={e => setFullImportText(e.target.value)}
+            placeholder="Paste your full backup JSON here..."
+            rows={10}
+            style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+          />
+          {fullImportStatus && <p className="mt-1">{fullImportStatus}</p>}
+          <div className="mt-2 text-center">
+            <button className="btn btn-primary" onClick={handleFullImport}>Restore Full Backup</button>
+          </div>
+        </Modal>
+      )}
+
       {showImport && (
         <Modal title="📥 Import Campaign Data" onClose={() => { setShowImport(false); setImportStatus('') }} large>
           <textarea
@@ -405,6 +451,16 @@ export default function DMTools() {
               </p>
             </div>
           )}
+        </Modal>
+      )}
+
+      {confirmUserDelete && (
+        <Modal title="🗑️ Delete User?" onClose={() => setConfirmUserDelete(null)}>
+          <p className="mb-2">Delete this user? This cannot be undone.</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmUserDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => { deleteUser(confirmUserDelete); setConfirmUserDelete(null); refresh() }}>🗑️ Delete</button>
+          </div>
         </Modal>
       )}
 
