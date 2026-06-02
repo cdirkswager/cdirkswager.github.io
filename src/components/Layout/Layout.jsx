@@ -14,8 +14,8 @@ export default function Layout({ children }) {
     setSession(getSession())
   }, [location])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     setSession(null)
     setMenuOpen(false)
     navigate('/')

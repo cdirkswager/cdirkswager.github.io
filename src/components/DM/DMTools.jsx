@@ -14,7 +14,6 @@ import {
   currentUser, getSession, logout as authLogout, unclaimPlayerId,
 } from '../../data/auth'
 import Modal from '../common/Modal'
-import { testConnection, disconnect as syncDisconnect, getWorkerUrl, getApiKey } from '../../data/sync'
 import './DMTools.css'
 
 export default function DMTools() {
@@ -48,19 +47,18 @@ export default function DMTools() {
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
   const [confirmDenyReq, setConfirmDenyReq] = useState(null)
-  const [workerUrlInput, setWorkerUrlInput] = useState(getWorkerUrl() || import.meta.env.VITE_WORKER_URL || '')
-  const [apiKeyInput, setApiKeyInput] = useState(getApiKey() || import.meta.env.VITE_API_KEY || '')
-  const [syncConnectError, setSyncConnectError] = useState('')
 
 
 
-  const refresh = () => {
+
+  const refresh = async () => {
     setPlayers(getPlayers())
     setMaps(getMaps())
     setPins(getMapPins())
     setQuestionnaires(getQuestionnaires())
-    setRequests(getAccessRequests())
-    setUsers(getAllUsers())
+    const [reqs, usrs] = await Promise.all([getAccessRequests(), getAllUsers()])
+    if (reqs) setRequests(reqs)
+    if (usrs) setUsers(usrs)
   }
 
   useEffect(() => {
@@ -123,8 +121,8 @@ export default function DMTools() {
     refresh()
   }
 
-  const handleDeletePlayer = (id) => {
-    unclaimPlayerId(id)
+  const handleDeletePlayer = async (id) => {
+    await unclaimPlayerId(id)
     deletePlayer(id)
     setConfirmPlayerDelete(null)
     refresh()
@@ -193,25 +191,25 @@ export default function DMTools() {
     setEditingReqPlayer(req.playerId || '')
   }
 
-  const confirmApprove = () => {
+  const confirmApprove = async () => {
     if (!selectedReq || !editingReqPlayer) return
-    approveRequest(selectedReq.id, editingReqPlayer, selectedReq.username)
+    await approveRequest(selectedReq.id, editingReqPlayer)
     setPlayerIdForUser(selectedReq.username, editingReqPlayer)
     setSelectedReq(null)
     refresh()
   }
 
-  const handleDeny = (reqId) => {
-    denyRequest(reqId)
+  const handleDeny = async (reqId) => {
+    await denyRequest(reqId)
     setConfirmDenyReq(null)
     refresh()
   }
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     const session = currentUser()
     if (session && session.userId === userId) {
-      deleteUser(userId)
-      authLogout()
+      await deleteUser(userId)
+      await authLogout()
       navigate('/')
       return
     }
@@ -578,7 +576,7 @@ export default function DMTools() {
           <p className="mb-2">Delete this user? This cannot be undone.</p>
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmUserDelete(null)}>Cancel</button>
-            <button className="btn btn-danger" onClick={() => { deleteUser(confirmUserDelete); setConfirmUserDelete(null); refresh() }}>🗑️ Delete</button>
+            <button className="btn btn-danger" onClick={async () => { await deleteUser(confirmUserDelete); setConfirmUserDelete(null); refresh() }}>🗑️ Delete</button>
           </div>
         </Modal>
       )}

@@ -1,123 +1,47 @@
 const AUTH_KEY = 'hunt-auth-session'
-const USERS_KEY = 'hunt-users'
+const SESSION_TOKEN_KEY = 'hunt-session-token'
+const CLAIMED_KEY = 'hunt-claimed-ids'
 
-const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
+let sessionCache = null
 
-function hash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h) + str.charCodeAt(i);
-    h |= 0;
-  }
-  return 'h' + Math.abs(h).toString(36);
-}
-
-const ADMIN_PASS_HASH = hash(ADMIN_PASSWORD)
-
-function getUsers() {
+function getWorkerUrl() {
   try {
-    const raw = localStorage.getItem(USERS_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch (e) { /* ignore */ }
-  return []
+    const fromStorage = localStorage.getItem('hunt-worker-url')
+    if (fromStorage) return fromStorage
+  } catch {}
+  try {
+    const envUrl = import.meta.env.VITE_WORKER_URL
+    if (envUrl) {
+      localStorage.setItem('hunt-worker-url', envUrl)
+      return envUrl
+    }
+  } catch {}
+  return null
 }
 
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
-
-function seedAdmin() {
-  const users = getUsers()
-  if (users.some(u => u.username === ADMIN_USERNAME)) return
-  users.push({
-    id: 'user-admin',
-    username: ADMIN_USERNAME,
-    passwordHash: ADMIN_PASS_HASH,
-    role: 'dm',
-    playerId: null,
-    createdAt: Date.now(),
-  })
-  saveUsers(users)
-}
-
-seedAdmin()
-
-export function isPlayerClaimed(playerId) {
-  if (!playerId) return false
-  const users = getUsers()
-  return users.some(u => u.playerId === playerId)
-}
-
-export function getClaimedPlayerIds() {
-  const users = getUsers()
-  const ids = {}
-  users.forEach(u => { if (u.playerId) ids[u.playerId] = u.username })
-  return ids
-}
-
-export function getPlayerOwner(playerId) {
-  const users = getUsers()
-  const user = users.find(u => u.playerId === playerId)
-  return user || null
-}
-
-export function register(username, password, playerId) {
-  const users = getUsers()
-  if (users.find(u => u.username === username)) {
-    return { ok: false, error: 'Username already taken' }
+async function authFetch(path, options = {}) {
+  const url = getWorkerUrl()
+  if (!url) return { ok: false, error: 'Worker not configured' }
+  try {
+    const res = await fetch(url + path, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+    })
+    return await res.json()
+  } catch (e) {
+    return { ok: false, error: e.message || 'Could not reach server' }
   }
-  if (username.length < 2) {
-    return { ok: false, error: 'Username must be at least 2 characters' }
-  }
-  if (password.length < 4) {
-    return { ok: false, error: 'Password must be at least 4 characters' }
-  }
-  if (username.toLowerCase() === ADMIN_USERNAME.toLowerCase()) {
-    return { ok: false, error: 'That username is reserved' }
-  }
-  if (!playerId) {
-    return { ok: false, error: 'You must select a character to play' }
-  }
-  if (isPlayerClaimed(playerId)) {
-    return { ok: false, error: 'That character is already claimed by another player' }
-  }
-  const user = {
-    id: 'user-' + Date.now(),
-    username,
-    passwordHash: hash(password),
-    role: 'player',
-    playerId,
-    createdAt: Date.now(),
-  }
-  users.push(user)
-  saveUsers(users)
-  return { ok: true, user, isDM: false }
-}
-
-export function login(username, password) {
-  const users = getUsers()
-  const user = users.find(u => u.username === username)
-  if (!user) {
-    return { ok: false, error: 'User not found' }
-  }
-  if (user.passwordHash !== hash(password)) {
-    return { ok: false, error: 'Incorrect password' }
-  }
-  const session = { userId: user.id, username: user.username, role: user.role, playerId: user.playerId }
-  localStorage.setItem(AUTH_KEY, JSON.stringify(session))
-  return { ok: true, session }
-}
-
-export function logout() {
-  localStorage.removeItem(AUTH_KEY)
 }
 
 export function getSession() {
+  if (sessionCache) return sessionCache
   try {
     const raw = localStorage.getItem(AUTH_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch (e) { /* ignore */ }
+    if (raw) {
+      sessionCache = JSON.parse(raw)
+      return sessionCache
+    }
+  } catch {}
   return null
 }
 
@@ -139,84 +63,197 @@ export function currentUser() {
   return getSession()
 }
 
-export function getAccessRequests() {
-  try {
-    const raw = localStorage.getItem('hunt-access-requests')
-    if (raw) return JSON.parse(raw)
-  } catch (e) { /* ignore */ }
-  return []
-}
-
-export function saveAccessRequest(req) {
-  const requests = getAccessRequests()
-  if (!req.id) {
-    req.id = 'req-' + Date.now()
-    req.createdAt = Date.now()
-    req.status = 'pending'
-  }
-  const idx = requests.findIndex(r => r.id === req.id)
-  if (idx >= 0) requests[idx] = req
-  else requests.push(req)
-  localStorage.setItem('hunt-access-requests', JSON.stringify(requests))
-  return req
-}
-
-export function approveRequest(reqId, playerId, username) {
-  const requests = getAccessRequests()
-  const req = requests.find(r => r.id === reqId)
-  if (!req) return
-  req.status = 'approved'
-  localStorage.setItem('hunt-access-requests', JSON.stringify(requests))
-
-  const users = getUsers()
-  const user = users.find(u => u.username === req.username)
-  if (user) {
-    user.playerId = playerId
-    saveUsers(users)
-  }
-}
-
-export function denyRequest(reqId) {
-  const requests = getAccessRequests()
-  const req = requests.find(r => r.id === reqId)
-  if (!req) return
-  req.status = 'denied'
-  localStorage.setItem('hunt-access-requests', JSON.stringify(requests))
-}
-
-export function getAllUsers() {
-  return getUsers()
-}
-
-export function deleteUser(userId) {
-  const users = getUsers()
-  const target = users.find(u => u.id === userId)
-  if (!target || target.username === ADMIN_USERNAME) return
-  saveUsers(users.filter(u => u.id !== userId))
-}
-
-export function unclaimPlayerId(playerId) {
-  const users = getUsers()
-  users.forEach(u => {
-    if (u.playerId === playerId) u.playerId = null
+export async function login(username, password) {
+  const data = await authFetch('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
   })
-  saveUsers(users)
+  if (data.ok) {
+    sessionCache = data.session
+    localStorage.setItem(AUTH_KEY, JSON.stringify(data.session))
+    localStorage.setItem(SESSION_TOKEN_KEY, data.session.token)
+  }
+  return data
 }
 
-export function getAllAccessRequests() {
-  return getAccessRequests()
+export async function register(username, password, playerId) {
+  return await authFetch('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password, playerId }),
+  })
 }
 
-export function setPlayerIdForUser(username, playerId) {
-  const users = getUsers()
-  const user = users.find(u => u.username === username)
-  if (user) {
-    user.playerId = playerId
-    saveUsers(users)
-    const session = getSession()
-    if (session && session.userId === user.id) {
-      session.playerId = playerId
-      localStorage.setItem(AUTH_KEY, JSON.stringify(session))
+export async function logout() {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  if (token) {
+    await authFetch('/auth/logout', {
+      method: 'POST',
+      headers: { 'X-Session-Token': token },
+    })
+  }
+  sessionCache = null
+  localStorage.removeItem(AUTH_KEY)
+  localStorage.removeItem(SESSION_TOKEN_KEY)
+}
+
+export async function initAuth() {
+  await tryMigrate()
+  await refreshClaimed()
+
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  if (token) {
+    const data = await authFetch('/auth/session', {
+      headers: { 'X-Session-Token': token },
+    })
+    if (data.ok) {
+      sessionCache = data.session
+      localStorage.setItem(AUTH_KEY, JSON.stringify(data.session))
+      return data.session
     }
+  }
+
+  sessionCache = null
+  localStorage.removeItem(AUTH_KEY)
+  localStorage.removeItem(SESSION_TOKEN_KEY)
+  return null
+}
+
+async function tryMigrate() {
+  if (localStorage.getItem('hunt-auth-migrated')) return
+
+  const usersRaw = localStorage.getItem('hunt-users')
+  const requestsRaw = localStorage.getItem('hunt-access-requests')
+  if (!usersRaw && !requestsRaw) {
+    localStorage.setItem('hunt-auth-migrated', 'true')
+    return
+  }
+
+  let parsedUsers = []
+  let parsedRequests = []
+  try { parsedUsers = usersRaw ? JSON.parse(usersRaw) : [] } catch {}
+  try { parsedRequests = requestsRaw ? JSON.parse(requestsRaw) : [] } catch {}
+
+  if (parsedUsers.length === 0 && parsedRequests.length === 0) {
+    localStorage.setItem('hunt-auth-migrated', 'true')
+    return
+  }
+
+  const envKey = import.meta.env.VITE_API_KEY
+  if (!envKey) return
+
+  const url = getWorkerUrl()
+  if (!url) return
+
+  try {
+    const res = await fetch(url + '/auth/migrate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': envKey },
+      body: JSON.stringify({ users: parsedUsers, requests: parsedRequests }),
+    })
+    if (res.ok) {
+      localStorage.removeItem('hunt-users')
+      localStorage.removeItem('hunt-access-requests')
+    }
+  } catch {}
+  localStorage.setItem('hunt-auth-migrated', 'true')
+}
+
+async function refreshClaimed() {
+  const data = await authFetch('/auth/claimed')
+  if (data.ok) {
+    localStorage.setItem(CLAIMED_KEY, JSON.stringify(data.claimed))
+  }
+}
+
+export function getClaimedPlayerIds() {
+  try {
+    const raw = localStorage.getItem(CLAIMED_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return {}
+}
+
+export function isPlayerClaimed(playerId) {
+  if (!playerId) return false
+  const claimed = getClaimedPlayerIds()
+  return !!claimed[playerId]
+}
+
+export function getPlayerOwner(playerId) {
+  const claimed = getClaimedPlayerIds()
+  const entry = Object.entries(claimed).find(([id]) => id === playerId)
+  return entry ? { username: entry[1] } : null
+}
+
+export async function getAllUsers() {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  const data = await authFetch('/auth/users', {
+    headers: { 'X-Session-Token': token },
+  })
+  return data.ok ? data.users : []
+}
+
+export async function deleteUser(userId) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  const data = await authFetch('/auth/users/' + userId, {
+    method: 'DELETE',
+    headers: { 'X-Session-Token': token },
+  })
+  return data.ok
+}
+
+export async function unclaimPlayerId(playerId) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  const data = await authFetch('/auth/player/unclaim', {
+    method: 'PUT',
+    headers: { 'X-Session-Token': token },
+    body: JSON.stringify({ playerId }),
+  })
+  return data.ok
+}
+
+export async function getAccessRequests() {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  const data = await authFetch('/auth/requests', {
+    headers: { 'X-Session-Token': token },
+  })
+  return data.ok ? data.requests : []
+}
+
+export const getAllAccessRequests = getAccessRequests
+
+export async function saveAccessRequest(req) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  const data = await authFetch('/auth/requests', {
+    method: 'POST',
+    headers: { 'X-Session-Token': token },
+    body: JSON.stringify({ playerId: req.playerId, message: req.message || '' }),
+  })
+  return data.request || req
+}
+
+export async function approveRequest(reqId, playerId) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  await authFetch('/auth/requests/' + reqId + '/approve', {
+    method: 'PUT',
+    headers: { 'X-Session-Token': token },
+    body: JSON.stringify({ playerId }),
+  })
+}
+
+export async function denyRequest(reqId) {
+  const token = localStorage.getItem(SESSION_TOKEN_KEY)
+  await authFetch('/auth/requests/' + reqId + '/deny', {
+    method: 'PUT',
+    headers: { 'X-Session-Token': token },
+  })
+}
+
+export async function setPlayerIdForUser(username, playerId) {
+  const session = getSession()
+  if (session && session.username === username) {
+    session.playerId = playerId
+    sessionCache = session
+    localStorage.setItem(AUTH_KEY, JSON.stringify(session))
   }
 }

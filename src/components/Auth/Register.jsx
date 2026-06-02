@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, login, getSession, getAllUsers, saveAccessRequest, isPlayerClaimed, getClaimedPlayerIds } from '../../data/auth'
+import { register, login, getSession, saveAccessRequest, isPlayerClaimed, getClaimedPlayerIds } from '../../data/auth'
 import { getPlayers } from '../../data/store'
 import './Auth.css'
 
@@ -26,7 +26,7 @@ export default function Register() {
     setPlayers(getPlayers())
   }, [navigate])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
@@ -36,11 +36,11 @@ export default function Register() {
       return
     }
 
-    const result = register(username.trim(), password, playerId || null)
+    const result = await register(username.trim(), password, playerId || null)
     if (result.ok) {
-      login(username.trim(), password)
+      await login(username.trim(), password)
       if (playerId) {
-        saveAccessRequest({ username: username.trim(), playerId, message: requestMessage.trim() || '' })
+        await saveAccessRequest({ username: username.trim(), playerId, message: requestMessage.trim() || '' })
       }
       setSuccess('✅ Account created! Welcome, adventurer.')
       setTimeout(() => navigate('/', { replace: true }), 1000)

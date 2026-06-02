@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { seedIfNeeded } from './data/store'
 import { pullFromWorker, testConnection, getApiKey } from './data/sync'
+import { initAuth } from './data/auth'
 import 'animate.css'
 import './index.css'
 
@@ -26,7 +27,7 @@ async function initSync() {
     window.history.replaceState({}, '', url)
   }
 }
-initSync()
+initSync().then(() => initAuth())
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -16,14 +16,14 @@ export default function Login() {
     }
   }, [navigate])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     if (!username.trim() || !password.trim()) {
       setError('Please enter username and password')
       return
     }
-    const result = login(username.trim(), password)
+    const result = await login(username.trim(), password)
     if (result.ok) {
       navigate(result.session.role === 'dm' ? '/dm' : '/', { replace: true })
     } else {
