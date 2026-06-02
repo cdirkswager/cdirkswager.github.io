@@ -144,7 +144,10 @@ export async function setPlayerIdForUser(username, playerId) {
     localStorage.setItem(AUTH_KEY, JSON.stringify(session))
   }
 }
-
+export async function assignPlayerToUser(userId, playerId) {
+  const data = await put('/auth/users/' + userId + '/assign-player', { playerId })
+  return data.ok
+}
 export async function checkAdminStatus() {
   return await get('/auth/check-admin')
 }

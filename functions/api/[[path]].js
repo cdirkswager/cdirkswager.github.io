@@ -198,7 +198,19 @@ export async function onRequest(context) {
       const requests = await getFromKv(env, 'requests', [])
       return json({ ok: true, requests })
     }
-
+// PUT /api/auth/users/:id/assign-player (DM only)
+const assignPlayerMatch = path.match(/^\/auth\/users\/(.+)\/assign-player$/)
+if (assignPlayerMatch && method === 'PUT') {
+  if (!session || session.role !== 'dm') return json({ ok: false, error: 'Unauthorized' }, 403)
+  const userId = assignPlayerMatch[1]
+  const { playerId } = body
+  const users = await getFromKv(env, 'users', [])
+  const user = users.find(u => u.id === userId)
+  if (!user) return json({ ok: false, error: 'User not found' }, 404)
+  user.playerId = playerId || null
+  await saveToKv(env, 'users', users)
+  return json({ ok: true })
+}
     // PUT /api/auth/requests/:id/approve
     const approveMatch = path.match(/^\/auth\/requests\/(.+)\/approve$/)
     if (approveMatch && method === 'PUT') {

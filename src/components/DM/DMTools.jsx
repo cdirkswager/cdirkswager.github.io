@@ -7,12 +7,13 @@ import {
   exportData, importData, resetData,
   exportFullData, importFullData,
   getAllComments, deleteComment,
+  initStore,
 } from '../../data/store'
 import {
   getAccessRequests, approveRequest, denyRequest,
   getAllUsers, deleteUser, setPlayerIdForUser,
   currentUser, getSession, logout as authLogout, unclaimPlayerId,
-  approvePendingUser,
+  approvePendingUser, assignPlayerToUser,
 } from '../../data/auth'
 import Modal from '../common/Modal'
 import './DMTools.css'
@@ -48,11 +49,17 @@ export default function DMTools() {
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
   const [confirmDenyReq, setConfirmDenyReq] = useState(null)
+  // For assigning a character to a user directly from the Users modal
+  const [assigningUser, setAssigningUser] = useState(null)
+  const [assignPlayerId, setAssignPlayerId] = useState('')
 
-
-
-
+  // Re-fetches campaign data from the server, then updates all local state.
+  // This is critical — getPlayers() etc. read from an in-memory cache that
+  // only gets populated at startup. Without calling initStore() first, any
+  // server-side changes (like a new player created by approve-registration)
+  // won't appear until the page is hard-reloaded.
   const refresh = async () => {
+    await initStore()
     setPlayers(getPlayers())
     setMaps(getMaps())
     setPins(getMapPins())
@@ -217,6 +224,22 @@ export default function DMTools() {
     setConfirmUserDelete(userId)
   }
 
+  // Directly assign an existing character to a user from the Users modal.
+  // This covers the case where a DM created a character manually and wants
+  // to link it to a registered user without going through the access request flow.
+  const handleAssignPlayer = (user) => {
+    setAssigningUser(user)
+    setAssignPlayerId(user.playerId || '')
+  }
+
+  const confirmAssignPlayer = async () => {
+    if (!assigningUser) return
+    await assignPlayerToUser(assigningUser.id, assignPlayerId || null)
+    setAssigningUser(null)
+    setAssignPlayerId('')
+    refresh()
+  }
+
   const pendingRequests = requests.filter(r => r.status === 'pending')
 
   return (
@@ -334,8 +357,6 @@ export default function DMTools() {
             </div>
           </div>
         )}
-
-
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
@@ -574,8 +595,10 @@ export default function DMTools() {
                 return (
                   <div key={u.id} className="dm-list-item">
                     <div className="dm-list-info">
-                      <span className={`dm-list-dot ${u.role === 'dm' ? 'dm-role-dot' : ''}`}
-                        style={{ background: u.role === 'dm' ? '#d4522a' : '#6a4cc9' }} />
+                      <span
+                        className={`dm-list-dot ${u.role === 'dm' ? 'dm-role-dot' : ''}`}
+                        style={{ background: u.role === 'dm' ? '#d4522a' : u.role === 'pending' ? '#4a9eff' : '#6a4cc9' }}
+                      />
                       <div>
                         <span className="dm-list-name">{u.username}</span>
                         <span className="dm-list-detail">
@@ -594,6 +617,11 @@ export default function DMTools() {
                       </div>
                     </div>
                     <div className="dm-list-actions">
+                      {u.role === 'player' && (
+                        <button className="btn btn-sm" onClick={() => handleAssignPlayer(u)}>
+                          🔗 Assign
+                        </button>
+                      )}
                       <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u.id)}>🗑️</button>
                     </div>
                   </div>
@@ -617,6 +645,31 @@ export default function DMTools() {
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmUserDelete(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={async () => { await deleteUser(confirmUserDelete); setConfirmUserDelete(null); refresh() }}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {assigningUser && (
+        <Modal title="🔗 Assign Character" onClose={() => { setAssigningUser(null); setAssignPlayerId('') }}>
+          <p className="mb-2">
+            Assign a character to <strong>{assigningUser.username}</strong>:
+          </p>
+          <div className="mb-2">
+            <label>Character</label>
+            <select value={assignPlayerId} onChange={e => setAssignPlayerId(e.target.value)}>
+              <option value="">— None (unlink) —</option>
+              {players
+                .filter(p => !users.some(u => u.playerId === p.id && u.id !== assigningUser.id))
+                .map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+            </select>
+          </div>
+          <div className="flex-between">
+            <button className="btn" onClick={() => { setAssigningUser(null); setAssignPlayerId('') }}>Cancel</button>
+            <button className="btn btn-primary" onClick={confirmAssignPlayer}>
+              🔗 Save
+            </button>
           </div>
         </Modal>
       )}
@@ -757,5 +810,3 @@ export default function DMTools() {
     </div>
   )
 }
-
-
