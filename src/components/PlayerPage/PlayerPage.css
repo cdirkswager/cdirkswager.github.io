@@ -580,7 +580,17 @@
     padding: 10px;
   }
 
-  .source-editor-header {
+.source-editor-warning {
+  padding: 10px 16px;
+  background: rgba(227, 168, 126, 0.12);
+  border-bottom: 1px solid rgba(227, 168, 126, 0.25);
+  color: #e3a87e;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.source-editor-header {
     flex-wrap: wrap;
     gap: 8px;
   }

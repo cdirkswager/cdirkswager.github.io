@@ -1,7 +1,7 @@
 const STORE_KEY = 'hunt-campaign-data'
 const SEED_KEY = 'hunt-data-seeded'
 
-const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
+export const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
 
 const defaultData = {
   players: [
@@ -59,10 +59,10 @@ const defaultData = {
     },
   ],
   maps: [
-    { id: 'map-1', name: 'Spring', imageUrl: '', year: 0, season: 0 },
-    { id: 'map-2', name: 'Summer', imageUrl: '', year: 0, season: 1 },
-    { id: 'map-3', name: 'Autumn', imageUrl: '', year: 0, season: 2 },
-    { id: 'map-4', name: 'Winter', imageUrl: '', year: 0, season: 3 },
+    { id: 'map-1', name: 'Spring', imageUrl: '', year: 1, season: 0 },
+    { id: 'map-2', name: 'Summer', imageUrl: '', year: 1, season: 1 },
+    { id: 'map-3', name: 'Autumn', imageUrl: '', year: 1, season: 2 },
+    { id: 'map-4', name: 'Winter', imageUrl: '', year: 1, season: 3 },
   ],
   mapPins: [],
   questionnaires: [],
@@ -74,7 +74,7 @@ function migrateData(data) {
   if (!data) return data
   if (!data.maps) {
     data.maps = [
-      { id: 'map-1', name: 'The Realm', imageUrl: '', year: 0, season: 0 },
+      { id: 'map-1', name: 'The Realm', imageUrl: '', year: 1, season: 0 },
     ]
     data.mapPins = (data.mapPins || []).map(pin => {
       if (!pin.mapId) pin.mapId = 'map-1'
@@ -103,7 +103,7 @@ function loadData() {
       return migrateData(data)
     }
   } catch (e) { /* ignore */ }
-  return null
+  return { players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
 }
 
 function saveData(data) {
@@ -139,6 +139,9 @@ function escapeHtml(str) {
 export function generatePageSource(player) {
   if (!player) return { html: '', css: '' }
   const t = player.theme || {}
+  const w = player.widgets || []
+  const anims = player.widgetAnimations || {}
+  const isTwoCol = player.layout === 'two-column'
 
   const css = `
 :root {
@@ -243,7 +246,7 @@ img {
 
 p { line-height: 1.6; margin: 0 0 8px; }
 
-${player.layout === 'two-column' ? `
+${isTwoCol ? `
 .two-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -255,13 +258,7 @@ ${player.layout === 'two-column' ? `
 ` : ''}
 `.trim()
 
-  let widgetsHtml = ''
-  const w = player.widgets || []
-  const anims = player.widgetAnimations || {}
-  const isTwoCol = player.layout === 'two-column'
-  const splitAt = isTwoCol ? Math.ceil(w.length / 2) : 0
-
-  w.forEach((widget, i) => {
+  const renderWidget = (widget) => {
     const anim = anims[widget.id]
     const animClass = anim ? ` animate__animated animate__${anim}` : ''
     const section = (content) =>
@@ -272,75 +269,48 @@ ${player.layout === 'two-column' ? `
       Object.entries(widget.content || {}).forEach(([stat, val]) => {
         grid += `<div class="stat-item"><span class="stat-label">${escapeHtml(stat.toUpperCase())}</span><span class="stat-value">${escapeHtml(String(val))}</span></div>`
       })
-      widgetsHtml += section(`<div class="widget-title">📊 Stats</div><div class="stats-grid">${grid}</div>`)
-    } else if (widget.type === 'description') {
-      widgetsHtml += section(`<div class="widget-title">📜 Description</div><p>${escapeHtml(widget.content)}</p>`)
-    } else if (widget.type === 'bio') {
-      widgetsHtml += section(`<div class="widget-title">📖 Biography</div><p>${escapeHtml(widget.content)}</p>`)
-    } else if (widget.type === 'image') {
-      widgetsHtml += section(`<div class="widget-title">🖼️ Image</div>${widget.content ? `<img src="${escapeHtml(widget.content)}" alt="Character image" />` : '<p style="opacity:0.5">No image configured.</p>'}`)
-    } else if (widget.type === 'music') {
-      let musicContent = `<div class="widget-title">🎵 Music</div>`
-      if (widget.musicUrl) musicContent += `<p><em>Audio URL: ${escapeHtml(widget.musicUrl)}</em></p>`
-      if (widget.content) musicContent += `<p>${escapeHtml(widget.content)}</p>`
-      if (!widget.musicUrl && !widget.content) musicContent += '<p style="opacity:0.5">No music configured.</p>'
-      widgetsHtml += section(musicContent)
-    } else if (widget.type === 'custom') {
-      widgetsHtml += section(`${widget.title ? `<div class="widget-title">${escapeHtml(widget.title)}</div>` : ''}<div>${widget.content || ''}</div>`)
+      return section(`<div class="widget-title">📊 Stats</div><div class="stats-grid">${grid}</div>`)
     }
-  })
-
-  const headerHtml = `<div class="page-header"><h1 class="char-name">${escapeHtml(player.name)}</h1>${player.title ? `<p class="char-title">${escapeHtml(player.title)}</p>` : ''}<p class="char-class">${escapeHtml(player.race)} ${escapeHtml(player.class)} &middot; Level ${player.level}</p></div>`
-
-  let bodyHtml = ''
-  if (isTwoCol) {
-    const left = w.slice(0, splitAt)
-    const right = w.slice(splitAt)
-    bodyHtml = `<div class="two-col"><div>${w.slice(0, splitAt).reduce((h, _, i) => {
-      let idx = i
-      if (i < splitAt) return h
-      return h
-    }, '')}</div><div></div></div>`
-    // Actually let me just build it properly
-    let leftHtml = ''
-    let rightHtml = ''
-    // Need to re-collect the widgetsHtml strings for each side
-    // This is getting complex. Let me take a simpler approach.
+    if (widget.type === 'description') {
+      return section(`<div class="widget-title">📜 Description</div><p>${escapeHtml(widget.content)}</p>`)
+    }
+    if (widget.type === 'bio') {
+      return section(`<div class="widget-title">📖 Biography</div><p>${escapeHtml(widget.content)}</p>`)
+    }
+    if (widget.type === 'image') {
+      return section(`<div class="widget-title">🖼️ Image</div>${widget.content ? `<img src="${escapeHtml(widget.content)}" alt="Character image" />` : '<p style="opacity:0.5">No image configured.</p>'}`)
+    }
+    if (widget.type === 'music') {
+      let mc = `<div class="widget-title">🎵 Music</div>`
+      if (widget.musicUrl) mc += `<p><em>Audio URL: ${escapeHtml(widget.musicUrl)}</em></p>`
+      if (widget.content) mc += `<p>${escapeHtml(widget.content)}</p>`
+      if (!widget.musicUrl && !widget.content) mc += '<p style="opacity:0.5">No music configured.</p>'
+      return section(mc)
+    }
+    if (widget.type === 'custom') {
+      return section(`${widget.title ? `<div class="widget-title">${escapeHtml(widget.title)}</div>` : ''}<div>${widget.content || ''}</div>`)
+    }
+    return ''
   }
 
-  // Simple approach: render all widgets in order. Two-column is harder in generated source but let me just do single-column by default since the user can edit the CSS for custom layouts.
-  const allWidgetsHtml = (() => {
-    let html = ''
-    w.forEach((widget) => {
-      const anim = anims[widget.id]
-      const animClass = anim ? ` animate__animated animate__${anim}` : ''
-      const section = (content) =>
-        `<div class="widget-section${animClass}" data-widget-id="${widget.id}" data-type="${widget.type}">${content}</div>`
+  const headerHtml = `<div class="page-header"><h1 class="char-name">${escapeHtml(player.name)}</h1>${player.title ? `<p class="char-title">${escapeHtml(player.title)}</p>` : ''}<p class="char-class">${escapeHtml(player.race)} ${escapeHtml(player.class)} &middot; Level ${player.level || 1}</p></div>`
 
-      if (widget.type === 'stats') {
-        let grid = ''
-        Object.entries(widget.content || {}).forEach(([stat, val]) => {
-          grid += `<div class="stat-item"><span class="stat-label">${escapeHtml(stat.toUpperCase())}</span><span class="stat-value">${escapeHtml(String(val))}</span></div>`
-        })
-        html += section(`<div class="widget-title">📊 Stats</div><div class="stats-grid">${grid}</div>`)
-      } else if (widget.type === 'description') {
-        html += section(`<div class="widget-title">📜 Description</div><p>${escapeHtml(widget.content)}</p>`)
-      } else if (widget.type === 'bio') {
-        html += section(`<div class="widget-title">📖 Biography</div><p>${escapeHtml(widget.content)}</p>`)
-      } else if (widget.type === 'image') {
-        html += section(`<div class="widget-title">🖼️ Image</div>${widget.content ? `<img src="${escapeHtml(widget.content)}" alt="Character image" />` : '<p style="opacity:0.5">No image configured.</p>'}`)
-      } else if (widget.type === 'music') {
-        let mc = `<div class="widget-title">🎵 Music</div>`
-        if (widget.musicUrl) mc += `<p><em>Audio URL: ${escapeHtml(widget.musicUrl)}</em></p>`
-        if (widget.content) mc += `<p>${escapeHtml(widget.content)}</p>`
-        if (!widget.musicUrl && !widget.content) mc += '<p style="opacity:0.5">No music configured.</p>'
-        html += section(mc)
-      } else if (widget.type === 'custom') {
-        html += section(`${widget.title ? `<div class="widget-title">${escapeHtml(widget.title)}</div>` : ''}<div>${widget.content || ''}</div>`)
+  let bodyHtml
+  if (isTwoCol) {
+    const left = []
+    const right = []
+    w.forEach(wgt => {
+      if (wgt.column === 'left') left.push(wgt)
+      else if (wgt.column === 'right') right.push(wgt)
+      else {
+        if (left.length <= right.length) left.push(wgt)
+        else right.push(wgt)
       }
     })
-    return html
-  })()
+    bodyHtml = `<div class="two-col"><div>${left.map(renderWidget).join('')}</div><div>${right.map(renderWidget).join('')}</div></div>`
+  } else {
+    bodyHtml = w.map(renderWidget).join('')
+  }
 
   const htmlDoc = `<!DOCTYPE html>
 <html lang="en">
@@ -354,7 +324,7 @@ ${css}
 </head>
 <body>
 ${headerHtml}
-${allWidgetsHtml || '<p style="text-align:center;opacity:0.5">No widgets configured yet.</p>'}
+${bodyHtml || '<p style="text-align:center;opacity:0.5">No widgets configured yet.</p>'}
 </body>
 </html>`
 
@@ -449,10 +419,14 @@ export function getYears() {
     }))
 }
 
-export function addYear() {
+export function addYear(startYear) {
   const data = getStore()
-  const maxYear = data.maps.reduce((max, m) => Math.max(max, m.year ?? -1), -1)
-  const newYear = maxYear + 1
+  let newYear
+  if (startYear !== undefined) {
+    newYear = startYear
+  } else {
+    newYear = Math.max(data.maps.reduce((max, m) => Math.max(max, m.year ?? 0), 0) + 1, 1)
+  }
   SEASON_NAMES.forEach((name, i) => {
     const map = { name, imageUrl: '', year: newYear, season: i }
     saveMap(map)

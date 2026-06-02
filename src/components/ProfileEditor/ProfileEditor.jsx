@@ -45,6 +45,9 @@ function SortableWidget({ widget, index, onEdit, onRemove, onMoveUp, onMoveDown,
            widget.type === 'custom' ? (widget.title || '📝 Custom') : '📦 Widget'}
         </span>
       </div>
+      {widget.column && widget.column !== 'auto' && (
+        <span className={`widget-item-column col-${widget.column}`}>{widget.column === 'left' ? '←L' : '→R'}</span>
+      )}
       <div className="widget-item-anim">
         <select
           value={animation || ''}
@@ -152,7 +155,7 @@ export default function ProfileEditor() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (!form.name || !form.name.trim()) return
     const savedPlayer = savePlayer(form)
     setPlayer(savedPlayer)
     setSaved(true)
@@ -222,7 +225,7 @@ export default function ProfileEditor() {
             <h1 className="text-gold">🎭 My Profile</h1>
             <p className="text-muted">Customize your character page</p>
           </div>
-          <Link to={`/player/${form.id}`} className="btn btn-sm">
+          <Link to={`/player/${form.id}`} className="btn btn-sm" onClick={e => { if (dirtyRef.current && !window.confirm('You have unsaved changes. Leave anyway?')) e.preventDefault() }}>
             👤 View Page
           </Link>
         </div>
@@ -396,6 +399,9 @@ export default function ProfileEditor() {
                 <button type="button" className="btn btn-sm" onClick={() => setShowSourcePreview(true)}>👁️ Preview</button>
               </div>
             </div>
+            <div className="source-editor-warning" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+              ⚠️ Source Editor is experimental — layouts, animations, and some elements may not render correctly in custom mode.
+            </div>
             <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
               Write raw HTML and CSS for full control over your character page. When enabled, this replaces the widget layout.
               Your custom code is rendered in a sandboxed iframe for security.
@@ -445,6 +451,7 @@ export default function ProfileEditor() {
           widget={editingWidgetIdx !== null ? form.widgets[editingWidgetIdx] : null}
           onSave={saveWidget}
           onClose={() => { setShowWidgetModal(false); setEditingWidgetIdx(null) }}
+          isTwoColumn={form.layout === 'two-column'}
         />
       )}
 

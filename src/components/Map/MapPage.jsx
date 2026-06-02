@@ -251,7 +251,7 @@ export default function MapPage() {
         <div className="map-header-left">
           <h1 className="map-title">
             {timelineMode && currentMap ? (
-              <>📅 Year {currentMap.year !== undefined ? currentMap.year + 1 : '?'} &mdash; {currentMap.name}</>
+               <>📅 Year {currentMap.year ?? '?'} &mdash; {currentMap.name}</>
             ) : (
               <>🗺️ {currentMap?.name || 'The Realm'}</>
             )}
@@ -450,7 +450,7 @@ export default function MapPage() {
                     className={`timeline-label ${i === timelineIndex ? 'active' : ''}`}
                     onClick={() => setTimelineIndex(i)}
                     type="button"
-                    title={`${m.name} (Year ${(m.year ?? 0) + 1})`}
+                    title={`${m.name} (Year ${m.year ?? 0})`}
                   >
                     {m.name.substring(0, 3)}
                   </button>
@@ -466,7 +466,7 @@ export default function MapPage() {
                       width: `${(g.count / sortedMaps.length) * 100}%`,
                     }}
                   >
-                    Year {g.year + 1}
+                    Year {g.year}
                   </span>
                 ))}
               </div>

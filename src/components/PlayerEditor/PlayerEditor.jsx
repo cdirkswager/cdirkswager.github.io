@@ -138,7 +138,7 @@ export default function PlayerEditor() {
                 👤 View Page
               </Link>
             )}
-            <button className="btn btn-primary btn-sm" onClick={() => setSelectedId('new')}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate('/dm/players')}>
               ➕ New
             </button>
           </div>
@@ -349,6 +349,9 @@ export default function PlayerEditor() {
                        w.type === 'custom' ? (w.title || '📝 Custom') : '📦 Widget'}
                     </span>
                   </div>
+                  {w.column && w.column !== 'auto' && (
+                    <span className={`widget-item-column col-${w.column}`}>{w.column === 'left' ? '←L' : '→R'}</span>
+                  )}
                   <div className="widget-item-anim">
                     <select
                       value={form.widgetAnimations?.[w.id] || ''}
@@ -391,6 +394,9 @@ export default function PlayerEditor() {
                 }}>🔄 Regenerate</button>
                 <button type="button" className="btn btn-sm" onClick={() => setShowSourcePreview(true)}>👁️ Preview</button>
               </div>
+            </div>
+            <div className="source-editor-warning" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+              ⚠️ Source Editor is experimental — layouts, animations, and some elements may not render correctly in custom mode.
             </div>
             <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
               Raw HTML and CSS for full page control. When enabled, replaces the widget layout.
@@ -441,6 +447,7 @@ export default function PlayerEditor() {
           widget={editingWidget !== null ? form.widgets[editingWidget] : null}
           onSave={saveWidget}
           onClose={() => { setShowWidgetModal(false); setEditingWidget(null) }}
+          isTwoColumn={form.layout === 'two-column'}
         />
       )}
 

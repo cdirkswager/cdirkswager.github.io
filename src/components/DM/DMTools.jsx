@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   getPlayers, getMaps, getSortedMaps, getYears, getMapPins, getQuestionnaires,
   deletePlayer, saveMap, deleteMap, deleteMapPin, deleteQuestionnaire,
-  addYear, deleteYear,
+  addYear, deleteYear, SEASON_NAMES,
   exportData, importData, resetData,
   exportFullData, importFullData,
   getAllComments, deleteComment,
@@ -41,6 +41,8 @@ export default function DMTools() {
   const [confirmSeasonDelete, setConfirmSeasonDelete] = useState(null)
   const [confirmYearDelete, setConfirmYearDelete] = useState(null)
   const [addSeasonYear, setAddSeasonYear] = useState(null)
+  const [showAddYearModal, setShowAddYearModal] = useState(false)
+  const [addYearValue, setAddYearValue] = useState('')
   const [confirmPinDelete, setConfirmPinDelete] = useState(null)
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
@@ -135,7 +137,16 @@ export default function DMTools() {
   }
 
   const handleAddYear = () => {
-    addYear()
+    const maxYear = maps.reduce((max, m) => Math.max(max, m.year ?? -1), -1)
+    setAddYearValue(maxYear >= 0 ? String(maxYear + 1) : '')
+    setShowAddYearModal(true)
+  }
+
+  const confirmAddYear = () => {
+    const yearNum = parseInt(addYearValue)
+    if (isNaN(yearNum)) return
+    addYear(yearNum)
+    setShowAddYearModal(false)
     refresh()
   }
 
@@ -330,7 +341,7 @@ export default function DMTools() {
               {getYears().map(({ year, seasons }) => (
                 <div key={year} className="dm-year-group">
                   <div className="dm-year-header">
-                    <span className="dm-year-title">📅 Year {year + 1}</span>
+                    <span className="dm-year-title">📅 Year {year}</span>
                     <button className="btn btn-sm btn-danger" onClick={() => setConfirmYearDelete(year)} title="Delete this year and all its seasons">🗑️ Year</button>
                   </div>
                   {seasons.map(m => {
@@ -356,7 +367,7 @@ export default function DMTools() {
                     )
                   })}
                   <button className="btn btn-sm dm-add-season-btn" onClick={() => { setAddSeasonYear(year); setEditingSeason(null); setSeasonForm({ name: '', imageUrl: '', year, season: 0 }); setShowSeasonModal(true) }}>
-                    ➕ Add Season to Year {year + 1}
+                    ➕ Add Season to Year {year}
                   </button>
                 </div>
               ))}
@@ -383,7 +394,7 @@ export default function DMTools() {
                       <span className="dm-list-detail">{pin.x}%, {pin.y}%</span>
                       {pinMap && (
                         <span className="dm-list-detail" style={{ fontSize: '0.75rem', color: 'var(--accent-gold)' }}>
-                          {pinMap.name} {pinMap.year !== undefined ? `(Year ${pinMap.year + 1})` : ''}
+                          {pinMap.name} {pinMap.year !== undefined ? `(Year ${pinMap.year})` : ''}
                         </span>
                       )}
                     </div>
@@ -579,7 +590,7 @@ export default function DMTools() {
           </div>
           {!editingSeason && addSeasonYear !== null && (
             <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-              Adding to <strong>Year {addSeasonYear + 1}</strong>
+              Adding to <strong>Year {addSeasonYear}</strong>
             </p>
           )}
           <div className="text-center">
@@ -602,10 +613,28 @@ export default function DMTools() {
         </Modal>
       )}
 
+      {showAddYearModal && (
+        <Modal title="📅 Add Year" onClose={() => setShowAddYearModal(false)}>
+          <div className="mb-2">
+            <label>Year Number</label>
+            <input value={addYearValue} onChange={e => setAddYearValue(e.target.value)} placeholder="1450" type="number" autoFocus />
+            <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+              Sets the origin year for the new campaign era. Seasons will increment from this base.
+            </p>
+          </div>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setShowAddYearModal(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={confirmAddYear} disabled={!addYearValue.trim()}>
+              ➕ Add {SEASON_NAMES.length} Seasons
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {confirmYearDelete && (
         <Modal title="🗑️ Delete Year" onClose={() => setConfirmYearDelete(null)}>
           <p className="mb-2">
-            Delete <strong>Year {confirmYearDelete + 1}</strong> and all its seasons and pins? This cannot be undone.
+            Delete <strong>Year {confirmYearDelete}</strong> and all its seasons and pins? This cannot be undone.
           </p>
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmYearDelete(null)}>Cancel</button>

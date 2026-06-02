@@ -3,7 +3,7 @@ import Modal from './Modal'
 
 const defaultWidget = { type: 'description', title: '', content: '' }
 
-export default function WidgetEditor({ widget, onSave, onClose }) {
+export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
   const [form, setForm] = useState(widget ? { ...widget } : { ...defaultWidget })
 
   const handleTypeChange = (t) => {
@@ -128,6 +128,26 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
               placeholder="Write your content here..."
               rows={4}
             />
+          </div>
+        )}
+
+        {isTwoColumn && (
+          <div className="mb-2">
+            <label>Column</label>
+            <div className="column-options">
+              <label className={`column-option ${!form.column || form.column === 'auto' ? 'active' : ''}`}>
+                <input type="radio" name="widget-column" value="auto" checked={!form.column || form.column === 'auto'} onChange={e => setForm({ ...form, column: e.target.value === 'auto' ? undefined : e.target.value })} />
+                <span>↔ Auto</span>
+              </label>
+              <label className={`column-option ${form.column === 'left' ? 'active' : ''}`}>
+                <input type="radio" name="widget-column" value="left" checked={form.column === 'left'} onChange={e => setForm({ ...form, column: e.target.value })} />
+                <span>← Left</span>
+              </label>
+              <label className={`column-option ${form.column === 'right' ? 'active' : ''}`}>
+                <input type="radio" name="widget-column" value="right" checked={form.column === 'right'} onChange={e => setForm({ ...form, column: e.target.value })} />
+                <span>→ Right</span>
+              </label>
+            </div>
           </div>
         )}
 

@@ -205,8 +205,6 @@ export default function PlayerPage() {
     }
   }, [id])
 
-  const customCodeEnabled = player?.customCode?.enabled && player?.customCode?.html?.trim()
-
   const fullDoc = useMemo(() => {
     if (!editHtml) return ''
     return `<!DOCTYPE html>
@@ -249,8 +247,8 @@ export default function PlayerPage() {
       ...player,
       customCode: {
         enabled: sourceEnabled,
-        html: sanitizeHtml(editHtml),
-        css: sanitizeCss(editCss),
+        html: editHtml,
+        css: editCss,
       },
     }
     savePlayer(updated)
@@ -286,13 +284,27 @@ export default function PlayerPage() {
   const isTwoColumn = player.layout === 'two-column'
   const anims = player.widgetAnimations || {}
 
-  const splitAt = isTwoColumn ? Math.ceil((player.widgets?.length || 0) / 2) : 0
-  const leftWidgets = isTwoColumn ? (player.widgets || []).slice(0, splitAt) : []
-  const rightWidgets = isTwoColumn ? (player.widgets || []).slice(splitAt) : []
+  let leftWidgets = []
+  let rightWidgets = []
+  if (isTwoColumn) {
+    const widgets = player.widgets || []
+    const left = []
+    const right = []
+    widgets.forEach(w => {
+      if (w.column === 'left') left.push(w)
+      else if (w.column === 'right') right.push(w)
+      else {
+        if (left.length <= right.length) left.push(w)
+        else right.push(w)
+      }
+    })
+    leftWidgets = left
+    rightWidgets = right
+  }
 
   const hasAvatar = player.avatarUrl && !avatarError
 
-  const useCustomCode = player.customCode?.enabled && player.customCode?.html?.trim()
+  const useCustomCode = player.customCode?.enabled && (player.customCode?.html?.trim() || player.customCode?.css?.trim())
 
   return (
     <div className={`player-page ${useCustomCode ? 'player-page-source' : ''}`} style={sectionStyle}>
@@ -409,8 +421,8 @@ export default function PlayerPage() {
             .filter(p => p.id !== player.id)
             .map(p => (
               <Link key={p.id} to={`/player/${p.id}`} className="party-member">
-                <span className="party-avatar">{p.name.charAt(0)}</span>
-                <span className="party-name">{p.name.split(' ')[0]}</span>
+                <span className="party-avatar">{p.name?.charAt(0) || '?'}</span>
+                <span className="party-name">{(p.name?.split(' ')[0]) || '??'}</span>
               </Link>
             ))}
           {allPlayers.length <= 1 && (
@@ -424,6 +436,7 @@ export default function PlayerPage() {
       {showSourcePanel && (
         <div className="source-editor-overlay" onClick={() => setShowSourcePanel(false)}>
           <div className="source-editor-panel animate__animated animate__slideInUp" onClick={e => e.stopPropagation()}>
+            <div className="source-editor-warning">⚠️ Source Editor is experimental — layouts, animations, and some elements may not render correctly in custom mode.</div>
             <div className="source-editor-header">
               <h3 className="source-editor-title">📝 Page Source</h3>
               <div className="source-editor-header-actions">
