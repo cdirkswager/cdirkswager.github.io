@@ -60,13 +60,24 @@ export default function WidgetEditor({ widget, onSave, onClose }) {
         )}
 
         {form.type === 'image' && (
-          <div className="mb-2">
-            <label>Image URL</label>
-            <input value={form.content || ''} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="https://example.com/portrait.jpg" />
-            <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
-              Paste a direct link to an image file (.jpg, .png, .gif, .webp). Pinterest and other site links won't work — use the image's direct URL.
-            </p>
-          </div>
+          <>
+            <div className="mb-2">
+              <label>Image URL</label>
+              <input value={form.content || ''} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="https://example.com/portrait.jpg" />
+              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                Paste a direct link to an image file (.jpg, .png, .gif, .webp). Pinterest and other site links won't work — use the image's direct URL.
+              </p>
+            </div>
+            <div className="mb-2">
+              <label>Display Size</label>
+              <select value={form.size || 'medium'} onChange={e => setForm({ ...form, size: e.target.value })}>
+                <option value="small">Small (200px tall)</option>
+                <option value="medium">Medium (350px tall)</option>
+                <option value="large">Large (500px tall)</option>
+                <option value="original">Original size (no limit)</option>
+              </select>
+            </div>
+          </>
         )}
 
         {form.type === 'music' && (

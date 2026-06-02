@@ -7,6 +7,7 @@ import './PlayerPage.css'
 
 function BackgroundMusicPlayer({ url }) {
   const [playing, setPlaying] = useState(false)
+  const [audioError, setAudioError] = useState(false)
   const [showPlayer, setShowPlayer] = useState(true)
   const audioRef = useRef(null)
 
@@ -18,34 +19,46 @@ function BackgroundMusicPlayer({ url }) {
     audioRef.current = audio
     const playPromise = audio.play()
     if (playPromise !== undefined) {
-      playPromise.then(() => setPlaying(true)).catch(() => {})
+      playPromise.then(() => setPlaying(true)).catch(() => setAudioError(true))
     }
     return () => { audio.pause(); audio.src = '' }
   }, [url])
 
   const togglePlay = () => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || audioError) return
     if (playing) { audio.pause(); setPlaying(false) }
-    else { audio.play().then(() => setPlaying(true)).catch(() => {}) }
+    else { audio.play().then(() => setPlaying(true)).catch(() => setAudioError(true)) }
   }
 
-  if (!showPlayer && playing) return null
+  if (!showPlayer) return null
 
   return (
     <div className="music-player-bar">
       <button className="music-player-btn" onClick={togglePlay} aria-label={playing ? 'Pause music' : 'Play music'}>
-        {playing ? '⏸️' : '🎵'}
+        {playing ? '⏸️' : audioError ? '⚠️' : '🎵'}
       </button>
-      <span className="music-player-text">{playing ? 'Now Playing' : 'Click to Play'} </span>
+      <span className="music-player-text">
+        {playing ? 'Now Playing' : audioError ? 'Audio unavailable' : 'Click to Play'}
+      </span>
       <button className="music-player-close" onClick={() => setShowPlayer(false)} aria-label="Close music player">✕</button>
     </div>
   )
 }
 
+const imageSizes = {
+  small: { maxHeight: 200 },
+  medium: { maxHeight: 350 },
+  large: { maxHeight: 500 },
+  original: { maxHeight: '90vh' },
+}
+
 function ImageWidget({ widget }) {
   const [error, setError] = useState(false)
   if (!widget.content) return null
+  const sizeStyle = imageSizes[widget.size] || imageSizes.medium
+  const imgClass = 'widget-image' + (widget.size === 'original' ? ' widget-image-original' : '')
+  const imgStyle = widget.size === 'original' ? { maxHeight: '90vh' } : { ...sizeStyle }
   if (error) {
     return (
       <div>
@@ -60,7 +73,9 @@ function ImageWidget({ widget }) {
   return (
     <div>
       <h3 className="widget-title">🖼️ Image</h3>
-      <img src={widget.content} alt="Character" className="widget-image" onError={() => setError(true)} />
+      <div className="widget-image-container" style={sizeStyle}>
+        <img src={widget.content} alt="Character" className={imgClass} style={imgStyle} onError={() => setError(true)} />
+      </div>
     </div>
   )
 }
@@ -91,7 +106,7 @@ function MusicWidget({ widget, theme }) {
       )}
       {isAudioFile && !audioError && (
         <div className="widget-audio-player">
-          <audio controls preload="metadata" style={{ width: '100%' }}>
+          <audio controls preload="metadata" style={{ width: '100%' }} onError={() => setAudioError(true)}>
             <source src={url} />
             Your browser does not support the audio element.
           </audio>
