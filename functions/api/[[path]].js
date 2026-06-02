@@ -16,10 +16,10 @@ function saveToKv(env, key, data) {
   return env.HUNT_DATA.put(key, JSON.stringify(data))
 }
 
-function json(data, status = 200) {
+function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
   })
 }
 
@@ -31,11 +31,11 @@ function getCookieValue(request, name) {
 }
 
 function setSessionCookie(name, value, maxAge = 86400) {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=${maxAge}`
+  return `${name}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`
 }
 
 function clearSessionCookie(name) {
-  return `${name}=; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=0`
+  return `${name}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`
 }
 
 async function createSession(env, user) {
