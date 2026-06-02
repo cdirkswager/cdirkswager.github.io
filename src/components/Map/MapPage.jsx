@@ -269,9 +269,13 @@ export default function MapPage() {
                 value={selectedMapId || ''}
                 onChange={e => switchMap(e.target.value)}
               >
-                {maps.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+                {maps.map(m => {
+                  const seasonEmojis = ['🌱', '☀️', '🍂', '❄️']
+                  const emoji = seasonEmojis[m.season] || ''
+                  return (
+                    <option key={m.id} value={m.id}>{emoji} Year {m.year} — {m.name}</option>
+                  )
+                })}
               </select>
               <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
             </>
