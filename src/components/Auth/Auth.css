@@ -81,15 +81,6 @@
 .auth-divider::before { left: 0; }
 .auth-divider::after { right: 0; }
 
-.dm-setup-hint {
-  background: rgba(201, 168, 76, 0.08);
-  border: 1px solid var(--border-gold);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  text-align: center;
-  font-size: 0.85rem;
-  color: var(--accent-gold);
-}
+
 
 

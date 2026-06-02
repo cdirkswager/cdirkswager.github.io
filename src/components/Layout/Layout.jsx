@@ -1,21 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../data/auth'
-import RateLimitBanner from '../common/RateLimitBanner'
-import { onStatusChange } from '../../data/sync'
+
 import './Layout.css'
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [session, setSession] = useState(getSession())
-  const [pendingChanges, setPendingChanges] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const unsub = onStatusChange(s => setPendingChanges(s.localChanges))
-    return unsub
-  }, [])
 
   useEffect(() => {
     setSession(getSession())
@@ -70,9 +63,7 @@ export default function Layout({ children }) {
                   <span className="nav-link-icon">{link.icon}</span>
                   {link.label}
                 </Link>
-                {link.path === '/dm' && pendingChanges && (
-                  <span className="nav-pending-badge" title="Unsaved changes — push to Worker to sync">📝</span>
-                )}
+
               </div>
             ))}
 
@@ -102,8 +93,6 @@ export default function Layout({ children }) {
       {menuOpen && (
         <div className="nav-overlay" onClick={() => setMenuOpen(false)} />
       )}
-
-      <RateLimitBanner />
 
       <main className="main-content">
         {children}

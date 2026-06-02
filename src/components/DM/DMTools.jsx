@@ -14,7 +14,7 @@ import {
   currentUser, getSession, logout as authLogout, unclaimPlayerId,
 } from '../../data/auth'
 import Modal from '../common/Modal'
-import { pullFromWorker, pushToWorker, checkUsage, testConnection, disconnect as syncDisconnect, onStatusChange, getWorkerUrl, getApiKey, getUsageState, onUsageChange } from '../../data/sync'
+import { testConnection, disconnect as syncDisconnect, getWorkerUrl, getApiKey } from '../../data/sync'
 import './DMTools.css'
 
 export default function DMTools() {
@@ -48,24 +48,11 @@ export default function DMTools() {
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
   const [confirmDenyReq, setConfirmDenyReq] = useState(null)
-  const [syncStatus, setSyncStatus] = useState({ status: 'disconnected', lastSynced: null, error: null, localChanges: false })
   const [workerUrlInput, setWorkerUrlInput] = useState(getWorkerUrl() || import.meta.env.VITE_WORKER_URL || '')
   const [apiKeyInput, setApiKeyInput] = useState(getApiKey() || import.meta.env.VITE_API_KEY || '')
-  const [usage, setUsage] = useState(null)
-  const [pushResult, setPushResult] = useState(null)
-  const [checkingUsage, setCheckingUsage] = useState(false)
   const [syncConnectError, setSyncConnectError] = useState('')
 
-  useEffect(() => {
-    const unsub = onStatusChange(setSyncStatus)
-    return unsub
-  }, [])
 
-  useEffect(() => {
-    setUsage(getUsageState())
-    const unsub = onUsageChange(setUsage)
-    return unsub
-  }, [])
 
   const refresh = () => {
     setPlayers(getPlayers())
@@ -310,127 +297,7 @@ export default function DMTools() {
           </div>
         )}
 
-        <div className="card gold-border mb-2">
-          <div className="flex-between mb-2">
-            <h3 className="widget-title">☁️ Cloudflare Sync</h3>
-          </div>
-          {syncStatus.status === 'disconnected' ? (
-            <div>
-              <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
-                Sync campaign data via a Cloudflare Worker. Players pull data automatically from the Worker endpoint.
-                Create a Worker in your Cloudflare dashboard and enter its URL below.
-              </p>
-              <div className="mb-2">
-                <label>Worker URL</label>
-                <input
-                  value={workerUrlInput}
-                  onChange={e => setWorkerUrlInput(e.target.value)}
-                  placeholder="https://hunt-sync.your-subdomain.workers.dev"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="mb-2">
-                <label>API Key</label>
-                <input
-                  type="password"
-                  value={apiKeyInput}
-                  onChange={e => setApiKeyInput(e.target.value)}
-                  placeholder="your-api-key"
-                  autoComplete="off"
-                />
-              </div>
-              {syncConnectError && <p className="auth-error" style={{ fontSize: '0.85rem', marginBottom: 8 }}>{syncConnectError}</p>}
-              <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    setSyncConnectError('')
-                    if (!workerUrlInput.trim()) { setSyncConnectError('Enter the Worker URL'); return }
-                    if (!apiKeyInput.trim()) { setSyncConnectError('Enter the API Key'); return }
-                    const result = await testConnection(workerUrlInput.trim(), apiKeyInput.trim())
-                    if (result.ok) {
-                      refresh()
-                    } else {
-                      setSyncConnectError(result.error || 'Connection failed')
-                    }
-                  }}
-                >
-                  🌐 Connect to Cloudflare
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              {syncStatus.localChanges && (
-                <div className="sync-local-banner">
-                  <span className="sync-local-icon">📝</span>
-                  <span className="sync-local-text">
-                    <strong>Local changes pending</strong> &mdash; Your edits are saved in this browser. Click below to push them to the Worker so other players see them.
-                  </span>
-                </div>
-              )}
 
-              <div className="sync-primary-action">
-                <button
-                  className={`btn btn-primary btn-lg sync-push-btn ${syncStatus.status === 'syncing' ? 'syncing' : ''}`}
-                  disabled={syncStatus.status === 'syncing'}
-                  onClick={async () => {
-                    setPushResult(null)
-                    const result = await pushToWorker()
-                    setPushResult(result)
-                    if (result.ok) {
-                      setTimeout(() => setPushResult(null), 3000)
-                    }
-                    refresh()
-                  }}
-                >
-                  {syncStatus.status === 'syncing' ? (
-                    <><span className="sync-spinner" /> Pushing...</>
-                  ) : (
-                    '📤 Push to Cloudflare'
-                  )}
-                </button>
-                {pushResult && !pushResult.ok && (
-                  <p className="sync-push-error">{pushResult.error}</p>
-                )}
-                {pushResult && pushResult.ok && (
-                  <p className="sync-push-success">✅ Pushed successfully!</p>
-                )}
-                {syncStatus.lastSynced && (
-                  <p className="sync-last-synced">
-                    Last synced: {new Date(syncStatus.lastSynced).toLocaleString()}
-                  </p>
-                )}
-              </div>
-
-              <div className="sync-secondary-actions">
-                <button className="btn btn-sm" onClick={async () => { await pullFromWorker(); refresh(); setPushResult(null) }}>📥 Pull from Worker</button>
-                <button className="btn btn-sm" onClick={async () => { setCheckingUsage(true); const u = await checkUsage(); if (u) setUsage(u); setCheckingUsage(false) }} disabled={checkingUsage}>
-                  {checkingUsage ? '🔄 Checking...' : '📊 Check Usage'}
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={() => { syncDisconnect(); refresh() }}>⛔ Disconnect</button>
-              </div>
-
-              {usage && (
-                <div className="sync-rate-info">
-                  <span className="text-muted">Worker Usage:</span>
-                  <span className={`sync-rate-remaining ${usage.limit - usage.reads < 100 ? 'low' : ''} ${usage.reads >= usage.limit ? 'exhausted' : ''}`}>
-                    {usage.reads}/{usage.limit} reads
-                  </span>
-                  <span className="sync-rate-remaining" style={{ marginLeft: 8 }}>
-                    {usage.writes}/1000 writes
-                  </span>
-                </div>
-              )}
-
-              <div className="sync-share-info">
-                <span className="text-muted" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
-                  📋 Share: <code>{window.location.origin}/?worker={getWorkerUrl()}</code>
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">

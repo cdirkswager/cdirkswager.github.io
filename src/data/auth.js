@@ -1,8 +1,8 @@
 const AUTH_KEY = 'hunt-auth-session'
 const USERS_KEY = 'hunt-users'
 
-const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin'
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USERNAME
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
 
 function hash(str) {
   let h = 0;

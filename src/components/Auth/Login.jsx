@@ -40,9 +40,7 @@ export default function Login() {
           <p className="text-muted mt-1">Sign in to the campaign hub</p>
         </div>
 
-        <div className="dm-setup-hint">
-          ⚔️ DM login: <strong>admin</strong> / <strong>admin123</strong> — only the DM account has full management access.
-        </div>
+
 
         {error && <div className="auth-error" role="alert">{error}</div>}
 
