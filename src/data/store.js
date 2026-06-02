@@ -11,6 +11,9 @@ const defaultData = {
       level: 1,
       bio: 'A brave adventurer beginning their journey...',
       title: 'The Wanderer',
+      layout: 'single',
+      musicUrl: '',
+      commentsEnabled: true,
       theme: {
         bgColor: '#0d0d0d',
         textColor: '#e0d5c1',
@@ -19,8 +22,8 @@ const defaultData = {
         bgImage: '',
       },
       widgets: [
-        { type: 'stats', content: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
-        { type: 'description', content: 'A mysterious figure from a distant land.' },
+        { id: 'w-1', type: 'stats', content: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
+        { id: 'w-2', type: 'description', content: 'A mysterious figure from a distant land.' },
       ],
       createdAt: Date.now(),
     },
@@ -32,6 +35,9 @@ const defaultData = {
       level: 1,
       bio: 'A student of the arcane arts...',
       title: 'The Scholar',
+      layout: 'single',
+      musicUrl: '',
+      commentsEnabled: true,
       theme: {
         bgColor: '#0a0a1a',
         textColor: '#c1d0e0',
@@ -40,8 +46,8 @@ const defaultData = {
         bgImage: '',
       },
       widgets: [
-        { type: 'stats', content: { str: 8, dex: 12, con: 10, int: 16, wis: 14, cha: 12 } },
-        { type: 'description', content: 'A studious elf who spends more time in libraries than in battle.' },
+        { id: 'w-3', type: 'stats', content: { str: 8, dex: 12, con: 10, int: 16, wis: 14, cha: 12 } },
+        { id: 'w-4', type: 'description', content: 'A studious elf who spends more time in libraries than in battle.' },
       ],
       createdAt: Date.now(),
     },
@@ -49,6 +55,7 @@ const defaultData = {
   mapPins: [],
   questionnaires: [],
   responses: [],
+  comments: {},
 }
 
 function loadData() {
@@ -86,6 +93,14 @@ export function getPlayer(id) {
 export function savePlayer(player) {
   const data = getStore()
   const idx = data.players.findIndex(p => p.id === player.id)
+  let widgetCounter = Date.now()
+  player.widgets = (player.widgets || []).map(w => {
+    if (!w.id) w.id = 'wid-' + (widgetCounter++)
+    return w
+  })
+  if (player.layout === undefined) player.layout = 'single'
+  if (player.musicUrl === undefined) player.musicUrl = ''
+  if (player.commentsEnabled === undefined) player.commentsEnabled = true
   if (idx >= 0) {
     data.players[idx] = player
   } else {
@@ -167,6 +182,45 @@ export function saveResponse(response) {
 export function getResponses(questionnaireId) {
   const data = getStore()
   return data.responses.filter(r => r.questionnaireId === questionnaireId)
+}
+
+export function getComments(playerId) {
+  const data = getStore()
+  return data.comments?.[playerId] || []
+}
+
+export function addComment(playerId, author, text) {
+  const data = getStore()
+  if (!data.comments) data.comments = {}
+  if (!data.comments[playerId]) data.comments[playerId] = []
+  const comment = {
+    id: 'c-' + Date.now(),
+    author,
+    text,
+    timestamp: Date.now(),
+    playerId,
+  }
+  data.comments[playerId].push(comment)
+  saveData(data)
+  return comment
+}
+
+export function deleteComment(commentId, playerId) {
+  const data = getStore()
+  if (!data.comments?.[playerId]) return
+  data.comments[playerId] = data.comments[playerId].filter(c => c.id !== commentId)
+  saveData(data)
+}
+
+export function getAllComments() {
+  const data = getStore()
+  const all = []
+  if (data.comments) {
+    Object.values(data.comments).forEach(arr => {
+      arr.forEach(c => all.push(c))
+    })
+  }
+  return all.sort((a, b) => b.timestamp - a.timestamp)
 }
 
 export function exportData() {

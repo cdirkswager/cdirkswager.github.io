@@ -5,7 +5,7 @@ import './Layout.css'
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [session, setSession] = useState(null)
+  const [session, setSession] = useState(getSession())
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -26,6 +26,9 @@ export default function Layout({ children }) {
   ]
   if (session?.role === 'dm') {
     navLinks.push({ path: '/dm', label: 'DM Tools', icon: '⚔️' })
+  }
+  if (session?.role === 'player' && session?.playerId) {
+    navLinks.push({ path: '/profile', label: 'My Profile', icon: '🎭' })
   }
 
   return (

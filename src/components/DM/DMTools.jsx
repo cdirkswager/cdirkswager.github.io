@@ -4,11 +4,12 @@ import {
   getPlayers, getMapPins, getQuestionnaires,
   deletePlayer, deleteMapPin, deleteQuestionnaire,
   exportData, importData, resetData,
+  getAllComments, deleteComment,
 } from '../../data/store'
 import {
   getAccessRequests, approveRequest, denyRequest,
   getAllUsers, deleteUser, setPlayerIdForUser,
-  currentUser, getSession, logout as authLogout,
+  currentUser, getSession, logout as authLogout, unclaimPlayerId,
 } from '../../data/auth'
 import Modal from '../common/Modal'
 import './DMTools.css'
@@ -74,6 +75,7 @@ export default function DMTools() {
 
   const handleDeletePlayer = (id) => {
     if (confirm('Delete this player? This cannot be undone.')) {
+      unclaimPlayerId(id)
       deletePlayer(id)
       refresh()
     }
@@ -214,19 +216,31 @@ export default function DMTools() {
             <p className="text-muted">No players yet.</p>
           ) : (
             <div className="dm-list">
-              {players.map(p => (
-                <div key={p.id} className="dm-list-item">
-                  <div className="dm-list-info">
-                    <span className="dm-list-name">{p.name}</span>
-                    <span className="dm-list-detail">{p.race} {p.class} &middot; Lvl {p.level}</span>
+              {players.map(p => {
+                const owner = users.find(u => u.playerId === p.id)
+                return (
+                  <div key={p.id} className="dm-list-item">
+                    <div className="dm-list-info">
+                      <span className="dm-list-name">{p.name}</span>
+                      <span className="dm-list-detail">{p.race} {p.class} &middot; Lvl {p.level}</span>
+                      {owner ? (
+                        <span className="dm-list-detail" style={{ color: 'var(--accent-magic)' }}>
+                          🎭 {owner.username}
+                        </span>
+                      ) : (
+                        <span className="dm-list-detail" style={{ color: 'var(--text-muted)' }}>
+                          unclaimed
+                        </span>
+                      )}
+                    </div>
+                    <div className="dm-list-actions">
+                      <Link to={`/player/${p.id}`} className="btn btn-sm">👤 View</Link>
+                      <Link to={`/dm/player/${p.id}`} className="btn btn-sm">✏️ Edit</Link>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDeletePlayer(p.id)}>🗑️</button>
+                    </div>
                   </div>
-                  <div className="dm-list-actions">
-                    <Link to={`/player/${p.id}`} className="btn btn-sm">👤 View</Link>
-                    <Link to={`/dm/player/${p.id}`} className="btn btn-sm">✏️ Edit</Link>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeletePlayer(p.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -281,6 +295,43 @@ export default function DMTools() {
             </div>
           )}
         </div>
+
+        <div className="card gold-border mb-2">
+          <h3 className="widget-title mb-2">📝 Guestbook Comments</h3>
+          {(() => {
+            const allComments = getAllComments()
+            if (allComments.length === 0) {
+              return <p className="text-muted">No comments yet.</p>
+            }
+            const recent = allComments.slice(0, 20)
+            return (
+              <div className="dm-list">
+                {recent.map(c => {
+                  const playerName = players.find(p => p.id === c.playerId)?.name || c.playerId
+                  return (
+                    <div key={c.id} className="dm-list-item">
+                      <div className="dm-list-info">
+                        <span className="dm-list-name" style={{ fontSize: '0.85rem' }}>{c.author}</span>
+                        <span className="dm-list-detail" style={{ fontSize: '0.8rem' }}>
+                          on {playerName} &middot; {new Date(c.timestamp).toLocaleDateString()}
+                        </span>
+                        <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>{c.text}</p>
+                      </div>
+                      <div className="dm-list-actions">
+                        <button className="btn btn-sm btn-danger" onClick={() => { deleteComment(c.id, c.playerId); refresh() }}>🗑️</button>
+                      </div>
+                    </div>
+                  )
+                })}
+                {allComments.length > 20 && (
+                  <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: 8 }}>
+                    Showing 20 of {allComments.length} comments
+                  </p>
+                )}
+              </div>
+            )
+          })()}
+        </div>
       </div>
 
       {showImport && (
@@ -315,24 +366,43 @@ export default function DMTools() {
             <p className="text-muted">No users registered.</p>
           ) : (
             <div className="dm-list">
-              {users.map(u => (
-                <div key={u.id} className="dm-list-item">
-                  <div className="dm-list-info">
-                    <span className={`dm-list-dot ${u.role === 'dm' ? 'dm-role-dot' : ''}`}
-                      style={{ background: u.role === 'dm' ? '#d4522a' : '#6a4cc9' }} />
-                    <div>
-                      <span className="dm-list-name">{u.username}</span>
-                      <span className="dm-list-detail">
-                        {u.role === 'dm' ? '⚔️ DM' : '🎭 Player'}
-                        {u.playerId && ` — ${players.find(p => p.id === u.playerId)?.name || 'Unknown'}`}
-                      </span>
+              {users.map(u => {
+                const linkedPlayer = players.find(p => p.id === u.playerId)
+                return (
+                  <div key={u.id} className="dm-list-item">
+                    <div className="dm-list-info">
+                      <span className={`dm-list-dot ${u.role === 'dm' ? 'dm-role-dot' : ''}`}
+                        style={{ background: u.role === 'dm' ? '#d4522a' : '#6a4cc9' }} />
+                      <div>
+                        <span className="dm-list-name">{u.username}</span>
+                        <span className="dm-list-detail">
+                          {u.role === 'dm' ? '⚔️ Dungeon Master' : '🎭 Player'}
+                        </span>
+                        {linkedPlayer && (
+                          <span className="dm-list-detail" style={{ color: 'var(--accent-gold)' }}>
+                            → {linkedPlayer.name}
+                          </span>
+                        )}
+                        {u.role === 'player' && !linkedPlayer && (
+                          <span className="dm-list-detail" style={{ color: 'var(--accent-fire)' }}>
+                            No character linked
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="dm-list-actions">
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u.id)}>🗑️</button>
                     </div>
                   </div>
-                  <div className="dm-list-actions">
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteUser(u.id)}>🗑️</button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
+            </div>
+          )}
+          {players.length > 0 && (
+            <div className="mt-2">
+              <p className="text-muted" style={{ fontSize: '0.85rem' }}>
+                Unlinked players: {players.filter(p => !users.some(u => u.playerId === p.id)).map(p => p.name).join(', ') || 'none'}
+              </p>
             </div>
           )}
         </Modal>

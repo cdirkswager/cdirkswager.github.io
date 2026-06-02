@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, login, getSession, getAllUsers, saveAccessRequest } from '../../data/auth'
+import { register, login, getSession, getAllUsers, saveAccessRequest, isPlayerClaimed, getClaimedPlayerIds } from '../../data/auth'
 import { getPlayers } from '../../data/store'
 import './Auth.css'
 
@@ -16,6 +16,8 @@ export default function Register() {
   const [players, setPlayers] = useState([])
 
   const noUsers = getAllUsers().length === 0
+  const claimedIds = noUsers ? {} : getClaimedPlayerIds()
+  const availablePlayers = players.filter(p => !claimedIds[p.id])
 
   useEffect(() => {
     const s = getSession()
@@ -111,16 +113,27 @@ export default function Register() {
           {!noUsers && (
             <>
               <div className="mb-2">
-                <label>Request Access to a Character (optional)</label>
+                <label>Choose Your Character *</label>
                 <select
                   value={playerId}
                   onChange={e => setPlayerId(e.target.value)}
+                  required
                 >
-                  <option value="">— No character —</option>
-                  {players.map(p => (
+                  <option value="">— Select a character —</option>
+                  {availablePlayers.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+                {availablePlayers.length === 0 && (
+                  <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
+                    All characters have been claimed. Ask the DM to create more.
+                  </p>
+                )}
+                {players.length > 0 && availablePlayers.length < players.length && (
+                  <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
+                    {players.length - availablePlayers.length} character{players.length - availablePlayers.length !== 1 ? 's' : ''} already claimed
+                  </p>
+                )}
               </div>
               {playerId && (
                 <div className="mb-2">
@@ -128,7 +141,7 @@ export default function Register() {
                   <textarea
                     value={requestMessage}
                     onChange={e => setRequestMessage(e.target.value)}
-                    placeholder="Tell the DM why you want this character..."
+                    placeholder="Tell the DM why you chose this character..."
                     rows={3}
                   />
                 </div>
@@ -136,7 +149,7 @@ export default function Register() {
             </>
           )}
 
-          <button type="submit" className="btn btn-primary auth-submit">
+          <button type="submit" className="btn btn-primary auth-submit" disabled={!noUsers && availablePlayers.length === 0}>
             {noUsers ? '⚔️ Become Dungeon Master' : '📜 Join the Party'}
           </button>
         </form>

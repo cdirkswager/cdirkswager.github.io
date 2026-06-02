@@ -22,6 +22,25 @@ function saveUsers(users) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users))
 }
 
+export function isPlayerClaimed(playerId) {
+  if (!playerId) return false
+  const users = getUsers()
+  return users.some(u => u.playerId === playerId)
+}
+
+export function getClaimedPlayerIds() {
+  const users = getUsers()
+  const ids = {}
+  users.forEach(u => { if (u.playerId) ids[u.playerId] = u.username })
+  return ids
+}
+
+export function getPlayerOwner(playerId) {
+  const users = getUsers()
+  const user = users.find(u => u.playerId === playerId)
+  return user || null
+}
+
 export function register(username, password, playerId) {
   const users = getUsers()
   if (users.find(u => u.username === username)) {
@@ -35,6 +54,12 @@ export function register(username, password, playerId) {
   }
   const usersCount = users.length
   const isDM = usersCount === 0
+  if (!isDM && !playerId) {
+    return { ok: false, error: 'You must select a character to play' }
+  }
+  if (playerId && isPlayerClaimed(playerId)) {
+    return { ok: false, error: 'That character is already claimed by another player' }
+  }
   const user = {
     id: 'user-' + Date.now(),
     username,
@@ -143,6 +168,14 @@ export function getAllUsers() {
 
 export function deleteUser(userId) {
   const users = getUsers().filter(u => u.id !== userId)
+  saveUsers(users)
+}
+
+export function unclaimPlayerId(playerId) {
+  const users = getUsers()
+  users.forEach(u => {
+    if (u.playerId === playerId) u.playerId = null
+  })
   saveUsers(users)
 }
 

@@ -10,6 +10,8 @@ import QuestionnaireBuilder from './components/Questionnaire/QuestionnaireBuilde
 import Login from './components/Auth/Login'
 import Register from './components/Auth/Register'
 import { RequireDM } from './components/Auth/ProtectedRoute'
+import RequirePlayer from './components/common/RequirePlayer'
+import ProfileEditor from './components/ProfileEditor/ProfileEditor'
 import './App.css'
 
 export default function App() {
@@ -22,6 +24,7 @@ export default function App() {
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/profile" element={<RequirePlayer><ProfileEditor /></RequirePlayer>} />
         <Route path="/dm" element={<RequireDM><DMTools /></RequireDM>} />
         <Route path="/dm/players" element={<RequireDM><PlayerEditor /></RequireDM>} />
         <Route path="/dm/player/:id" element={<RequireDM><PlayerEditor /></RequireDM>} />

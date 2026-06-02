@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getPlayer, savePlayer, getPlayers } from '../../data/store'
-import Modal from '../common/Modal'
+import WidgetEditor from '../common/WidgetEditor'
 import './PlayerEditor.css'
-
-const defaultWidget = { type: 'description', title: '', content: '' }
 
 export default function PlayerEditor() {
   const { id } = useParams()
@@ -18,7 +16,6 @@ export default function PlayerEditor() {
   })
   const [showWidgetModal, setShowWidgetModal] = useState(false)
   const [editingWidget, setEditingWidget] = useState(null)
-  const [widgetForm, setWidgetForm] = useState({ ...defaultWidget })
   const [saved, setSaved] = useState(false)
 
   const refresh = useCallback(() => {
@@ -68,19 +65,16 @@ export default function PlayerEditor() {
 
   const openWidget = (widget, index) => {
     setEditingWidget(index)
-    setWidgetForm(widget ? { ...widget } : { ...defaultWidget })
     setShowWidgetModal(true)
   }
 
-  const saveWidget = () => {
-    if (!widgetForm.type) return
-    if (['description', 'bio', 'music'].includes(widgetForm.type) && !widgetForm.content?.trim()) return
-    if (widgetForm.type === 'image' && !widgetForm.content?.trim()) return
+  const saveWidget = (widgetData) => {
     const newWidgets = [...form.widgets]
     if (editingWidget === null) {
-      newWidgets.push(widgetForm)
+      const w = { ...widgetData, id: 'wid-' + Date.now() }
+      newWidgets.push(w)
     } else {
-      newWidgets[editingWidget] = widgetForm
+      newWidgets[editingWidget] = widgetData
     }
     setForm({ ...form, widgets: newWidgets })
     setShowWidgetModal(false)
@@ -290,98 +284,11 @@ export default function PlayerEditor() {
       </div>
 
       {showWidgetModal && (
-        <Modal title={editingWidget === null ? 'Add Widget' : 'Edit Widget'} onClose={() => setShowWidgetModal(false)}>
-          <div className="widget-editor-form">
-            <div className="mb-2">
-              <label>Widget Type</label>
-              <select
-                value={widgetForm.type}
-                onChange={e => {
-                  const t = e.target.value
-                  const base = { ...widgetForm, type: t }
-                  if (t === 'stats') base.content = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
-                  else if (t === 'custom') base.content = base.content || '<p>Custom HTML</p>'
-                  else base.content = base.content || ''
-                  setWidgetForm(base)
-                }}
-              >
-                <option value="description">📜 Description</option>
-                <option value="bio">📖 Biography</option>
-                <option value="stats">📊 Stats Block</option>
-                <option value="image">🖼️ Image</option>
-                <option value="music">🎵 Music / Theme</option>
-                <option value="custom">📝 Custom HTML</option>
-              </select>
-            </div>
-
-            {widgetForm.type === 'stats' && (
-              <div className="stats-editor-grid">
-                {['str', 'dex', 'con', 'int', 'wis', 'cha'].map(stat => (
-                  <div key={stat}>
-                    <label>{stat.toUpperCase()}</label>
-                    <input
-                      type="number"
-                      min={1} max={30}
-                      value={widgetForm.content?.[stat] || 10}
-                      onChange={e => setWidgetForm({ ...widgetForm, content: { ...widgetForm.content, [stat]: parseInt(e.target.value) || 10 } })}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {widgetForm.type === 'image' && (
-              <div className="mb-2">
-                <label>Image URL</label>
-                <input
-                  value={widgetForm.content || ''}
-                  onChange={e => setWidgetForm({ ...widgetForm, content: e.target.value })}
-                  placeholder="https://example.com/portrait.jpg"
-                />
-              </div>
-            )}
-
-            {widgetForm.type === 'custom' && (
-              <>
-                <div className="mb-2">
-                  <label>Section Title</label>
-                  <input
-                    value={widgetForm.title || ''}
-                    onChange={e => setWidgetForm({ ...widgetForm, title: e.target.value })}
-                    placeholder="My Custom Section"
-                  />
-                </div>
-                <div className="mb-2">
-                  <label>Content (HTML allowed)</label>
-                  <textarea
-                    value={widgetForm.content || ''}
-                    onChange={e => setWidgetForm({ ...widgetForm, content: e.target.value })}
-                    placeholder="<p>Your custom content here...</p>"
-                    rows={5}
-                  />
-                </div>
-              </>
-            )}
-
-            {(widgetForm.type === 'description' || widgetForm.type === 'bio' || widgetForm.type === 'music') && (
-              <div className="mb-2">
-                <label>Content</label>
-                <textarea
-                  value={widgetForm.content || ''}
-                  onChange={e => setWidgetForm({ ...widgetForm, content: e.target.value })}
-                  placeholder={widgetForm.type === 'music' ? 'A haunting melody drifts through the forest...' : 'Write your content here...'}
-                  rows={4}
-                />
-              </div>
-            )}
-
-            <div className="text-center mt-2">
-              <button className="btn btn-primary" onClick={saveWidget}>
-                {editingWidget === null ? '➕ Add' : '💾 Save'}
-              </button>
-            </div>
-          </div>
-        </Modal>
+        <WidgetEditor
+          widget={editingWidget !== null ? form.widgets[editingWidget] : null}
+          onSave={saveWidget}
+          onClose={() => { setShowWidgetModal(false); setEditingWidget(null) }}
+        />
       )}
     </div>
   )
