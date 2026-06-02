@@ -58,7 +58,7 @@ async function saveData(data) {
 
 async function loadFromServer() {
   const res = await api('/data')
-  if (res.ok && res.players) {
+  if (res && res.players) {
     dataCache = migrateData(res)
   } else {
     dataCache = migrateData({ ...defaultData })

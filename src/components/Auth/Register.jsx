@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, login, getSession, saveAccessRequest, isPlayerClaimed, getClaimedPlayerIds } from '../../data/auth'
-import { getPlayers } from '../../data/store'
+import { register, getSession } from '../../data/auth'
 import './Auth.css'
 
 export default function Register() {
@@ -9,21 +8,15 @@ export default function Register() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [playerId, setPlayerId] = useState('')
-  const [requestMessage, setRequestMessage] = useState('')
+  const [proposedName, setProposedName] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [players, setPlayers] = useState([])
-
-  const claimedIds = getClaimedPlayerIds()
-  const availablePlayers = players.filter(p => !claimedIds[p.id])
 
   useEffect(() => {
     const s = getSession()
     if (s) {
       navigate(s.role === 'dm' ? '/dm' : '/', { replace: true })
     }
-    setPlayers(getPlayers())
   }, [navigate])
 
   const handleSubmit = async (e) => {
@@ -36,14 +29,9 @@ export default function Register() {
       return
     }
 
-    const result = await register(username.trim(), password, playerId || null)
+    const result = await register(username.trim(), password, proposedName.trim())
     if (result.ok) {
-      await login(username.trim(), password)
-      if (playerId) {
-        await saveAccessRequest({ username: username.trim(), playerId, message: requestMessage.trim() || '' })
-      }
-      setSuccess('✅ Account created! Welcome, adventurer.')
-      setTimeout(() => navigate('/', { replace: true }), 1000)
+      setSuccess('✅ Registration submitted for DM approval! You will be able to sign in once approved.')
     } else {
       setError(result.error)
     }
@@ -55,7 +43,7 @@ export default function Register() {
         <div className="auth-header">
           <div className="auth-icon">📜</div>
           <h2 className="text-gold">Join the Adventure</h2>
-          <p className="text-muted mt-1">Create a player account to join the campaign</p>
+          <p className="text-muted mt-1">Submit a character request for DM approval</p>
         </div>
 
         {error && <div className="auth-error" role="alert">{error}</div>}
@@ -94,42 +82,17 @@ export default function Register() {
           </div>
 
           <div className="mb-2">
-            <label>Choose Your Character *</label>
-            <select
-              value={playerId}
-              onChange={e => setPlayerId(e.target.value)}
+            <label>Proposed Character Name *</label>
+            <input
+              value={proposedName}
+              onChange={e => setProposedName(e.target.value)}
+              placeholder="What do you want your character to be called?"
               required
-            >
-              <option value="">— Select a character —</option>
-              {availablePlayers.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            {availablePlayers.length === 0 && (
-              <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
-                All characters have been claimed. Ask the DM to create more.
-              </p>
-            )}
-            {players.length > 0 && availablePlayers.length < players.length && (
-              <p className="text-muted mt-1" style={{ fontSize: '0.85rem' }}>
-                {players.length - availablePlayers.length} character{players.length - availablePlayers.length !== 1 ? 's' : ''} already claimed
-              </p>
-            )}
+            />
           </div>
-          {playerId && (
-            <div className="mb-2">
-              <label>Message to the DM</label>
-              <textarea
-                value={requestMessage}
-                onChange={e => setRequestMessage(e.target.value)}
-                placeholder="Tell the DM why you chose this character..."
-                rows={3}
-              />
-            </div>
-          )}
 
-          <button type="submit" className="btn btn-primary auth-submit" disabled={availablePlayers.length === 0}>
-            📜 Join the Party
+          <button type="submit" className="btn btn-primary auth-submit">
+            📜 Submit for Approval
           </button>
         </form>
 

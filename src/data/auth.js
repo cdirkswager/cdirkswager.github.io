@@ -44,8 +44,13 @@ export async function login(username, password) {
   return data
 }
 
-export async function register(username, password, playerId) {
-  return await post('/auth/register', { username, password, playerId })
+export async function register(username, password, proposedName) {
+  return await post('/auth/register', { username, password, proposedName })
+}
+
+export async function approvePendingUser(userId) {
+  const data = await api('/auth/approve-registration/' + userId, { method: 'POST' })
+  return data
 }
 
 export async function logout() {

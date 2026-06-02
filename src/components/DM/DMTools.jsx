@@ -12,6 +12,7 @@ import {
   getAccessRequests, approveRequest, denyRequest,
   getAllUsers, deleteUser, setPlayerIdForUser,
   currentUser, getSession, logout as authLogout, unclaimPlayerId,
+  approvePendingUser,
 } from '../../data/auth'
 import Modal from '../common/Modal'
 import './DMTools.css'
@@ -254,6 +255,45 @@ export default function DMTools() {
             <span className="dm-stat-label">Users</span>
           </div>
         </div>
+
+        {users.filter(u => u.role === 'pending').length > 0 && (
+          <div className="card gold-border mb-2" style={{ borderColor: '#4a9eff' }}>
+            <div className="flex-between mb-2">
+              <h3 className="widget-title" style={{ color: '#4a9eff' }}>
+                🆕 Character Requests ({users.filter(u => u.role === 'pending').length})
+              </h3>
+            </div>
+            <div className="dm-list">
+              {users.filter(u => u.role === 'pending').map(u => (
+                <div key={u.id} className="dm-list-item">
+                  <div className="dm-list-info">
+                    <span className="dm-list-dot" style={{ background: '#4a9eff' }} />
+                    <div>
+                      <span className="dm-list-name">{u.username}</span>
+                      <span className="dm-list-detail">
+                        wants to play: <strong>{u.proposedName || 'Unknown'}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="dm-list-actions">
+                    <button className="btn btn-sm btn-primary" onClick={async () => {
+                      await approvePendingUser(u.id)
+                      refresh()
+                    }}>
+                      ✅ Approve
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={async () => {
+                      await deleteUser(u.id)
+                      refresh()
+                    }}>
+                      ❌ Deny
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {pendingRequests.length > 0 && (
           <div className="card gold-border mb-2" style={{ borderColor: '#d4522a' }}>

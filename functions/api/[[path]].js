@@ -70,37 +70,33 @@ export async function onRequest(context) {
   try {
     // ─── AUTH ROUTES ───────────────────────────────────────────
 
-    // POST /api/auth/register
-    if (path === '/auth/register' && method === 'POST') {
-      const { username, password, playerId } = body
-      if (!username || username.length < 2) return json({ ok: false, error: 'Username must be at least 2 characters' }, 400)
-      if (!password || password.length < 4) return json({ ok: false, error: 'Password must be at least 4 characters' }, 400)
-      if (!playerId) return json({ ok: false, error: 'You must select a character to play' }, 400)
+      // POST /api/auth/register — submit registration for DM approval
+      if (path === '/auth/register' && method === 'POST') {
+        const { username, password, proposedName } = body
+        if (!username || username.length < 2) return json({ ok: false, error: 'Username must be at least 2 characters' }, 400)
+        if (!password || password.length < 4) return json({ ok: false, error: 'Password must be at least 4 characters' }, 400)
+        if (!proposedName || !proposedName.trim()) return json({ ok: false, error: 'Please propose a character name' }, 400)
 
-      const adminName = env.ADMIN_USERNAME
-      if (adminName && username.toLowerCase() === adminName.toLowerCase()) {
-        return json({ ok: false, error: 'That username is reserved' }, 400)
+        const adminName = env.ADMIN_USERNAME
+        if (adminName && username.toLowerCase() === adminName.toLowerCase()) {
+          return json({ ok: false, error: 'That username is reserved' }, 400)
+        }
+
+        const users = await getFromKv(env, 'users', [])
+        if (users.find(u => u.username === username)) return json({ ok: false, error: 'Username already taken' }, 409)
+
+        users.push({
+          id: 'user-' + Date.now(),
+          username,
+          passwordHash: simpleHash(password),
+          role: 'pending',
+          proposedName: proposedName.trim(),
+          playerId: null,
+          createdAt: Date.now(),
+        })
+        await saveToKv(env, 'users', users)
+        return json({ ok: true, message: 'Registration submitted for DM approval!' }, 201)
       }
-
-      const users = await getFromKv(env, 'users', [])
-      if (users.find(u => u.username === username)) return json({ ok: false, error: 'Username already taken' }, 409)
-      if (users.find(u => u.playerId === playerId)) return json({ ok: false, error: 'That character is already claimed' }, 409)
-
-      const user = {
-        id: 'user-' + Date.now(),
-        username,
-        passwordHash: simpleHash(password),
-        role: 'player',
-        playerId,
-        createdAt: Date.now(),
-      }
-      users.push(user)
-      await saveToKv(env, 'users', users)
-
-      const s = await createSession(env, user)
-      const headers = { 'Set-Cookie': setSessionCookie('session', s.token) }
-      return json({ ok: true, session: s }, 201, headers)
-    }
 
     // POST /api/auth/login
     if (path === '/auth/login' && method === 'POST') {
@@ -111,6 +107,7 @@ export async function onRequest(context) {
       const user = users.find(u => u.username === username)
       if (!user) return json({ ok: false, error: 'User not found' }, 401)
       if (user.passwordHash !== simpleHash(password)) return json({ ok: false, error: 'Incorrect password' }, 401)
+      if (user.role === 'pending') return json({ ok: false, error: 'Your account is pending DM approval' }, 401)
 
       const s = await createSession(env, user)
       const headers = { 'Set-Cookie': setSessionCookie('session', s.token) }
@@ -235,6 +232,49 @@ export async function onRequest(context) {
       return json({ ok: true })
     }
 
+    // POST /api/auth/approve-registration/:userId — approve a pending registration (DM only)
+    const approveRegMatch = path.match(/^\/auth\/approve-registration\/(.+)$/)
+    if (approveRegMatch && method === 'POST') {
+      if (!session || session.role !== 'dm') return json({ ok: false, error: 'Unauthorized' }, 403)
+      const userId = approveRegMatch[1]
+      const users = await getFromKv(env, 'users', [])
+      const user = users.find(u => u.id === userId)
+      if (!user) return json({ ok: false, error: 'User not found' }, 404)
+      if (user.role !== 'pending') return json({ ok: false, error: 'User is not pending' }, 400)
+
+      let campaignData = await getFromKv(env, 'campaign-data', null)
+      if (!campaignData || !campaignData.players) {
+        campaignData = { players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
+      }
+
+      const newPlayer = {
+        id: 'player-' + Date.now(),
+        name: user.proposedName || 'Unknown Adventurer',
+        race: '',
+        class: '',
+        level: 1,
+        title: '',
+        theme: {},
+        layout: 'single',
+        widgets: [],
+        widgetAnimations: {},
+        musicUrl: '',
+        commentsEnabled: true,
+        avatarUrl: '',
+        customCode: { enabled: false, html: '', css: '' },
+        createdAt: Date.now(),
+      }
+      campaignData.players.push(newPlayer)
+      await saveToKv(env, 'campaign-data', campaignData)
+
+      user.role = 'player'
+      user.playerId = newPlayer.id
+      delete user.proposedName
+      await saveToKv(env, 'users', users)
+
+      return json({ ok: true, player: newPlayer })
+    }
+
     // GET /api/auth/users (DM only)
     if (path === '/auth/users' && method === 'GET') {
       if (!session || session.role !== 'dm') return json({ ok: false, error: 'Unauthorized' }, 403)
@@ -285,7 +325,7 @@ export async function onRequest(context) {
         // Save in new format for next time
         await saveToKv(env, 'campaign-data', data)
       }
-      return json(data)
+      return json({ ok: true, ...data })
     }
 
     // POST /api/data — save full campaign data (requires API key or DM session)
