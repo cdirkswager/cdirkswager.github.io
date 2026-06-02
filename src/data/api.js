@@ -6,10 +6,11 @@ async function api(path, options = {}) {
   }
   try {
     const res = await fetch('/api' + path, {
-      method,
-      headers: h,
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    })
+  method,
+  headers: h,
+  credentials: 'include',
+  ...(body ? { body: JSON.stringify(body) } : {}),
+})
     const data = await res.json()
     if (!res.ok && !data.ok) return { ok: false, error: data.error || `HTTP ${res.status}` }
     return data

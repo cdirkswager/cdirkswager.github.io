@@ -331,7 +331,7 @@ export async function onRequest(context) {
     // POST /api/data — save full campaign data (requires API key or DM session)
     if (path === '/data' && method === 'POST') {
       const apiKey = request.headers.get('X-API-Key')
-      const authorized = (session && session.role === 'dm') || (apiKey && apiKey === env.API_KEY)
+      const authorized = (session && (session.role === 'dm' || session.role === 'player')) || (apiKey && apiKey === env.API_KEY)
       if (!authorized) return json({ ok: false, error: 'Unauthorized' }, 401)
       // If body is in legacy format { campaign, users, requests }, unwrap it
       const toSave = (body.campaign && !body.players) ? body.campaign : body

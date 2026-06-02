@@ -579,7 +579,7 @@ export default function DMTools() {
                       <div>
                         <span className="dm-list-name">{u.username}</span>
                         <span className="dm-list-detail">
-                          {u.role === 'dm' ? '⚔️ Dungeon Master' : '🎭 Player'}
+                          {u.role === 'dm' ? '⚔️ Dungeon Master' : u.role === 'pending' ? '⏳ Pending Approval' : '🎭 Player'}
                         </span>
                         {linkedPlayer && (
                           <span className="dm-list-detail" style={{ color: 'var(--accent-gold)' }}>
