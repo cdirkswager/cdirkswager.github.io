@@ -71,7 +71,7 @@ export default function Layout({ children }) {
                   {link.label}
                 </Link>
                 {link.path === '/dm' && pendingChanges && (
-                  <span className="nav-pending-badge" title="Unsaved changes — push to GitHub to sync">📝</span>
+                  <span className="nav-pending-badge" title="Unsaved changes — push to Worker to sync">📝</span>
                 )}
               </div>
             ))}

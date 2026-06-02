@@ -1,0 +1,12 @@
+name = "hunt-sync"
+main = "index.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "HUNT_DATA"
+id = "a2ffa3840e274be99544ddb97162922c"
+
+[[kv_namespaces]]
+binding = "HUNT_USAGE"
+id = "9b28a397ac03411f8962838c8b560815"
