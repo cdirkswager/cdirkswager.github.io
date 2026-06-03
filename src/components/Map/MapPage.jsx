@@ -173,6 +173,12 @@ export default function MapPage() {
   }
 
   const session = currentUser()
+  const canModifyPin = useCallback((pin) => {
+    if (!session) return false
+    if (session.role === 'dm') return true
+    const currentId = session.playerId || session.username
+    return pin.addedBy === currentId
+  }, [session])
 
   const getPosFromEvent = useCallback((e) => {
     if (!mapRef.current) return { x: 50, y: 50, inside: false }
@@ -191,6 +197,7 @@ export default function MapPage() {
 
   const handleMapTap = useCallback((e) => {
     if (dragging) return
+    if (!session) return
     const pos = getPosFromEvent(e)
     if (!pos.inside) return
     const tapped = pins.find(p =>
@@ -205,9 +212,10 @@ export default function MapPage() {
     setPlacingPos(pos)
     setFormData({ label: '', description: '', color: '#c9a84c' })
     setShowForm(true)
-  }, [pins, dragging, getPosFromEvent])
+  }, [pins, dragging, getPosFromEvent, session])
 
   const handleMapTouchStart = useCallback((e) => {
+    if (!session) return
     if (e.touches.length > 1) return
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -218,7 +226,7 @@ export default function MapPage() {
     longPressTimer.current = setTimeout(() => {
       handleMapTap({ clientX: touch.clientX, clientY: touch.clientY })
     }, 500)
-  }, [handleMapTap, getPosFromEvent])
+  }, [handleMapTap, getPosFromEvent, session])
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimer.current) {
@@ -228,11 +236,12 @@ export default function MapPage() {
   }, [])
 
   const handlePinPointerDown = useCallback((e, pin) => {
+    if (!session) return
     e.stopPropagation()
     setTooltipPin(pin)
     const pos = getPosFromEvent(e)
     setDragStart({ x: pos.x, y: pos.y, id: pin.id, pinX: pin.x, pinY: pin.y })
-  }, [getPosFromEvent])
+  }, [getPosFromEvent, session])
 
   const handlePinTap = useCallback((e, pin) => {
     e.stopPropagation()
@@ -315,6 +324,7 @@ export default function MapPage() {
   }
 
   const openEditPin = (pin) => {
+    if (!canModifyPin(pin)) return
     setEditPin(pin)
     setFormData({ label: pin.label, description: pin.description || '', color: pin.color })
     setShowEditModal(true)
@@ -393,7 +403,7 @@ export default function MapPage() {
             </button>
           )}
         </div>
-        {!showForm && selectedMapId && (
+        {!showForm && selectedMapId && session && (
           <button className="btn btn-primary btn-sm map-add-btn" onClick={() => setShowForm(true)}>
             📍 Add Pin
           </button>
@@ -459,7 +469,7 @@ export default function MapPage() {
           aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
           onClick={handleMapTap}
           onKeyDown={async (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if (session && (e.key === 'Enter' || e.key === ' ')) {
               e.preventDefault()
               const center = getPosFromEvent({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 })
               setTooltipPin(null)
@@ -467,7 +477,7 @@ export default function MapPage() {
               setFormData({ label: '', description: '', color: '#c9a84c' })
               setShowForm(true)
             }
-            if (e.key.startsWith('Arrow') && focusedPin) {
+            if (session && e.key.startsWith('Arrow') && focusedPin) {
               e.preventDefault()
               const pin = pins.find(p => p.id === focusedPin)
               if (!pin) return
@@ -480,7 +490,7 @@ export default function MapPage() {
               await saveMapPin(updated)
               refresh()
             }
-            if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {
+            if (session && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {
               setFocusedPin(pins[0].id)
               setTooltipPin(pins[0])
             }
@@ -513,10 +523,13 @@ export default function MapPage() {
                 <div className={'pin-tooltip' + (pin.y < 15 ? ' pin-tooltip-below' : '')} onClick={(e) => e.stopPropagation()}>
                   <strong>{pin.label}</strong>
                   {pin.description && <p className="pin-tooltip-desc">{pin.description}</p>}
-                  <div className="pin-tooltip-actions">
-                    <button className="btn btn-sm" onClick={() => openEditPin(pin)}>✏️ Edit</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmDeletePin(pin)}>🗑️</button>
-                  </div>
+                  {pin.addedBy && <p className="text-muted" style={{ fontSize: '0.7rem', margin: '2px 0' }}>by {pin.addedBy}</p>}
+                  {canModifyPin(pin) && (
+                    <div className="pin-tooltip-actions">
+                      <button className="btn btn-sm" onClick={() => openEditPin(pin)}>✏️ Edit</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => setConfirmDeletePin(pin)}>🗑️</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -568,7 +581,7 @@ export default function MapPage() {
 
         {!showForm && !tooltipPin && (
           <div className="map-hint">
-            Tap the map to add a pin — drag pins to move them
+            {session ? 'Tap the map to add a pin — drag pins to move them' : 'Sign in to add pins'}
           </div>
         )}
 
@@ -666,18 +679,20 @@ export default function MapPage() {
                 <p className="map-mobile-detail-desc">{mobilePinDetail.description}</p>
               )}
               <div className="map-mobile-detail-meta">
-                {mobilePinDetail.x}%, {mobilePinDetail.y}%
+                {mobilePinDetail.x}%, {mobilePinDetail.y}% {mobilePinDetail.addedBy && <span>&middot; by {mobilePinDetail.addedBy}</span>}
               </div>
-              <div className="map-mobile-detail-actions">
-                <button className="btn btn-sm" onClick={() => {
-                  openEditPin(mobilePinDetail)
-                  setMobilePinDetail(null)
-                }}>✏️ Edit</button>
-                <button className="btn btn-sm btn-danger" onClick={() => {
-                  setConfirmDeletePin(mobilePinDetail)
-                  setMobilePinDetail(null)
-                }}>🗑️ Delete</button>
-              </div>
+              {canModifyPin(mobilePinDetail) && (
+                <div className="map-mobile-detail-actions">
+                  <button className="btn btn-sm" onClick={() => {
+                    openEditPin(mobilePinDetail)
+                    setMobilePinDetail(null)
+                  }}>✏️ Edit</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => {
+                    setConfirmDeletePin(mobilePinDetail)
+                    setMobilePinDetail(null)
+                  }}>🗑️ Delete</button>
+                </div>
+              )}
             </div>
           </div>
         )}

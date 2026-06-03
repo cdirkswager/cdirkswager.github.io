@@ -7,7 +7,8 @@ import {
   exportData, importData, resetData,
   exportFullData, importFullData,
   getAllComments, deleteComment,
-  initStore,
+  initStore, getCalendarData, getCalendarState, setCalendarState, getAllCalendarComments,
+  deleteCalendarComment,
 } from '../../data/store'
 import {
   getAccessRequests, approveRequest, denyRequest,
@@ -52,6 +53,12 @@ export default function DMTools() {
   // For assigning a character to a user directly from the Users modal
   const [assigningUser, setAssigningUser] = useState(null)
   const [assignPlayerId, setAssignPlayerId] = useState('')
+  const [calendarData, setCalendarData] = useState(null)
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false)
+  const [calPickerMonth, setCalPickerMonth] = useState(0)
+  const [calPickerDay, setCalPickerDay] = useState(1)
+  const [calPickerYear, setCalPickerYear] = useState(3102)
+  const [confirmCalCommentDelete, setConfirmCalCommentDelete] = useState(null)
 
   // Re-fetches campaign data from the server, then updates all local state.
   // This is critical — getPlayers() etc. read from an in-memory cache that
@@ -67,6 +74,7 @@ export default function DMTools() {
     const [reqs, usrs] = await Promise.all([getAccessRequests(), getAllUsers()])
     if (reqs) setRequests(reqs)
     if (usrs) setUsers(usrs)
+    setCalendarData(getCalendarData())
   }
 
   useEffect(() => {
@@ -501,6 +509,51 @@ export default function DMTools() {
           )}
         </div>
 
+        {calendarData && (
+          <div className="card gold-border mb-2">
+            <div className="flex-between mb-2">
+              <h3 className="widget-title">📅 Calendar</h3>
+              <button className="btn btn-sm" onClick={() => {
+                setCalPickerMonth(calendarData.state.month)
+                setCalPickerDay(calendarData.state.day)
+                setCalPickerYear(calendarData.state.year)
+                setShowCalendarPicker(true)
+              }}>📅 Set Date</button>
+            </div>
+            <p style={{ marginBottom: 8 }}>
+              Current: <strong>{['Hammer','Alturiak','Ches','Tarsakh','Mirtul','Kythorn','Flamerule','Eleasis','Eleint','Marpenoth','Uktar','Nightal'][calendarData.state.month]} {calendarData.state.day}, Year {calendarData.state.year}</strong>
+              &middot; {calendarData.events.length} events total
+            </p>
+            {(() => {
+              const allCalComments = getAllCalendarComments()
+              if (allCalComments.length === 0) return <p className="text-muted">No calendar comments yet.</p>
+              const recent = allCalComments.slice(0, 10)
+              const dayNames = ['Day of the Sun','Day of the Moon','Day of Mysteries','Day of Justice','Day of the Wild','Day of the Book','Day of Grain','Day of Strife','Day of the Dead','Day of Love']
+              return (
+                <div className="dm-list">
+                  {recent.map(c => (
+                    <div key={c.id} className="dm-list-item">
+                      <div className="dm-list-info">
+                        <span className="dm-list-name" style={{fontSize:'0.85rem'}}>{c.author}</span>
+                        <span className="dm-list-detail" style={{fontSize:'0.8rem'}}>
+                          on {['Hammer','Alturiak','Ches','Tarsakh','Mirtul','Kythorn','Flamerule','Eleasis','Eleint','Marpenoth','Uktar','Nightal'][c.month]} {c.day} ({dayNames[(c.day - 1) % 10]}) &middot; {new Date(c.timestamp).toLocaleDateString()}
+                        </span>
+                        <p className="text-muted" style={{fontSize:'0.85rem', marginTop:2}}>{c.text}</p>
+                      </div>
+                      <div className="dm-list-actions">
+                        <button className="btn btn-sm btn-danger" onClick={async () => { await deleteCalendarComment(c.id, c.month, c.day); refresh() }}>🗑️</button>
+                      </div>
+                    </div>
+                  ))}
+                  {allCalComments.length > 10 && (
+                    <p className="text-muted" style={{fontSize:'0.85rem', marginTop:8}}>Showing 10 of {allCalComments.length} comments</p>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
         <div className="card gold-border mb-2">
           <h3 className="widget-title mb-2">📝 Guestbook Comments</h3>
           {(() => {
@@ -778,6 +831,35 @@ export default function DMTools() {
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmQuestionnaireDelete(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={() => handleDeleteQuestionnaire(confirmQuestionnaireDelete.id)}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {showCalendarPicker && (
+        <Modal title="📅 Set Calendar Date" onClose={() => setShowCalendarPicker(false)}>
+          <div className="mb-2">
+            <label>Month</label>
+            <select value={calPickerMonth} onChange={e => setCalPickerMonth(parseInt(e.target.value))}>
+              {['Hammer','Alturiak','Ches','Tarsakh','Mirtul','Kythorn','Flamerule','Eleasis','Eleint','Marpenoth','Uktar','Nightal'].map((name, i) => (
+                <option key={i} value={i}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-2">
+            <label>Day</label>
+            <input type="number" min={1} max={30} value={calPickerDay} onChange={e => setCalPickerDay(Math.min(30, Math.max(1, parseInt(e.target.value) || 1)))} />
+          </div>
+          <div className="mb-2">
+            <label>Year</label>
+            <input type="number" value={calPickerYear} onChange={e => setCalPickerYear(parseInt(e.target.value) || 3102)} />
+          </div>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setShowCalendarPicker(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={async () => {
+              await setCalendarState({ year: calPickerYear, month: calPickerMonth, day: calPickerDay })
+              setShowCalendarPicker(false)
+              refresh()
+            }}>📅 Set Date</button>
           </div>
         </Modal>
       )}

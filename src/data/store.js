@@ -1,4 +1,5 @@
 import api from './api'
+import calendarSeed from '../../data/calendar-3101.json'
 
 const SEED_KEY = 'hunt-data-seeded'
 export const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
@@ -10,6 +11,12 @@ const defaultData = {
   questionnaires: [],
   responses: [],
   comments: {},
+  calendar: {
+    events: [],
+    state: { year: 3102, month: 0, day: 1 },
+    comments: {},
+    seeded: false,
+  },
 }
 
 let dataCache = null
@@ -36,6 +43,15 @@ function migrateData(data) {
       return migrated
     })
   }
+  if (!data.calendar) {
+    data.calendar = { ...defaultData.calendar }
+  }
+  if (!data.calendar.state) {
+    data.calendar.state = { year: 3102, month: 0, day: 1 }
+  }
+  if (!data.calendar.comments) {
+    data.calendar.comments = {}
+  }
   return data
 }
 
@@ -45,7 +61,7 @@ function flushSeed() {
 
 function getStore() {
   if (!dataCache) {
-    dataCache = { ...defaultData, players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {} }
+    dataCache = { ...defaultData, players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {}, calendar: { ...defaultData.calendar } }
   }
   return dataCache
 }
@@ -69,6 +85,7 @@ async function loadFromServer() {
 export async function initStore() {
   await loadFromServer()
   flushSeed()
+  initCalendar()
   return dataCache
 }
 
@@ -520,6 +537,94 @@ export function getAllComments() {
   const all = []
   if (data.comments) {
     Object.values(data.comments).forEach(arr => {
+      arr.forEach(c => all.push(c))
+    })
+  }
+  return all.sort((a, b) => b.timestamp - a.timestamp)
+}
+
+// ─── CALENDAR ───────────────────────────────────────────────
+
+export function initCalendar() {
+  const data = getStore()
+  if (!data.calendar) data.calendar = { ...defaultData.calendar }
+  if (!data.calendar.seeded && calendarSeed?.events) {
+    data.calendar.events = calendarSeed.events
+    data.calendar.seeded = true
+  }
+  return data.calendar
+}
+
+export function getCalendarData() {
+  const data = getStore()
+  return data.calendar || defaultData.calendar
+}
+
+export function getCalendarState() {
+  const cal = getCalendarData()
+  return cal.state || { year: 3102, month: 0, day: 1 }
+}
+
+export function getDayEvents(month, day) {
+  const cal = getCalendarData()
+  return (cal.events || []).filter(e => e.month === month && e.day === day)
+}
+
+export async function setCalendarState(state) {
+  const data = getStore()
+  if (!data.calendar) data.calendar = { ...defaultData.calendar }
+  data.calendar.state = { ...data.calendar.state, ...state }
+  await saveData(data)
+}
+
+export async function advanceCalendarDay(direction = 1) {
+  const data = getStore()
+  if (!data.calendar) data.calendar = { ...defaultData.calendar }
+  if (!data.calendar.state) data.calendar.state = { year: 3102, month: 0, day: 1 }
+  let { year, month, day } = data.calendar.state
+  day += direction
+  if (day > 30) { day = 1; month++
+    if (month > 11) { month = 0; year++ } }
+  else if (day < 1) { day = 30; month--
+    if (month < 0) { month = 11; year-- } }
+  data.calendar.state = { year, month, day }
+  await saveData(data)
+  return data.calendar.state
+}
+
+export function getCalendarComments(month, day) {
+  const data = getStore()
+  const cal = data.calendar || {}
+  const key = `${month}-${day}`
+  return cal.comments?.[key] || []
+}
+
+export async function addCalendarComment(month, day, author, text) {
+  const data = getStore()
+  if (!data.calendar) data.calendar = { ...defaultData.calendar }
+  if (!data.calendar.comments) data.calendar.comments = {}
+  const key = `${month}-${day}`
+  if (!data.calendar.comments[key]) data.calendar.comments[key] = []
+  const comment = { id: 'cc-' + Date.now(), author, text, timestamp: Date.now(), month, day }
+  data.calendar.comments[key].push(comment)
+  await saveData(data)
+  return comment
+}
+
+export async function deleteCalendarComment(commentId, month, day) {
+  const data = getStore()
+  if (!data.calendar?.comments) return
+  const key = `${month}-${day}`
+  if (!data.calendar.comments[key]) return
+  data.calendar.comments[key] = data.calendar.comments[key].filter(c => c.id !== commentId)
+  await saveData(data)
+}
+
+export function getAllCalendarComments() {
+  const data = getStore()
+  const all = []
+  if (data.calendar?.comments) {
+    Object.values(data.calendar.comments).forEach(arr => {
       arr.forEach(c => all.push(c))
     })
   }

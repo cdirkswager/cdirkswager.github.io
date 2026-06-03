@@ -24,6 +24,7 @@ export default function Layout({ children }) {
   const navLinks = [
     { path: '/', label: 'Home', icon: '🏰' },
     { path: '/map', label: 'Map', icon: '🗺️' },
+    { path: '/calendar', label: 'Calendar', icon: '📅' },
   ]
   if (session?.role === 'dm') {
     navLinks.push({ path: '/dm', label: 'DM Tools', icon: '⚔️' })

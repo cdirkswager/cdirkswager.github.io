@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout/Layout'
 import Home from './components/Home/Home'
 import MapPage from './components/Map/MapPage'
+import CalendarPage from './components/Calendar/CalendarPage'
 import PlayerPage from './components/PlayerPage/PlayerPage'
 import PlayerEditor from './components/PlayerEditor/PlayerEditor'
 import DMTools from './components/DM/DMTools'
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/map" element={<MapPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
         <Route path="/login" element={<Login />} />
