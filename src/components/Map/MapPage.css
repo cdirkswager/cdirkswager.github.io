@@ -86,13 +86,21 @@
 
 .map-touch-layer {
   position: absolute;
-  inset: 0;
   z-index: 2;
   cursor: default;
 }
 
 .map-touch-layer.placing {
   cursor: crosshair;
+}
+
+.map-border {
+  position: absolute;
+  z-index: 1;
+  border: 2px dashed rgba(201, 168, 76, 0.35);
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.15);
 }
 
 .map-pin {
@@ -106,6 +114,15 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
+}
+
+.map-pin-ghost {
+  z-index: 2;
+  cursor: default;
+}
+
+.map-pin-ghost .pin-dot {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 6px var(--pin-color);
 }
 
 .map-pin.dragging {
@@ -506,33 +523,6 @@
   z-index: 5;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.map-page-timeline .map-area {
-  overflow: hidden;
-}
-
-.map-layers {
-  position: absolute;
-  inset: 0;
-}
-
-.map-layer {
-  position: absolute;
-  inset: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-
-.map-layer.active {
-  pointer-events: auto;
-}
-
-.map-layer img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
 }
 
 .timeline-bar {

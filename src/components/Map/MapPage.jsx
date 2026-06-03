@@ -7,12 +7,6 @@ import './MapPage.css'
 
 const pinColors = ['#c9a84c', '#d4522a', '#6a4cc9', '#4c9a6a', '#4c7ac9', '#c94c6a', '#c98a2a', '#6a9a4c']
 
-function layerOpacity(index, activeIndex) {
-  if (index === activeIndex) return 1
-  const dist = Math.abs(index - activeIndex)
-  return Math.max(0.06, 0.35 - (dist - 1) * 0.12)
-}
-
 function calcImageBounds(containerW, containerH, imgW, imgH) {
   if (!imgW || !imgH) return { x: 0, y: 0, w: containerW, h: containerH }
   const imgAspect = imgW / imgH
@@ -38,6 +32,7 @@ export default function MapPage() {
   const [timelineMode, setTimelineMode] = useState(false)
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [pins, setPins] = useState([])
+  const [allPinsCache, setAllPinsCache] = useState({})
   const [players, setPlayers] = useState([])
   const [selectedPin, setSelectedPin] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -74,10 +69,18 @@ export default function MapPage() {
   const displayMaps = timelineMode ? sortedMaps : maps
   const currentMap = displayMaps.find(m => m.id === selectedMapId) || displayMaps[0] || null
 
+  const prevPins = useMemo(() => {
+    if (!timelineMode || timelineIndex <= 0) return []
+    const prevMap = sortedMaps[timelineIndex - 1]
+    return prevMap ? allPinsCache[prevMap.id] || [] : []
+  }, [timelineMode, timelineIndex, sortedMaps, allPinsCache])
+
   const refresh = useCallback(() => {
     setPlayers(getPlayers())
     if (selectedMapId) {
-      setPins(getMapPins(selectedMapId))
+      const freshPins = getMapPins(selectedMapId)
+      setPins(freshPins)
+      setAllPinsCache(prev => ({ ...prev, [selectedMapId]: freshPins }))
     }
   }, [selectedMapId])
 
@@ -92,7 +95,9 @@ export default function MapPage() {
 
   useEffect(() => {
     if (selectedMapId) {
-      setPins(getMapPins(selectedMapId))
+      const freshPins = getMapPins(selectedMapId)
+      setPins(freshPins)
+      setAllPinsCache(prev => ({ ...prev, [selectedMapId]: freshPins }))
       setTooltipPin(null)
       setShowForm(false)
       setPlacingPos(null)
@@ -135,6 +140,16 @@ export default function MapPage() {
     }
   }, [timelineMode, timelineIndex, sortedMaps])
 
+  useEffect(() => {
+    if (timelineMode) {
+      const cache = {}
+      sortedMaps.forEach(m => {
+        cache[m.id] = getMapPins(m.id)
+      })
+      setAllPinsCache(prev => ({ ...prev, ...cache }))
+    }
+  }, [timelineMode, sortedMaps])
+
   const handleImgLoad = useCallback((e) => {
     const img = e.target
     setImageNatural({ w: img.naturalWidth, h: img.naturalHeight })
@@ -144,6 +159,11 @@ export default function MapPage() {
     if (timelineMode) {
       setTimelineMode(false)
     } else if (maps.length > 1) {
+      const cache = {}
+      sortedMaps.forEach(m => {
+        cache[m.id] = getMapPins(m.id)
+      })
+      setAllPinsCache(prev => ({ ...prev, ...cache }))
       setTimelineIndex(sortedMaps.length - 1)
       setTimelineMode(true)
       setShowForm(false)
@@ -155,21 +175,24 @@ export default function MapPage() {
   const session = currentUser()
 
   const getPosFromEvent = useCallback((e) => {
-    if (!mapRef.current) return { x: 50, y: 50 }
+    if (!mapRef.current) return { x: 50, y: 50, inside: false }
     const rect = mapRef.current.getBoundingClientRect()
     const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
     const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
     const relX = ((cx - rect.left) - imageBounds.x) / imageBounds.w
     const relY = ((cy - rect.top) - imageBounds.y) / imageBounds.h
+    const inside = relX >= 0 && relX <= 1 && relY >= 0 && relY <= 1
     return {
       x: Math.min(100, Math.max(0, Math.round(relX * 1000) / 10)),
       y: Math.min(100, Math.max(0, Math.round(relY * 1000) / 10)),
+      inside,
     }
   }, [imageBounds])
 
   const handleMapTap = useCallback((e) => {
     if (dragging) return
     const pos = getPosFromEvent(e)
+    if (!pos.inside) return
     const tapped = pins.find(p =>
       Math.abs(p.x - pos.x) < 4 && Math.abs(p.y - pos.y) < 4
     )
@@ -189,11 +212,13 @@ export default function MapPage() {
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
     if (el?.closest('.map-pin')) return
+    const pos = getPosFromEvent({ clientX: touch.clientX, clientY: touch.clientY })
+    if (!pos.inside) return
     if (longPressTimer.current) clearTimeout(longPressTimer.current)
     longPressTimer.current = setTimeout(() => {
       handleMapTap({ clientX: touch.clientX, clientY: touch.clientY })
     }, 500)
-  }, [handleMapTap])
+  }, [handleMapTap, getPosFromEvent])
 
   const cancelLongPress = useCallback(() => {
     if (longPressTimer.current) {
@@ -315,12 +340,14 @@ export default function MapPage() {
     refresh()
   }
 
-  const pinStyle = useCallback((pin) => {
+  const pinStyle = useCallback((pin, isGhost) => {
     const isDragging = dragging?.id === pin.id
     return {
       left: `${imageBounds.x + (isDragging ? dragging.x : pin.x) / 100 * imageBounds.w}px`,
       top: `${imageBounds.y + (isDragging ? dragging.y : pin.y) / 100 * imageBounds.h}px`,
       '--pin-color': pin.color,
+      opacity: isGhost ? 0.15 : undefined,
+      pointerEvents: isGhost ? 'none' : undefined,
     }
   }, [imageBounds, dragging])
 
@@ -340,6 +367,7 @@ export default function MapPage() {
           {timelineMode ? (
             <span className="map-pin-count">
               {sortedMaps[timelineIndex]?.name || ''} &middot; {pins.length} pin{pins.length !== 1 ? 's' : ''}
+              {prevPins.length > 0 && <> +{prevPins.length} prev</>}
             </span>
           ) : (
             <>
@@ -374,36 +402,58 @@ export default function MapPage() {
 
       <div className="map-area" ref={mapRef}>
         {timelineMode ? (
-          <div className="map-layers">
-            {sortedMaps.map((m, i) => (
+          <>
+            <div className="map-border" style={{
+              left: `${imageBounds.x}px`,
+              top: `${imageBounds.y}px`,
+              width: `${imageBounds.w}px`,
+              height: `${imageBounds.h}px`,
+            }} />
+            <img
+              ref={imgRef}
+              src={currentMap?.imageUrl || ContinentMap}
+              alt={currentMap?.name || 'Map'}
+              className="map-image"
+              draggable={false}
+              onLoad={handleImgLoad}
+            />
+            {prevPins.map(pin => (
               <div
-                key={m.id}
-                className={`map-layer ${i === timelineIndex ? 'active' : ''}`}
-                style={{ opacity: layerOpacity(i, timelineIndex) }}
+                key={'prev-' + pin.id}
+                className="map-pin map-pin-ghost"
+                style={pinStyle(pin, true)}
               >
-                <img
-                  ref={i === timelineIndex ? imgRef : null}
-                  src={m.imageUrl || ContinentMap}
-                  alt={m.name}
-                  draggable={false}
-                  onLoad={i === timelineIndex ? handleImgLoad : undefined}
-                />
+                <div className="pin-dot" />
               </div>
             ))}
-          </div>
+          </>
         ) : (
-          <img
-            ref={imgRef}
-            src={currentMap?.imageUrl || ContinentMap}
-            alt={currentMap?.name || 'Map'}
-            className="map-image"
-            draggable={false}
-            onLoad={handleImgLoad}
-          />
+          <>
+            <div className="map-border" style={{
+              left: `${imageBounds.x}px`,
+              top: `${imageBounds.y}px`,
+              width: `${imageBounds.w}px`,
+              height: `${imageBounds.h}px`,
+            }} />
+            <img
+              ref={imgRef}
+              src={currentMap?.imageUrl || ContinentMap}
+              alt={currentMap?.name || 'Map'}
+              className="map-image"
+              draggable={false}
+              onLoad={handleImgLoad}
+            />
+          </>
         )}
 
         <div
           className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
+          style={{
+            left: `${imageBounds.x}px`,
+            top: `${imageBounds.y}px`,
+            width: `${imageBounds.w}px`,
+            height: `${imageBounds.h}px`,
+          }}
           tabIndex={0}
           role="application"
           aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
@@ -447,7 +497,7 @@ export default function MapPage() {
             <div
               key={pin.id}
               className={`map-pin ${isDragging ? 'dragging' : ''}`}
-              style={pinStyle(pin)}
+              style={pinStyle(pin, false)}
               tabIndex={-1}
               onMouseDown={(e) => handlePinPointerDown(e, pin)}
               onClick={(e) => handlePinTap(e, pin)}
