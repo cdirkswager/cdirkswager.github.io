@@ -1,7 +1,6 @@
 import api from './api'
 import calendarSeed from '../../data/calendar-3101.json'
 
-const SEED_KEY = 'hunt-data-seeded'
 export const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
 
 const defaultData = {
@@ -15,7 +14,6 @@ const defaultData = {
     events: [],
     state: { year: 3102, month: 0, day: 1 },
     comments: {},
-    seeded: false,
   },
 }
 
@@ -55,10 +53,6 @@ function migrateData(data) {
   return data
 }
 
-function flushSeed() {
-  try { localStorage.removeItem(SEED_KEY) } catch {}
-}
-
 function getStore() {
   if (!dataCache) {
     dataCache = { ...defaultData, players: [], maps: [], mapPins: [], questionnaires: [], responses: [], comments: {}, calendar: { ...defaultData.calendar } }
@@ -84,13 +78,8 @@ async function loadFromServer() {
 
 export async function initStore() {
   await loadFromServer()
-  flushSeed()
   initCalendar()
   return dataCache
-}
-
-export function seedIfNeeded() {
-  flushSeed()
 }
 
 export function sanitizeHtml(str) {
@@ -548,9 +537,8 @@ export function getAllComments() {
 export function initCalendar() {
   const data = getStore()
   if (!data.calendar) data.calendar = { ...defaultData.calendar }
-  if (!data.calendar.seeded && calendarSeed?.events) {
+  if (calendarSeed?.events) {
     data.calendar.events = calendarSeed.events
-    data.calendar.seeded = true
   }
   return data.calendar
 }

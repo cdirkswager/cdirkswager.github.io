@@ -74,6 +74,10 @@ export default function CalendarPage() {
     setCalState(state)
   }
 
+  const handleToday = () => {
+    setViewMonth(calState.month)
+  }
+
   const openDay = (day) => {
     setSelectedDay(day)
     if (viewMonth !== null) {
@@ -157,6 +161,7 @@ export default function CalendarPage() {
             {session ? (
               <div className="calendar-nav-buttons">
                 <button className="btn btn-sm" onClick={handlePrevDay} title="Previous day">◀ Prev</button>
+                <button className="btn btn-sm" onClick={handleToday} title="Go to current game date">Today</button>
                 <span className="calendar-current-date">
                   {MONTH_NAMES[calState.month]} {calState.day}, Year {calState.year}
                   <span className="calendar-today-name"> &middot; {dayName(calState.day)}</span>

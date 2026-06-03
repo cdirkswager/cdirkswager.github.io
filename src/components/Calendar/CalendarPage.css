@@ -226,6 +226,19 @@
     justify-content: center;
   }
 
+  .calendar-nav-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .calendar-nav-buttons .calendar-current-date {
+    width: 100%;
+    order: -1;
+    margin-bottom: 4px;
+  }
+
   .calendar-cell {
     min-height: 60px;
     padding: 6px 4px;

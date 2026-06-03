@@ -323,6 +323,30 @@ export default function ProfileEditor() {
                 <label>Background Image URL (optional)</label>
                 <input value={form.theme.bgImage} onChange={e => handleThemeChange('bgImage', e.target.value)} placeholder="https://example.com/background.jpg" />
               </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label>Banner Image URL (optional)</label>
+                <input value={form.theme.bannerUrl || ''} onChange={e => handleThemeChange('bannerUrl', e.target.value)} placeholder="https://example.com/banner.jpg" />
+                <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                  Background image behind the character name, avatar, and title at the top of the page.
+                </p>
+                {form.theme.bannerUrl && (
+                  <div className="banner-preview">
+                    <div className="banner-preview-inner" style={{
+                      backgroundImage: `linear-gradient(135deg, ${form.theme.accentColor || '#c9a84c'}cc, ${form.theme.bgColor || '#0d0d0d'}e6), url(${form.theme.bannerUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}>
+                      <div className="banner-preview-content">
+                        <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
+                        <div>
+                          <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
+                          <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
