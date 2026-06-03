@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getPlayer, savePlayer, getPlayers, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
+import { getPlayer, savePlayer, getPlayers, getNPC, saveNPC, getNPCs, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import WidgetEditor from '../common/WidgetEditor'
 import Modal from '../common/Modal'
 import './PlayerEditor.css'
@@ -8,6 +8,8 @@ import './PlayerEditor.css'
 export default function PlayerEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isNPC = location.pathname.includes('/npc/')
   const [players, setPlayers] = useState([])
   const [selectedId, setSelectedId] = useState(id || 'new')
   const [form, setForm] = useState({
@@ -38,8 +40,8 @@ export default function PlayerEditor() {
   }, [form?.customCode])
 
   const refresh = useCallback(() => {
-    setPlayers(getPlayers())
-  }, [])
+    setPlayers(isNPC ? getNPCs() : getPlayers())
+  }, [isNPC])
 
   useEffect(() => { refresh() }, [refresh])
 
@@ -57,7 +59,7 @@ export default function PlayerEditor() {
         customCode: { enabled: false, html: '', css: '' },
       })
     } else {
-      const p = getPlayer(selectedId)
+      const p = isNPC ? getNPC(selectedId) : getPlayer(selectedId)
       if (p) {
         setForm({
           name: p.name,
@@ -82,14 +84,14 @@ export default function PlayerEditor() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return
-    const player = selectedId === 'new'
+    const entity = selectedId === 'new'
       ? { ...form, id: undefined }
       : { ...form, id: selectedId }
-    const saved_player = await savePlayer(player)
+    const saved = isNPC ? await saveNPC(entity) : await savePlayer(entity)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     if (selectedId === 'new') {
-      navigate(`/dm/player/${saved_player.id}`, { replace: true })
+      navigate(isNPC ? `/dm/npc/${saved.id}` : `/dm/player/${saved.id}`, { replace: true })
     }
     refresh()
   }
@@ -129,8 +131,8 @@ export default function PlayerEditor() {
       <div className="container">
         <div className="flex-between mb-2">
           <div>
-            <h1 className="text-gold">✏️ {id ? 'Edit' : 'Create'} Player</h1>
-            <p className="text-muted">DM tools for managing adventurers</p>
+            <h1 className="text-gold">✏️ {id ? 'Edit' : 'Create'} {isNPC ? 'NPC' : 'Player'}</h1>
+            <p className="text-muted">{isNPC ? 'Manage non-player characters' : 'DM tools for managing adventurers'}</p>
           </div>
           <div className="flex gap-1">
             {selectedId !== 'new' && (
@@ -138,7 +140,7 @@ export default function PlayerEditor() {
                 👤 View Page
               </Link>
             )}
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/dm/players')}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigate(isNPC ? '/dm/npc/new' : '/dm/players')}>
               ➕ New
             </button>
           </div>
@@ -146,15 +148,17 @@ export default function PlayerEditor() {
 
         {players.length > 1 && (
           <div className="player-selector mb-2">
-            <label>Select Player</label>
+            <label>Select {isNPC ? 'NPC' : 'Player'}</label>
             <select
               value={selectedId}
               onChange={e => {
                 setSelectedId(e.target.value)
-                navigate(e.target.value === 'new' ? '/dm/players' : `/dm/player/${e.target.value}`)
+                navigate(e.target.value === 'new'
+                  ? (isNPC ? '/dm/npc/new' : '/dm/players')
+                  : (isNPC ? `/dm/npc/${e.target.value}` : `/dm/player/${e.target.value}`))
               }}
             >
-              <option value="new">— New Player —</option>
+              <option value="new">— New {isNPC ? 'NPC' : 'Player'} —</option>
               {players.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -472,7 +476,7 @@ export default function PlayerEditor() {
               </Link>
             )}
             <button type="submit" className="btn btn-primary">
-              {saved ? '✅ Saved!' : '💾 Save Player'}
+              {saved ? '✅ Saved!' : `💾 Save ${isNPC ? 'NPC' : 'Player'}`}
             </button>
           </div>
         </form>

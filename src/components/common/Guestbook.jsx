@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getComments, addComment, deleteComment } from '../../data/store'
+import { Link } from 'react-router-dom'
+import { getComments, addComment, deleteComment, getCharacter } from '../../data/store'
 import { getSession } from '../../data/auth'
+import { useImpersonation } from '../../context/ImpersonationContext'
 
 export default function Guestbook({ playerId }) {
   const [comments, setComments] = useState([])
@@ -9,6 +11,9 @@ export default function Guestbook({ playerId }) {
   const [confirmingId, setConfirmingId] = useState(null)
   const session = getSession()
   const isDm = session?.role === 'dm'
+  const { impersonating } = useImpersonation()
+
+  const myCharacter = session?.playerId ? getCharacter(session.playerId) : null
 
   const refresh = useCallback(() => {
     setComments(getComments(playerId))
@@ -24,7 +29,19 @@ export default function Guestbook({ playerId }) {
     const limited = words.slice(0, wordLimit).join(' ')
     if (!limited || !session || submitting) return
     setSubmitting(true)
-    await addComment(playerId, session.username, limited)
+
+    let author = session.username
+    let authorId = null
+
+    if (impersonating) {
+      author = impersonating.name
+      authorId = impersonating.id
+    } else if (myCharacter) {
+      author = myCharacter.name
+      authorId = myCharacter.id
+    }
+
+    await addComment(playerId, author, limited, authorId)
     setText('')
     refresh()
     setSubmitting(false)
@@ -55,11 +72,17 @@ export default function Guestbook({ playerId }) {
         {comments.map(c => (
           <div key={c.id} className="guestbook-entry">
             <div className="guestbook-entry-header">
-              <span className="guestbook-author">{c.author}</span>
+              {c.authorId ? (
+                <Link to={`/player/${c.authorId}`} className="guestbook-author">
+                  {c.author}
+                </Link>
+              ) : (
+                <span className="guestbook-author">{c.author}</span>
+              )}
               <span className="guestbook-date">{formatDate(c.timestamp)}</span>
             </div>
             <p className="guestbook-text">{c.text}</p>
-            {(isDm || session?.username === c.author) && (
+            {(isDm || session?.playerId === c.authorId || session?.username === c.author) && (
               confirmingId === c.id ? (
                 <div className="guestbook-confirm">
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Delete?</span>
@@ -79,6 +102,11 @@ export default function Guestbook({ playerId }) {
       {session ? (
         <form className="guestbook-form" onSubmit={handleSubmit}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {impersonating && (
+              <div className="guestbook-impersonating-hint">
+                Posting as <Link to={`/player/${impersonating.id}`} className="guestbook-author">{impersonating.name}</Link>
+              </div>
+            )}
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}

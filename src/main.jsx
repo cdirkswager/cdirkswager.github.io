@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { initStore } from './data/store'
 import { initAuth } from './data/auth'
+import { ImpersonationProvider } from './context/ImpersonationContext'
 import 'animate.css'
 import './index.css'
 
@@ -14,7 +15,9 @@ async function init() {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <BrowserRouter>
-        <App />
+        <ImpersonationProvider>
+          <App />
+        </ImpersonationProvider>
       </BrowserRouter>
     </React.StrictMode>
   )

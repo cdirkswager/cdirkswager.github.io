@@ -5,6 +5,7 @@ export const SEASON_NAMES = ['Spring', 'Summer', 'Autumn', 'Winter']
 
 const defaultData = {
   players: [],
+  npcs: [],
   maps: [],
   mapPins: [],
   questionnaires: [],
@@ -21,6 +22,7 @@ let dataCache = null
 
 function migrateData(data) {
   if (!data) return data
+  if (!data.npcs) data.npcs = []
   if (!data.maps) {
     data.maps = [
       { id: 'map-1', name: 'The Realm', imageUrl: '', year: 1, season: 0 },
@@ -350,6 +352,65 @@ export async function deletePlayer(id) {
   await saveData(data)
 }
 
+export function getNPCs() {
+  return getStore().npcs || []
+}
+
+export function getNPC(id) {
+  return (getStore().npcs || []).find(n => n.id === id) || null
+}
+
+export function getCharacter(id) {
+  const data = getStore()
+  return data.players.find(p => p.id === id) || (data.npcs || []).find(n => n.id === id) || null
+}
+
+export function getAllCharacters() {
+  const data = getStore()
+  return [...(data.players || []), ...(data.npcs || [])]
+}
+
+export async function saveNPC(npc) {
+  const data = getStore()
+  if (!data.npcs) data.npcs = []
+  const idx = data.npcs.findIndex(n => n.id === npc.id)
+  let widgetCounter = Date.now()
+  npc.widgets = (npc.widgets || []).map(w => {
+    if (!w.id) w.id = 'wid-' + (widgetCounter++)
+    return w
+  })
+  if (npc.layout === undefined) npc.layout = 'single'
+  if (npc.musicUrl === undefined) npc.musicUrl = ''
+  if (npc.commentsEnabled === undefined) npc.commentsEnabled = true
+  if (npc.avatarUrl === undefined) npc.avatarUrl = ''
+  if (!npc.customCode) npc.customCode = { enabled: false, html: '', css: '' }
+  if (npc.customCode.html) npc.customCode.html = sanitizeHtml(npc.customCode.html)
+  if (npc.customCode.css) npc.customCode.css = sanitizeCss(npc.customCode.css)
+  if (npc.widgetAnimations && typeof Object.keys(npc.widgetAnimations)[0] === 'string' && /^\d+$/.test(Object.keys(npc.widgetAnimations)[0])) {
+    const migrated = {}
+    npc.widgets.forEach((w, i) => {
+      if (npc.widgetAnimations[i]) migrated[w.id] = npc.widgetAnimations[i]
+    })
+    npc.widgetAnimations = migrated
+  }
+  if (idx >= 0) {
+    data.npcs[idx] = npc
+  } else {
+    npc.id = 'npc-' + Date.now()
+    npc.createdAt = Date.now()
+    data.npcs.push(npc)
+  }
+  await saveData(data)
+  return npc
+}
+
+export async function deleteNPC(id) {
+  const data = getStore()
+  if (data.npcs) data.npcs = data.npcs.filter(n => n.id !== id)
+  if (data.comments) delete data.comments[id]
+  await saveData(data)
+}
+
 export function getMaps() {
   return getStore().maps
 }
@@ -498,7 +559,7 @@ export function getComments(playerId) {
   return data.comments?.[playerId] || []
 }
 
-export async function addComment(playerId, author, text) {
+export async function addComment(playerId, author, text, authorId) {
   const data = getStore()
   if (!data.comments) data.comments = {}
   if (!data.comments[playerId]) data.comments[playerId] = []
@@ -509,6 +570,7 @@ export async function addComment(playerId, author, text) {
     timestamp: Date.now(),
     playerId,
   }
+  if (authorId) comment.authorId = authorId
   data.comments[playerId].push(comment)
   await saveData(data)
   return comment

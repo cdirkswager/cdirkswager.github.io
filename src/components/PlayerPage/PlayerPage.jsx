@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getPlayer, getPlayers, getComments, addComment, deleteComment, savePlayer, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
+import { getPlayer, getPlayers, getNPC, savePlayer, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import { getSession } from '../../data/auth'
 import Guestbook from '../common/Guestbook'
 import Modal from '../common/Modal'
@@ -247,6 +247,7 @@ export default function PlayerPage() {
   const { id } = useParams()
   const [player, setPlayer] = useState(null)
   const [allPlayers, setAllPlayers] = useState([])
+  const [isNPC, setIsNPC] = useState(false)
   const [avatarError, setAvatarError] = useState(false)
   const session = getSession()
 
@@ -260,9 +261,10 @@ export default function PlayerPage() {
   const iframeRef = useRef(null)
 
   useEffect(() => {
-    const p = getPlayer(id)
+    let p = getPlayer(id) || getNPC(id)
     setPlayer(p)
     setAllPlayers(getPlayers())
+    setIsNPC(p ? p.id.startsWith('npc-') : false)
     setAvatarError(false)
     if (p?.customCode) {
       setEditHtml(p.customCode.html || '')
@@ -484,6 +486,7 @@ export default function PlayerPage() {
         </div>
       )}
 
+      {!isNPC && (
       <div className="container mt-3">
         <h3 className="text-gold mb-2">🎭 The Party</h3>
         <div className="party-bar">
@@ -502,6 +505,7 @@ export default function PlayerPage() {
           )}
         </div>
       </div>
+      )}
 
       {showSourcePanel && (
         <div className="source-editor-overlay" onClick={() => setShowSourcePanel(false)}>

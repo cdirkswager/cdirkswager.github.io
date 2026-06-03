@@ -32,6 +32,8 @@ export default function App() {
         <Route path="/dm" element={<RequireDM><DMTools /></RequireDM>} />
         <Route path="/dm/players" element={<RequireDM><PlayerEditor /></RequireDM>} />
         <Route path="/dm/player/:id" element={<RequireDM><PlayerEditor /></RequireDM>} />
+        <Route path="/dm/npc/new" element={<RequireDM><PlayerEditor /></RequireDM>} />
+        <Route path="/dm/npc/:id" element={<RequireDM><PlayerEditor /></RequireDM>} />
         <Route path="/dm/questionnaire/new" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
         <Route path="/dm/questionnaire/:id" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
         </Routes>

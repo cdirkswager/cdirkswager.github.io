@@ -401,6 +401,13 @@
   font-size: 0.85rem;
   color: var(--accent-gold);
   font-weight: 700;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a.guestbook-author:hover {
+  color: var(--accent-fire);
+  text-decoration: underline;
 }
 
 .guestbook-date {
@@ -434,6 +441,18 @@
 .guestbook-form textarea {
   flex: 1;
   min-height: 48px;
+}
+
+.guestbook-impersonating-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--accent-magic);
+  padding: 4px 8px;
+  background: rgba(106, 76, 201, 0.08);
+  border: 1px solid rgba(106, 76, 201, 0.2);
+  border-radius: var(--radius);
 }
 
 @media (max-width: 768px) {

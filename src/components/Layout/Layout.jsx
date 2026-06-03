@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../data/auth'
+import { useImpersonation } from '../../context/ImpersonationContext'
 
 import './Layout.css'
 
@@ -9,6 +10,7 @@ export default function Layout({ children }) {
   const [session, setSession] = useState(getSession())
   const location = useLocation()
   const navigate = useNavigate()
+  const { impersonating, logoutAs } = useImpersonation()
 
   useEffect(() => {
     setSession(getSession())
@@ -34,7 +36,22 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="layout">
+    <div className={`layout${impersonating ? ' layout-impersonating' : ''}`}>
+      {impersonating && (
+        <div className="impersonation-banner">
+          <div className="container impersonation-banner-inner">
+            <div className="impersonation-banner-info">
+              <span className="impersonation-avatar">{impersonating.name?.charAt(0) || '?'}</span>
+              <span className="impersonation-name">{impersonating.name}</span>
+              <span className="impersonation-label">(impersonating)</span>
+            </div>
+            <button className="btn btn-sm impersonation-exit" onClick={logoutAs}>
+              ✕ Exit NPC
+            </button>
+          </div>
+        </div>
+      )}
+
       <nav className="navbar">
         <div className="container nav-inner">
           <Link to="/" className="nav-brand" onClick={() => setMenuOpen(false)}>

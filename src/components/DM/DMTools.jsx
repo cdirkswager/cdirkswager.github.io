@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  getPlayers, getMaps, getSortedMaps, getYears, getMapPins, getQuestionnaires,
-  deletePlayer, saveMap, deleteMap, deleteMapPin, deleteQuestionnaire,
+  getPlayers, getNPCs, getNPC, getMaps, getSortedMaps, getYears, getMapPins, getQuestionnaires,
+  deletePlayer, deleteNPC, saveMap, deleteMap, deleteMapPin, deleteQuestionnaire,
   addYear, deleteYear, SEASON_NAMES,
   exportData, importData, resetData,
   exportFullData, importFullData,
@@ -17,11 +17,14 @@ import {
   approvePendingUser, assignPlayerToUser,
 } from '../../data/auth'
 import Modal from '../common/Modal'
+import { useImpersonation } from '../../context/ImpersonationContext'
 import './DMTools.css'
 
 export default function DMTools() {
   const navigate = useNavigate()
+  const { loginAs, impersonating } = useImpersonation()
   const [players, setPlayers] = useState([])
+  const [npcs, setNpcs] = useState([])
   const [maps, setMaps] = useState([])
   const [pins, setPins] = useState([])
   const [questionnaires, setQuestionnaires] = useState([])
@@ -49,6 +52,7 @@ export default function DMTools() {
   const [confirmPinDelete, setConfirmPinDelete] = useState(null)
   const [confirmQuestionnaireDelete, setConfirmQuestionnaireDelete] = useState(null)
   const [confirmPlayerDelete, setConfirmPlayerDelete] = useState(null)
+  const [confirmNPCDelete, setConfirmNPCDelete] = useState(null)
   const [confirmDenyReq, setConfirmDenyReq] = useState(null)
   // For assigning a character to a user directly from the Users modal
   const [assigningUser, setAssigningUser] = useState(null)
@@ -68,6 +72,7 @@ export default function DMTools() {
   const refresh = async () => {
     await initStore()
     setPlayers(getPlayers())
+    setNpcs(getNPCs())
     setMaps(getMaps())
     setPins(getMapPins())
     setQuestionnaires(getQuestionnaires())
@@ -141,6 +146,12 @@ export default function DMTools() {
     await unclaimPlayerId(id)
     await deletePlayer(id)
     setConfirmPlayerDelete(null)
+    refresh()
+  }
+
+  const handleDeleteNPC = async (id) => {
+    await deleteNPC(id)
+    setConfirmNPCDelete(null)
     refresh()
   }
 
@@ -274,6 +285,10 @@ export default function DMTools() {
             <span className="dm-stat-label">Adventurers</span>
           </div>
           <div className="dm-stat-card card gold-border">
+            <span className="dm-stat-number">{npcs.length}</span>
+            <span className="dm-stat-label">NPCs</span>
+          </div>
+          <div className="dm-stat-card card gold-border">
             <span className="dm-stat-number">{pins.length}</span>
             <span className="dm-stat-label">Map Pins</span>
           </div>
@@ -400,6 +415,35 @@ export default function DMTools() {
                   </div>
                 )
               })}
+            </div>
+          )}
+        </div>
+
+        <div className="card gold-border mb-2">
+          <div className="flex-between mb-2">
+            <h3 className="widget-title">📜 Nobles &amp; NPCs</h3>
+            <Link to="/dm/npc/new" className="btn btn-sm btn-primary">➕ Create NPC</Link>
+          </div>
+          {npcs.length === 0 ? (
+            <p className="text-muted">No NPCs yet.</p>
+          ) : (
+            <div className="dm-list">
+              {npcs.map(n => (
+                <div key={n.id} className="dm-list-item">
+                  <div className="dm-list-info">
+                    <span className="dm-list-name">{n.name}</span>
+                    <span className="dm-list-detail">{n.race} {n.class} &middot; Lvl {n.level}</span>
+                  </div>
+                  <div className="dm-list-actions">
+                    <Link to={`/player/${n.id}`} className="btn btn-sm">👤 View</Link>
+                    <Link to={`/dm/npc/${n.id}`} className="btn btn-sm">✏️ Edit</Link>
+                    <button className="btn btn-sm" onClick={() => loginAs(n)} style={impersonating?.id === n.id ? { borderColor: 'var(--accent-magic)', color: 'var(--accent-magic)' } : {}}>
+                      {impersonating?.id === n.id ? '🎭 Active' : '🎭 Log in'}
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmNPCDelete(n)}>🗑️</button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -565,7 +609,7 @@ export default function DMTools() {
             return (
               <div className="dm-list">
                 {recent.map(c => {
-                  const playerName = players.find(p => p.id === c.playerId)?.name || c.playerId
+                  const playerName = players.find(p => p.id === c.playerId)?.name || npcs.find(n => n.id === c.playerId)?.name || c.playerId
                   return (
                     <div key={c.id} className="dm-list-item">
                       <div className="dm-list-info">
@@ -801,6 +845,16 @@ export default function DMTools() {
           <div className="flex-between">
             <button className="btn" onClick={() => setConfirmPlayerDelete(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={() => handleDeletePlayer(confirmPlayerDelete.id)}>🗑️ Delete</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmNPCDelete && (
+        <Modal title="🗑️ Delete NPC" onClose={() => setConfirmNPCDelete(null)}>
+          <p className="mb-2">Delete NPC <strong>{confirmNPCDelete.name}</strong> and all their comments? This cannot be undone.</p>
+          <div className="flex-between">
+            <button className="btn" onClick={() => setConfirmNPCDelete(null)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => handleDeleteNPC(confirmNPCDelete.id)}>🗑️ Delete</button>
           </div>
         </Modal>
       )}
