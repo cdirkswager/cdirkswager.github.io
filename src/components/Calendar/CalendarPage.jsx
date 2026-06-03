@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  initCalendar, getCalendarData, getCalendarState,
+  initCalendar, getCalendarData,
   getDayEvents, advanceCalendarDay, setCalendarState,
   getCalendarComments, addCalendarComment, deleteCalendarComment,
 } from '../../data/store'
@@ -20,6 +20,7 @@ function dayName(day) {
 export default function CalendarPage() {
   const [calState, setCalState] = useState(null)
   const [allEvents, setAllEvents] = useState([])
+  const [viewMonth, setViewMonth] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
   const [dayComments, setDayComments] = useState([])
   const [commentText, setCommentText] = useState('')
@@ -43,42 +44,40 @@ export default function CalendarPage() {
     refresh()
   }, [refresh])
 
+  useEffect(() => {
+    if (calState && viewMonth === null) {
+      setViewMonth(calState.month)
+    }
+  }, [calState, viewMonth])
+
   const monthEvents = useMemo(() => {
-    if (!calState) return []
-    return allEvents.filter(e => e.month === calState.month)
-  }, [allEvents, calState?.month])
+    if (viewMonth === null) return []
+    return allEvents.filter(e => e.month === viewMonth)
+  }, [allEvents, viewMonth])
 
   const eventsForDay = (day) => {
     return monthEvents.filter(e => e.day === day)
   }
 
   const commentCount = (day) => {
-    if (!calState) return 0
-    return getCalendarComments(calState.month, day).length
+    if (viewMonth === null) return 0
+    return getCalendarComments(viewMonth, day).length
   }
 
   const handlePrevDay = async () => {
     const state = await advanceCalendarDay(-1)
     setCalState(state)
-    if (selectedDay) {
-      setSelectedDay(null)
-      setDayComments([])
-    }
   }
 
   const handleNextDay = async () => {
     const state = await advanceCalendarDay(1)
     setCalState(state)
-    if (selectedDay) {
-      setSelectedDay(null)
-      setDayComments([])
-    }
   }
 
   const openDay = (day) => {
     setSelectedDay(day)
-    if (calState) {
-      setDayComments(getCalendarComments(calState.month, day))
+    if (viewMonth !== null) {
+      setDayComments(getCalendarComments(viewMonth, day))
     }
     setCommentText('')
     setConfirmingDelete(null)
@@ -88,19 +87,19 @@ export default function CalendarPage() {
     e.preventDefault()
     const words = commentText.trim().split(/\s+/)
     const limited = words.slice(0, 25).join(' ')
-    if (!limited || !session || submitting || !calState || selectedDay == null) return
+    if (!limited || !session || submitting || viewMonth === null || selectedDay == null) return
     setSubmitting(true)
-    await addCalendarComment(calState.month, selectedDay, session.username, limited)
+    await addCalendarComment(viewMonth, selectedDay, session.username, limited)
     setCommentText('')
-    setDayComments(getCalendarComments(calState.month, selectedDay))
+    setDayComments(getCalendarComments(viewMonth, selectedDay))
     setSubmitting(false)
   }
 
   const handleDeleteComment = async (commentId) => {
-    if (!calState || selectedDay == null) return
-    await deleteCalendarComment(commentId, calState.month, selectedDay)
+    if (viewMonth === null || selectedDay == null) return
+    await deleteCalendarComment(commentId, viewMonth, selectedDay)
     setConfirmingDelete(null)
-    setDayComments(getCalendarComments(calState.month, selectedDay))
+    setDayComments(getCalendarComments(viewMonth, selectedDay))
   }
 
   const handleDmSetDate = async () => {
@@ -117,11 +116,11 @@ export default function CalendarPage() {
     setShowDatePicker(true)
   }
 
-  const isToday = (day) => {
-    return calState && calState.day === day
+  const isGameDate = (day) => {
+    return calState && viewMonth === calState.month && calState.day === day
   }
 
-  if (!calState) {
+  if (!calState || viewMonth === null) {
     return <div className="page"><div className="container"><p className="text-muted">Loading calendar...</p></div></div>
   }
 
@@ -145,11 +144,8 @@ export default function CalendarPage() {
           <div className="calendar-header-left">
             <select
               className="map-selector"
-              value={calState.month}
-              onChange={async (e) => {
-                await setCalendarState({ month: parseInt(e.target.value) })
-                refresh()
-              }}
+              value={viewMonth}
+              onChange={e => setViewMonth(parseInt(e.target.value))}
             >
               {MONTH_NAMES.map((name, i) => (
                 <option key={i} value={i}>{name}</option>
@@ -187,11 +183,11 @@ export default function CalendarPage() {
               {row.map(day => {
                 const events = eventsForDay(day)
                 const cc = commentCount(day)
-                const today = isToday(day)
+                const today = isGameDate(day)
                 return (
                   <button
                     key={day}
-                    className={`calendar-cell ${today ? 'calendar-cell-today' : ''} ${events.length > 0 ? 'calendar-cell-has-events' : ''} ${cc > 0 ? 'calendar-cell-has-comments' : ''}`}
+                    className={`calendar-cell ${today ? 'calendar-cell-today' : ''} ${events.length > 0 ? 'calendar-cell-has-events' : ''}`}
                     onClick={() => openDay(day)}
                   >
                     <div className="calendar-cell-header">
@@ -216,6 +212,12 @@ export default function CalendarPage() {
           ))}
         </div>
 
+        {viewMonth === calState.month && (
+          <div className="calendar-game-date-note">
+            📍 Current game date: {MONTH_NAMES[calState.month]} {calState.day}, Year {calState.year}
+          </div>
+        )}
+
         <div className="calendar-day-legend">
           {DAY_NAMES.map((name, i) => (
             <span key={i} className="calendar-legend-item">
@@ -227,7 +229,7 @@ export default function CalendarPage() {
 
         {selectedDay != null && (
           <Modal
-            title={`${MONTH_NAMES[calState.month]} ${selectedDay}, Year ${calState.year} — ${dayName(selectedDay)}`}
+            title={`${MONTH_NAMES[viewMonth]} ${selectedDay}, Year ${calState.year} — ${dayName(selectedDay)}`}
             onClose={() => { setSelectedDay(null); setDayComments([]) }}
           >
             {(() => {

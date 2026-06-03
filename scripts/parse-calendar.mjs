@@ -27,10 +27,16 @@ for (let mi = 0; mi < 12; mi++) {
   const data = utils.sheet_to_json(sheet, { header: 1 })
 
   // Row 1 (index 1) = header with day names
-  // Rows 2-31 (indices 2-31) = Day 1 to Day 30
-  for (let rowIdx = 2; rowIdx <= 31; rowIdx++) {
-    const day = rowIdx - 1 // Day 1-30
-    const row = data[rowIdx]
+  // Data rows are Excel rows 3, 4, 5 (indices 2, 3, 4)
+  // Each row corresponds to a 10-day block of the 30-day month:
+  //   index 2 → block 0 → days  1-10  (offset = 0)
+  //   index 3 → block 1 → days 11-20  (offset = 10)
+  //   index 4 → block 2 → days 21-30  (offset = 20)
+  // Day number = col_index + 1 + offset
+  const rowToOffset = { 2: 0, 3: 10, 4: 20 }
+
+  for (const [rowIdx, offset] of Object.entries(rowToOffset)) {
+    const row = data[parseInt(rowIdx)]
     if (!row) continue
 
     for (let col = 0; col < 10; col++) {
@@ -41,6 +47,7 @@ for (let mi = 0; mi < 12; mi++) {
       for (const title of titles) {
         const normalized = title.replace(/^[-•]\s*/, '').trim()
         if (!normalized) continue
+        const day = col + 1 + offset
         allEvents.push({
           id: `evt-${mi + 1}-${day}-${col}`,
           month: mi,
