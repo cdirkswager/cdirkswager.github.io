@@ -6,6 +6,15 @@
 .player-banner {
   padding: 40px 0 30px;
   border-bottom: 1px solid rgba(201, 168, 76, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.player-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
 
 .player-profile-inner {
@@ -150,6 +159,14 @@
   text-align: center;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.widget-spotify {
+  margin-bottom: 8px;
+}
+
+.widget-spotify iframe {
+  border-radius: var(--radius);
 }
 
 .widget-soundcloud {

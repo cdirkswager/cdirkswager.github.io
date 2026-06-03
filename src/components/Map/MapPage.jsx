@@ -13,6 +13,25 @@ function layerOpacity(index, activeIndex) {
   return Math.max(0.06, 0.35 - (dist - 1) * 0.12)
 }
 
+function calcImageBounds(containerW, containerH, imgW, imgH) {
+  if (!imgW || !imgH) return { x: 0, y: 0, w: containerW, h: containerH }
+  const imgAspect = imgW / imgH
+  const contAspect = containerW / containerH
+  let x, y, w, h
+  if (contAspect > imgAspect) {
+    h = containerH
+    w = containerH * imgAspect
+    x = (containerW - w) / 2
+    y = 0
+  } else {
+    w = containerW
+    h = containerW / imgAspect
+    x = 0
+    y = (containerH - h) / 2
+  }
+  return { x, y, w, h }
+}
+
 export default function MapPage() {
   const [maps, setMaps] = useState([])
   const [selectedMapId, setSelectedMapId] = useState(null)
@@ -31,8 +50,13 @@ export default function MapPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [confirmDeletePin, setConfirmDeletePin] = useState(null)
   const [focusedPin, setFocusedPin] = useState(null)
+  const [imageNatural, setImageNatural] = useState(null)
+  const [imageBounds, setImageBounds] = useState({ x: 0, y: 0, w: 100, h: 100 })
+  const [showPinList, setShowPinList] = useState(false)
+  const [mobilePinDetail, setMobilePinDetail] = useState(null)
   const mapRef = useRef()
   const longPressTimer = useRef(null)
+  const imgRef = useRef()
 
   const sortedMaps = useMemo(() => getSortedMaps(), [maps])
   const yearGroups = useMemo(() => {
@@ -81,6 +105,41 @@ export default function MapPage() {
     }
   }, [timelineMode, timelineIndex, sortedMaps])
 
+  const recalcBounds = useCallback(() => {
+    const container = mapRef.current
+    if (!container || !imageNatural) return
+    const cw = container.clientWidth
+    const ch = container.clientHeight
+    setImageBounds(calcImageBounds(cw, ch, imageNatural.w, imageNatural.h))
+  }, [imageNatural])
+
+  useEffect(() => {
+    recalcBounds()
+    window.addEventListener('resize', recalcBounds)
+    return () => window.removeEventListener('resize', recalcBounds)
+  }, [recalcBounds])
+
+  useEffect(() => {
+    if (imgRef.current?.complete) {
+      setImageNatural({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight })
+    }
+  }, [currentMap, timelineMode, timelineIndex])
+
+  useEffect(() => {
+    if (timelineMode && sortedMaps[timelineIndex]) {
+      const currentMapImg = sortedMaps[timelineIndex]
+      const imgUrl = currentMapImg.imageUrl || ContinentMap
+      const img = new Image()
+      img.onload = () => setImageNatural({ w: img.naturalWidth, h: img.naturalHeight })
+      img.src = imgUrl
+    }
+  }, [timelineMode, timelineIndex, sortedMaps])
+
+  const handleImgLoad = useCallback((e) => {
+    const img = e.target
+    setImageNatural({ w: img.naturalWidth, h: img.naturalHeight })
+  }, [])
+
   const toggleTimeline = () => {
     if (timelineMode) {
       setTimelineMode(false)
@@ -96,20 +155,23 @@ export default function MapPage() {
   const session = currentUser()
 
   const getPosFromEvent = useCallback((e) => {
+    if (!mapRef.current) return { x: 50, y: 50 }
     const rect = mapRef.current.getBoundingClientRect()
     const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
     const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
+    const relX = ((cx - rect.left) - imageBounds.x) / imageBounds.w
+    const relY = ((cy - rect.top) - imageBounds.y) / imageBounds.h
     return {
-      x: Math.min(100, Math.max(0, Math.round(((cx - rect.left) / rect.width) * 1000) / 10)),
-      y: Math.min(100, Math.max(0, Math.round(((cy - rect.top) / rect.height) * 1000) / 10)),
+      x: Math.min(100, Math.max(0, Math.round(relX * 1000) / 10)),
+      y: Math.min(100, Math.max(0, Math.round(relY * 1000) / 10)),
     }
-  }, [])
+  }, [imageBounds])
 
   const handleMapTap = useCallback((e) => {
     if (dragging) return
     const pos = getPosFromEvent(e)
     const tapped = pins.find(p =>
-      Math.abs(p.x - pos.x) < 3 && Math.abs(p.y - pos.y) < 3
+      Math.abs(p.x - pos.x) < 4 && Math.abs(p.y - pos.y) < 4
     )
     if (tapped) {
       setTooltipPin(tapped)
@@ -122,7 +184,7 @@ export default function MapPage() {
     setShowForm(true)
   }, [pins, dragging, getPosFromEvent])
 
-  const handleMapTouch = useCallback((e) => {
+  const handleMapTouchStart = useCallback((e) => {
     if (e.touches.length > 1) return
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -146,6 +208,14 @@ export default function MapPage() {
     const pos = getPosFromEvent(e)
     setDragStart({ x: pos.x, y: pos.y, id: pin.id, pinX: pin.x, pinY: pin.y })
   }, [getPosFromEvent])
+
+  const handlePinTap = useCallback((e, pin) => {
+    e.stopPropagation()
+    setTooltipPin(pin)
+    if (window.innerWidth <= 768) {
+      setMobilePinDetail(pin)
+    }
+  }, [])
 
   useEffect(() => {
     if (!dragStart) return
@@ -245,6 +315,15 @@ export default function MapPage() {
     refresh()
   }
 
+  const pinStyle = useCallback((pin) => {
+    const isDragging = dragging?.id === pin.id
+    return {
+      left: `${imageBounds.x + (isDragging ? dragging.x : pin.x) / 100 * imageBounds.w}px`,
+      top: `${imageBounds.y + (isDragging ? dragging.y : pin.y) / 100 * imageBounds.h}px`,
+      '--pin-color': pin.color,
+    }
+  }, [imageBounds, dragging])
+
   return (
     <div className={`map-page ${timelineMode ? 'map-page-timeline' : ''}`}>
       <div className="map-header">
@@ -302,16 +381,24 @@ export default function MapPage() {
                 className={`map-layer ${i === timelineIndex ? 'active' : ''}`}
                 style={{ opacity: layerOpacity(i, timelineIndex) }}
               >
-                <img src={m.imageUrl || ContinentMap} alt={m.name} draggable={false} />
+                <img
+                  ref={i === timelineIndex ? imgRef : null}
+                  src={m.imageUrl || ContinentMap}
+                  alt={m.name}
+                  draggable={false}
+                  onLoad={i === timelineIndex ? handleImgLoad : undefined}
+                />
               </div>
             ))}
           </div>
         ) : (
           <img
+            ref={imgRef}
             src={currentMap?.imageUrl || ContinentMap}
             alt={currentMap?.name || 'Map'}
             className="map-image"
             draggable={false}
+            onLoad={handleImgLoad}
           />
         )}
 
@@ -348,27 +435,27 @@ export default function MapPage() {
               setTooltipPin(pins[0])
             }
           }}
-          onTouchStart={handleMapTouch}
+          onTouchStart={handleMapTouchStart}
           onTouchEnd={cancelLongPress}
           onTouchMove={cancelLongPress}
         />
 
         {pins.map(pin => {
           const isDragging = dragging?.id === pin.id
-          const showTooltip = tooltipPin?.id === pin.id && !isDragging
+          const showTooltip = tooltipPin?.id === pin.id && !isDragging && !mobilePinDetail
           return (
             <div
               key={pin.id}
               className={`map-pin ${isDragging ? 'dragging' : ''}`}
-              style={{
-                left: `${isDragging ? dragging.x : pin.x}%`,
-                top: `${isDragging ? dragging.y : pin.y}%`,
-                '--pin-color': pin.color,
-              }}
+              style={pinStyle(pin)}
               tabIndex={-1}
               onMouseDown={(e) => handlePinPointerDown(e, pin)}
+              onClick={(e) => handlePinTap(e, pin)}
               onFocus={() => { setFocusedPin(pin.id); setTooltipPin(pin) }}
-              onTouchStart={(e) => handlePinPointerDown(e, pin)}
+              onTouchStart={(e) => {
+                if (longPressTimer.current) clearTimeout(longPressTimer.current)
+                handlePinPointerDown(e, pin)
+              }}
             >
               <div className="pin-dot" />
               <span className="pin-label">{pin.label}</span>
@@ -390,8 +477,8 @@ export default function MapPage() {
           <div
             className="map-inline-form animate__animated animate__fadeIn"
             style={{
-              left: `${Math.min(placingPos.x + 5, 85)}%`,
-              top: `${Math.min(placingPos.y + 5, 80)}%`,
+              left: `${imageBounds.x + (placingPos.x / 100) * imageBounds.w}px`,
+              top: `${imageBounds.y + (placingPos.y / 100) * imageBounds.h}px`,
             }}
           >
             <div className="inline-form-header">
@@ -473,6 +560,73 @@ export default function MapPage() {
                     Year {g.year}
                   </span>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button
+          className="map-pin-list-toggle"
+          onClick={() => setShowPinList(prev => !prev)}
+          aria-label="Toggle pin list"
+        >
+          📍 {pins.length}
+        </button>
+
+        {showPinList && (
+          <div className="map-pin-list-overlay" onClick={() => setShowPinList(false)}>
+            <div className="map-pin-list" onClick={e => e.stopPropagation()}>
+              <div className="map-pin-list-header">
+                <span className="map-pin-list-title">📍 Pins ({pins.length})</span>
+                <button className="map-pin-list-close" onClick={() => setShowPinList(false)}>&times;</button>
+              </div>
+              <div className="map-pin-list-body">
+                {pins.length === 0 && (
+                  <p className="text-muted" style={{ padding: 16, textAlign: 'center' }}>No pins on this map.</p>
+                )}
+                {pins.map(pin => (
+                  <button
+                    key={pin.id}
+                    className="map-pin-list-item"
+                    onClick={() => {
+                      setTooltipPin(pin)
+                      setMobilePinDetail(pin)
+                      setShowPinList(false)
+                    }}
+                  >
+                    <span className="map-pin-list-dot" style={{ background: pin.color }} />
+                    <span className="map-pin-list-name">{pin.label}</span>
+                    <span className="map-pin-list-coords">{pin.x}%, {pin.y}%</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mobilePinDetail && (
+          <div className="map-mobile-detail-overlay" onClick={() => setMobilePinDetail(null)}>
+            <div className="map-mobile-detail" onClick={e => e.stopPropagation()}>
+              <div className="map-mobile-detail-header">
+                <span className="map-mobile-detail-dot" style={{ background: mobilePinDetail.color }} />
+                <strong>{mobilePinDetail.label}</strong>
+                <button className="map-mobile-detail-close" onClick={() => setMobilePinDetail(null)}>&times;</button>
+              </div>
+              {mobilePinDetail.description && (
+                <p className="map-mobile-detail-desc">{mobilePinDetail.description}</p>
+              )}
+              <div className="map-mobile-detail-meta">
+                {mobilePinDetail.x}%, {mobilePinDetail.y}%
+              </div>
+              <div className="map-mobile-detail-actions">
+                <button className="btn btn-sm" onClick={() => {
+                  openEditPin(mobilePinDetail)
+                  setMobilePinDetail(null)
+                }}>✏️ Edit</button>
+                <button className="btn btn-sm btn-danger" onClick={() => {
+                  setConfirmDeletePin(mobilePinDetail)
+                  setMobilePinDetail(null)
+                }}>🗑️ Delete</button>
               </div>
             </div>
           </div>

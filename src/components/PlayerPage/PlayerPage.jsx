@@ -86,11 +86,29 @@ function MusicWidget({ widget, theme }) {
   const description = widget.content || ''
   const isSoundCloud = url && /soundcloud\.com/i.test(url)
   const isAudioFile = url && /\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(url)
+  const isSpotify = url && /open\.spotify\.com/i.test(url)
   const [audioError, setAudioError] = useState(false)
+
+  const spotifyEmbedUrl = isSpotify
+    ? url.replace(/^https?:\/\/open\.spotify\.com\//, 'https://open.spotify.com/embed/')
+    : null
 
   return (
     <div>
       <h3 className="widget-title">🎵 Music</h3>
+      {isSpotify && (
+        <div className="widget-spotify">
+          <iframe
+            src={spotifyEmbedUrl}
+            width="100%"
+            height="80"
+            frameBorder="no"
+            allow="encrypted-media"
+            title="Spotify player"
+            style={{ borderRadius: 'var(--radius)' }}
+          />
+        </div>
+      )}
       {isSoundCloud && (
         <div className="widget-soundcloud">
           <iframe
@@ -116,7 +134,7 @@ function MusicWidget({ widget, theme }) {
       {isAudioFile && audioError && (
         <p className="widget-text text-muted">Could not load audio from the provided URL.</p>
       )}
-      {!isSoundCloud && !isAudioFile && url && (
+      {!isSoundCloud && !isAudioFile && !isSpotify && url && (
         <div className="widget-audio-player">
           <audio controls preload="metadata" style={{ width: '100%' }} onError={() => setAudioError(true)}>
             <source src={url} />
@@ -312,38 +330,46 @@ export default function PlayerPage() {
 
       <div className="player-profile">
         <div className="player-banner" style={{
-          background: `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}33, transparent)`,
-        }}>
-          <div className="container">
-            <div className="player-profile-inner">
-              <div className="player-avatar-wrapper">
-                <div className="player-avatar-large" style={{ borderColor: theme?.accentColor || '#c9a84c' }}>
-                  {hasAvatar ? (
-                    <img src={player.avatarUrl} alt={player.name} className="player-avatar-img" onError={() => setAvatarError(true)} />
-                  ) : (
-                    player.name.charAt(0)
+            background: theme?.bannerUrl
+              ? `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}cc, ${theme?.bgColor || '#0d0d0d'}e6)`
+              : `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}33, transparent)`,
+            ...(theme?.bannerUrl ? {
+              backgroundImage: `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}cc, ${theme?.bgColor || '#0d0d0d'}e6), url(${theme.bannerUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            } : {}),
+          }}>
+            {theme?.bannerUrl && <div className="player-banner-overlay" />}
+            <div className="container">
+              <div className="player-profile-inner">
+                <div className="player-avatar-wrapper">
+                  <div className="player-avatar-large" style={{ borderColor: theme?.accentColor || '#c9a84c' }}>
+                    {hasAvatar ? (
+                      <img src={player.avatarUrl} alt={player.name} className="player-avatar-img" onError={() => setAvatarError(true)} />
+                    ) : (
+                      player.name.charAt(0)
+                    )}
+                  </div>
+                  {canEdit && (
+                    <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="player-avatar-edit" title="Change avatar">
+                      📷
+                    </Link>
                   )}
                 </div>
-                {canEdit && (
-                  <Link to={isOwner ? '/profile' : `/dm/player/${player.id}`} className="player-avatar-edit" title="Change avatar">
-                    📷
-                  </Link>
-                )}
-              </div>
-              <div className="player-profile-info">
-                <h1 className="player-name-display" style={{ fontFamily: theme?.fontFamily }}>
-                  {player.name}
-                </h1>
-                <p className="player-subtitle" style={{ color: theme?.accentColor || '#c9a84c' }}>
-                  {player.title}
-                </p>
-                <p className="player-class-display">
-                  {player.race} {player.class} &middot; Level {player.level}
-                </p>
+                <div className="player-profile-info">
+                  <h1 className="player-name-display" style={{ fontFamily: theme?.fontFamily }}>
+                    {player.name}
+                  </h1>
+                  <p className="player-subtitle" style={{ color: theme?.accentColor || '#c9a84c' }}>
+                    {player.title}
+                  </p>
+                  <p className="player-class-display">
+                    {player.race} {player.class} &middot; Level {player.level}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         {useCustomCode ? (
           <div className="container player-source-container">

@@ -12,7 +12,7 @@ export default function PlayerEditor() {
   const [selectedId, setSelectedId] = useState(id || 'new')
   const [form, setForm] = useState({
     name: '', class: '', race: '', level: 1, title: '', bio: '',
-    theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '' },
+    theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '' },
     widgets: [],
     customCode: { enabled: false, html: '', css: '' },
   })
@@ -51,7 +51,7 @@ export default function PlayerEditor() {
         layout: 'single',
         musicUrl: '',
         commentsEnabled: true,
-        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '' },
+        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '' },
         widgets: [],
         widgetAnimations: {},
         customCode: { enabled: false, html: '', css: '' },
@@ -289,6 +289,34 @@ export default function PlayerEditor() {
                   placeholder="https://example.com/background.jpg"
                 />
               </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label>Banner Image URL (optional)</label>
+                <input
+                  value={form.theme.bannerUrl || ''}
+                  onChange={e => setForm({ ...form, theme: { ...form.theme, bannerUrl: e.target.value } })}
+                  placeholder="https://example.com/banner.jpg"
+                />
+                <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                  Background image behind the character name, avatar, and title at the top of the page.
+                </p>
+                {form.theme.bannerUrl && (
+                  <div className="banner-preview">
+                    <div className="banner-preview-inner" style={{
+                      backgroundImage: `linear-gradient(135deg, ${form.theme.accentColor || '#c9a84c'}cc, ${form.theme.bgColor || '#0d0d0d'}e6), url(${form.theme.bannerUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}>
+                      <div className="banner-preview-content">
+                        <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
+                        <div>
+                          <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
+                          <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -316,12 +344,6 @@ export default function PlayerEditor() {
               <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
                 Supports MP3, OGG, WAV files.
               </p>
-            </div>
-            <div>
-              <label className="checkbox-label">
-                <input type="checkbox" checked={form.commentsEnabled !== false} onChange={e => setForm({ ...form, commentsEnabled: e.target.checked })} />
-                Enable visitor guestbook on this page
-              </label>
             </div>
           </div>
 
@@ -434,7 +456,12 @@ export default function PlayerEditor() {
             </div>
           </div>
 
-          <div className="text-center mb-3">
+          <div className="text-center mb-3" style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+            {selectedId !== 'new' && (
+              <Link to={`/player/${selectedId}`} className="btn">
+                👤 View Page
+              </Link>
+            )}
             <button type="submit" className="btn btn-primary">
               {saved ? '✅ Saved!' : '💾 Save Player'}
             </button>

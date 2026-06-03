@@ -16,11 +16,15 @@ export default function Guestbook({ playerId }) {
 
   useEffect(() => { refresh() }, [refresh])
 
+  const wordLimit = 25
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!text.trim() || !session || submitting) return
+    const words = text.trim().split(/\s+/)
+    const limited = words.slice(0, wordLimit).join(' ')
+    if (!limited || !session || submitting) return
     setSubmitting(true)
-    await addComment(playerId, session.username, text.trim())
+    await addComment(playerId, session.username, limited)
     setText('')
     refresh()
     setSubmitting(false)
@@ -39,11 +43,11 @@ export default function Guestbook({ playerId }) {
 
   return (
     <div className="card gold-border">
-      <h3 className="widget-title mb-2">📝 Guestbook</h3>
+      <h3 className="widget-title mb-2">📝 Ping Ring</h3>
 
       {comments.length === 0 && (
         <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: 16 }}>
-          No comments yet. Be the first to leave a message!
+          No pings yet. Be the first to leave a message!
         </p>
       )}
 
@@ -74,20 +78,29 @@ export default function Guestbook({ playerId }) {
 
       {session ? (
         <form className="guestbook-form" onSubmit={handleSubmit}>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Leave a message..."
-            rows={2}
-            required
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Leave a ping (25 word limit)..."
+              rows={2}
+              required
+            />
+            <span style={{
+              fontSize: '0.7rem',
+              color: text.trim().split(/\s+/).filter(Boolean).length > wordLimit ? 'var(--accent-fire)' : 'var(--text-muted)',
+              textAlign: 'right',
+            }}>
+              {text.trim().split(/\s+/).filter(Boolean).length}/{wordLimit}
+            </span>
+          </div>
           <button type="submit" className="btn btn-primary btn-sm" disabled={submitting}>
-            {submitting ? '...' : 'Post'}
+            {submitting ? '...' : 'Ping'}
           </button>
         </form>
       ) : (
         <p className="text-muted" style={{ fontSize: '0.9rem' }}>
-          <a href="/login">Sign in</a> to leave a comment.
+          <a href="/login">Sign in</a> to leave a ping.
         </p>
       )}
     </div>

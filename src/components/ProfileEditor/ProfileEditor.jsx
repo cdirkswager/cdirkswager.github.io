@@ -351,12 +351,6 @@ export default function ProfileEditor() {
                 Supports MP3, OGG, WAV files. Will auto-play on page load with a click-to-play fallback.
               </p>
             </div>
-            <div>
-              <label className="checkbox-label">
-                <input type="checkbox" checked={form.commentsEnabled !== false} onChange={e => handleChange('commentsEnabled', e.target.checked)} />
-                Enable visitor guestbook on my page
-              </label>
-            </div>
           </div>
 
           <div className="card gold-border mb-2">
