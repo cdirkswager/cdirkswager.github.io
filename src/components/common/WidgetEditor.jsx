@@ -11,6 +11,7 @@ export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
     if (t === 'stats') base.content = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
     else if (t === 'custom') base.content = base.content || '<p>Custom HTML</p>'
     else if (t === 'music') base = { ...base, content: base.content || '', musicUrl: base.musicUrl || '' }
+    else if (t === 'carousel') base.content = Array.isArray(base.content) ? base.content : [{ url: '', caption: '' }]
     else base.content = base.content || ''
     setForm(base)
   }
@@ -19,6 +20,7 @@ export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
     if (!form.type) return false
     if (['description', 'bio'].includes(form.type) && !form.content?.trim()) return false
     if (form.type === 'image' && !form.content?.trim()) return false
+    if (form.type === 'carousel' && (!Array.isArray(form.content) || !form.content.some(img => img.url?.trim()))) return false
     return true
   }
 
@@ -41,6 +43,7 @@ export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
             <option value="image">🖼️ Image</option>
             <option value="music">🎵 Music Player</option>
             <option value="custom">📝 Custom HTML</option>
+            <option value="carousel">🖼️ Image Carousel</option>
           </select>
         </div>
 
@@ -104,6 +107,44 @@ export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
               />
             </div>
           </>
+        )}
+
+        {form.type === 'carousel' && (
+          <div className="mb-2">
+            <label>Images</label>
+            {(form.content || []).map((img, i) => (
+              <div key={i} className="carousel-image-entry" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <input
+                    value={img.url}
+                    onChange={e => {
+                      const next = [...form.content]
+                      next[i] = { ...next[i], url: e.target.value }
+                      setForm({ ...form, content: next })
+                    }}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <input
+                    value={img.caption || ''}
+                    onChange={e => {
+                      const next = [...form.content]
+                      next[i] = { ...next[i], caption: e.target.value }
+                      setForm({ ...form, content: next })
+                    }}
+                    placeholder="Caption (optional)"
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => {
+                  const next = form.content.filter((_, j) => j !== i)
+                  setForm({ ...form, content: next.length ? next : [{ url: '', caption: '' }] })
+                }} style={{ marginTop: 2 }}>🗑️</button>
+              </div>
+            ))}
+            <button type="button" className="btn btn-sm" onClick={() => setForm({ ...form, content: [...(form.content || []), { url: '', caption: '' }] })}>
+              ➕ Add Image
+            </button>
+          </div>
         )}
 
         {form.type === 'custom' && (

@@ -88,6 +88,13 @@
   min-height: 120px;
 }
 
+.carousel-image-entry {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
 .player-selector {
   max-width: 400px;
 }
@@ -252,12 +259,15 @@
   min-height: 80px;
   display: flex;
   align-items: center;
+  position: relative;
 }
 
 .banner-preview-content {
   display: flex;
   align-items: center;
   gap: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .banner-preview-avatar {
@@ -274,6 +284,25 @@
   font-weight: 700;
   color: white;
   flex-shrink: 0;
+}
+
+.banner-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+}
+
+.banner-opacity-row {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.banner-opacity-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {

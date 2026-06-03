@@ -154,7 +154,54 @@ function MusicWidget({ widget, theme }) {
   )
 }
 
-function WidgetContent({ widget, theme, animation }) {
+function CarouselWidget({ widget }) {
+  const [index, setIndex] = useState(0)
+  const [errors, setErrors] = useState({})
+  const images = widget.content || []
+  const current = images[index]
+
+  if (images.length === 0) return null
+
+  const prev = () => setIndex(i => (i === 0 ? images.length - 1 : i - 1))
+  const next = () => setIndex(i => (i === images.length - 1 ? 0 : i + 1))
+
+  return (
+    <div>
+      <h3 className="widget-title">🖼️ Images</h3>
+      <div className="carousel-container">
+        <div className="carousel-slide">
+          {errors[index] ? (
+            <div className="widget-image-error">
+              <p>Could not load image.</p>
+              <p className="text-muted" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{current?.url}</p>
+            </div>
+          ) : (
+            <img
+              src={current?.url}
+              alt={current?.caption || `Image ${index + 1}`}
+              className="carousel-image"
+              onError={() => setErrors(prev => ({ ...prev, [index]: true }))}
+            />
+          )}
+          {current?.caption && <p className="carousel-caption">{current.caption}</p>}
+        </div>
+        {images.length > 1 && (
+          <div className="carousel-controls">
+            <button className="carousel-btn" onClick={prev} aria-label="Previous image">◀</button>
+            <div className="carousel-dots">
+              {images.map((_, i) => (
+                <button key={i} className={`carousel-dot ${i === index ? 'active' : ''}`} onClick={() => setIndex(i)} aria-label={`Go to image ${i + 1}`} />
+              ))}
+            </div>
+            <button className="carousel-btn" onClick={next} aria-label="Next image">▶</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function WidgetContent({ widget, theme, animation, session }) {
   const animClass = animation ? `animate__${animation}` : 'animate__fadeIn'
   return (
     <div className={`card gold-border widget widget-${widget.type} animate__animated ${animClass}`}>
@@ -191,6 +238,7 @@ function WidgetContent({ widget, theme, animation }) {
         </div>
       )}
       {widget.type === 'music' && <MusicWidget widget={widget} theme={theme} />}
+      {widget.type === 'carousel' && session && <CarouselWidget widget={widget} />}
     </div>
   )
 }
@@ -329,17 +377,14 @@ export default function PlayerPage() {
       {player.musicUrl && <BackgroundMusicPlayer url={player.musicUrl} />}
 
       <div className="player-profile">
-        <div className="player-banner" style={{
-            background: theme?.bannerUrl
-              ? `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}cc, ${theme?.bgColor || '#0d0d0d'}e6)`
-              : `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}33, transparent)`,
-            ...(theme?.bannerUrl ? {
-              backgroundImage: `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}cc, ${theme?.bgColor || '#0d0d0d'}e6), url(${theme.bannerUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            } : {}),
+        <div className="player-banner" style={theme?.bannerUrl ? {
+            backgroundImage: `url(${theme.bannerUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : {
+            background: `linear-gradient(135deg, ${theme?.accentColor || '#c9a84c'}33, transparent)`,
           }}>
-            {theme?.bannerUrl && <div className="player-banner-overlay" />}
+            {theme?.bannerUrl && <div className="player-banner-overlay" style={{ opacity: theme?.bannerOpacity ?? 0.3 }} />}
             <div className="container">
               <div className="player-profile-inner">
                 <div className="player-avatar-wrapper">
@@ -402,19 +447,18 @@ export default function PlayerPage() {
             )}
 
             {!isTwoColumn && player.widgets?.map((widget, i) => (
-              <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+              <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
             ))}
-
             {isTwoColumn && (
               <>
                 <div className="player-col-left">
                   {leftWidgets.map((widget, i) => (
-                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
                   ))}
                 </div>
                 <div className="player-col-right">
                   {rightWidgets.map((widget, i) => (
-                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} />
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
                   ))}
                 </div>
               </>

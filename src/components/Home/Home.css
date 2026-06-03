@@ -14,10 +14,19 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(201, 168, 76, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(106, 76, 201, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(212, 82, 42, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 50%, rgba(201, 168, 76, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(106, 76, 201, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 0, 0, 0.4) 0%, transparent 60%);
   z-index: 0;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/images/hunt_banner.png') center / cover no-repeat;
+  opacity: 0.35;
+  z-index: -1;
 }
 
 .hero-content {

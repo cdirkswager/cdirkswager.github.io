@@ -115,7 +115,10 @@ export default function ProfileEditor() {
       const p = getPlayer(session.playerId)
       if (p) {
         setPlayer(p)
-        setForm(JSON.parse(JSON.stringify(p)))
+        const parsed = JSON.parse(JSON.stringify(p))
+        if (!parsed.theme) parsed.theme = {}
+        if (parsed.theme.bannerOpacity === undefined) parsed.theme.bannerOpacity = 0.3
+        setForm(parsed)
         dirtyRef.current = false
       }
     }
@@ -225,12 +228,17 @@ export default function ProfileEditor() {
             <h1 className="text-gold">🎭 My Profile</h1>
             <p className="text-muted">Customize your character page</p>
           </div>
-          <Link to={`/player/${form.id}`} className="btn btn-sm" onClick={e => { if (dirtyRef.current && !window.confirm('You have unsaved changes. Leave anyway?')) e.preventDefault() }}>
-            👤 View Page
-          </Link>
+          <div className="flex gap-1">
+            <button type="submit" form="profile-form" className="btn btn-sm btn-primary">
+              💾 Save
+            </button>
+            <Link to={`/player/${form.id}`} className="btn btn-sm" onClick={e => { if (dirtyRef.current && !window.confirm('You have unsaved changes. Leave anyway?')) e.preventDefault() }}>
+              👤 View Page
+            </Link>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form id="profile-form" onSubmit={handleSubmit}>
           <div className="card gold-border mb-2">
             <h3 className="widget-title mb-2">📋 Basic Info</h3>
             <div className="editor-grid">
@@ -322,6 +330,20 @@ export default function ProfileEditor() {
               <div style={{ gridColumn: '1 / -1' }}>
                 <label>Background Image URL (optional)</label>
                 <input value={form.theme.bgImage} onChange={e => handleThemeChange('bgImage', e.target.value)} placeholder="https://example.com/background.jpg" />
+                <div className="bg-presets">
+                  {['Fields1.jpg','Fields2.jpg','Heim2.jpg','Night Ocean.jpg','VillageHuntingGuild_Original_Day.jpg'].map(name => (
+                    <button key={name} type="button" className={`bg-preset-btn ${form.theme.bgImage === `/images/${name}` ? 'active' : ''}`}
+                      onClick={() => handleThemeChange('bgImage', `/images/${name}`)}>
+                      {name.replace(/\.jpg$/,'').replace(/_/g,' ')}
+                    </button>
+                  ))}
+                  {form.theme.bgImage && (
+                    <button type="button" className="bg-preset-btn bg-preset-clear"
+                      onClick={() => handleThemeChange('bgImage', '')}>
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label>Banner Image URL (optional)</label>
@@ -330,21 +352,30 @@ export default function ProfileEditor() {
                   Background image behind the character name, avatar, and title at the top of the page.
                 </p>
                 {form.theme.bannerUrl && (
-                  <div className="banner-preview">
-                    <div className="banner-preview-inner" style={{
-                      backgroundImage: `linear-gradient(135deg, ${form.theme.accentColor || '#c9a84c'}cc, ${form.theme.bgColor || '#0d0d0d'}e6), url(${form.theme.bannerUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}>
-                      <div className="banner-preview-content">
-                        <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
-                        <div>
-                          <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
-                          <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                  <>
+                    <div className="banner-preview">
+                      <div className="banner-preview-inner" style={{
+                        backgroundImage: `url(${form.theme.bannerUrl})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        position: 'relative',
+                      }}>
+                        <div className="banner-preview-overlay" style={{ opacity: form.theme.bannerOpacity ?? 0.3 }} />
+                        <div className="banner-preview-content">
+                          <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
+                          <div>
+                            <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
+                            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div className="banner-opacity-row">
+                      <label className="banner-opacity-label">Overlay darkness: {Math.round((form.theme.bannerOpacity ?? 0.3) * 100)}%</label>
+                      <input type="range" min="0" max="1" step="0.05" value={form.theme.bannerOpacity ?? 0.3}
+                        onChange={e => handleThemeChange('bannerOpacity', parseFloat(e.target.value))} />
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -456,10 +487,13 @@ export default function ProfileEditor() {
             </div>
           </div>
 
-          <div className="text-center mb-3">
+          <div className="text-center mb-3 flex gap-1" style={{ justifyContent: 'center' }}>
             <button type="submit" className="btn btn-primary">
               {saved ? '✅ Saved!' : '💾 Save Profile'}
             </button>
+            <Link to={`/player/${form.id}`} className="btn" onClick={e => { if (dirtyRef.current && !window.confirm('You have unsaved changes. Leave anyway?')) e.preventDefault() }}>
+              👤 View Page
+            </Link>
           </div>
         </form>
       </div>

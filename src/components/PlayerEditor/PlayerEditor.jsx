@@ -12,7 +12,7 @@ export default function PlayerEditor() {
   const [selectedId, setSelectedId] = useState(id || 'new')
   const [form, setForm] = useState({
     name: '', class: '', race: '', level: 1, title: '', bio: '',
-    theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '' },
+        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '', bannerOpacity: 0.3 },
     widgets: [],
     customCode: { enabled: false, html: '', css: '' },
   })
@@ -51,7 +51,7 @@ export default function PlayerEditor() {
         layout: 'single',
         musicUrl: '',
         commentsEnabled: true,
-        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '' },
+        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '', bannerOpacity: 0.3 },
         widgets: [],
         widgetAnimations: {},
         customCode: { enabled: false, html: '', css: '' },
@@ -70,7 +70,7 @@ export default function PlayerEditor() {
           layout: p.layout || 'single',
           musicUrl: p.musicUrl || '',
           commentsEnabled: p.commentsEnabled !== false,
-          theme: { ...p.theme },
+          theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '', bannerOpacity: 0.3, ...p.theme },
           widgets: [...(p.widgets || [])],
           widgetAnimations: { ...(p.widgetAnimations || {}) },
           customCode: { ...(p.customCode || { enabled: false, html: '', css: '' }) },
@@ -300,21 +300,30 @@ export default function PlayerEditor() {
                   Background image behind the character name, avatar, and title at the top of the page.
                 </p>
                 {form.theme.bannerUrl && (
-                  <div className="banner-preview">
-                    <div className="banner-preview-inner" style={{
-                      backgroundImage: `linear-gradient(135deg, ${form.theme.accentColor || '#c9a84c'}cc, ${form.theme.bgColor || '#0d0d0d'}e6), url(${form.theme.bannerUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}>
-                      <div className="banner-preview-content">
-                        <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
-                        <div>
-                          <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
-                          <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                  <>
+                    <div className="banner-preview">
+                      <div className="banner-preview-inner" style={{
+                        backgroundImage: `url(${form.theme.bannerUrl})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        position: 'relative',
+                      }}>
+                        <div className="banner-preview-overlay" style={{ opacity: form.theme.bannerOpacity ?? 0.3 }} />
+                        <div className="banner-preview-content">
+                          <span className="banner-preview-avatar">{form.name?.charAt(0) || '?'}</span>
+                          <div>
+                            <strong style={{ color: form.theme.accentColor }}>{form.name || 'Character Name'}</strong>
+                            <p className="text-muted" style={{ fontSize: '0.75rem' }}>Banner preview</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <div className="banner-opacity-row">
+                      <label className="banner-opacity-label">Overlay darkness: {Math.round((form.theme.bannerOpacity ?? 0.3) * 100)}%</label>
+                      <input type="range" min="0" max="1" step="0.05" value={form.theme.bannerOpacity ?? 0.3}
+                        onChange={e => setForm({ ...form, theme: { ...form.theme, bannerOpacity: parseFloat(e.target.value) } })} />
+                    </div>
+                  </>
                 )}
               </div>
             </div>

@@ -21,6 +21,7 @@ export default function CalendarPage() {
   const [calState, setCalState] = useState(null)
   const [allEvents, setAllEvents] = useState([])
   const [viewMonth, setViewMonth] = useState(null)
+  const [viewYear, setViewYear] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
   const [dayComments, setDayComments] = useState([])
   const [commentText, setCommentText] = useState('')
@@ -49,6 +50,12 @@ export default function CalendarPage() {
       setViewMonth(calState.month)
     }
   }, [calState, viewMonth])
+
+  useEffect(() => {
+    if (calState && viewYear === null) {
+      setViewYear(calState.year)
+    }
+  }, [calState, viewYear])
 
   const monthEvents = useMemo(() => {
     if (viewMonth === null) return []
@@ -155,7 +162,11 @@ export default function CalendarPage() {
                 <option key={i} value={i}>{name}</option>
               ))}
             </select>
-            <span className="calendar-year">Year {calState.year}</span>
+            <select className="map-selector" value={viewYear} onChange={e => setViewYear(parseInt(e.target.value))}>
+              {[3101,3102,3103,3104,3105,3106,3107].map(y => (
+                <option key={y} value={y}>Year {y}</option>
+              ))}
+            </select>
           </div>
           <div className="calendar-header-center">
             {session ? (
@@ -234,7 +245,7 @@ export default function CalendarPage() {
 
         {selectedDay != null && (
           <Modal
-            title={`${MONTH_NAMES[viewMonth]} ${selectedDay}, Year ${calState.year} — ${dayName(selectedDay)}`}
+            title={`${MONTH_NAMES[viewMonth]} ${selectedDay}, Year ${viewYear} — ${dayName(selectedDay)}`}
             onClose={() => { setSelectedDay(null); setDayComments([]) }}
           >
             {(() => {

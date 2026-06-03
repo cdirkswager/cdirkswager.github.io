@@ -191,12 +191,15 @@
   min-height: 80px;
   display: flex;
   align-items: center;
+  position: relative;
 }
 
 .banner-preview-content {
   display: flex;
   align-items: center;
   gap: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .banner-preview-avatar {
@@ -215,6 +218,66 @@
   flex-shrink: 0;
 }
 
+.banner-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+}
+
+.banner-opacity-row {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.banner-opacity-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bg-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.bg-preset-btn {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.bg-preset-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--text);
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.bg-preset-btn.active {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.bg-preset-clear {
+  color: var(--accent-fire);
+  border-color: rgba(212, 82, 42, 0.3);
+}
+
+.bg-preset-clear:hover {
+  border-color: var(--accent-fire);
+  background: rgba(212, 82, 42, 0.08);
+}
+
 @media (max-width: 768px) {
   .widget-item {
     flex-wrap: wrap;
@@ -231,5 +294,14 @@
 
   .widget-item-actions {
     order: 2;
+  }
+
+  .bg-presets {
+    gap: 4px;
+  }
+
+  .bg-preset-btn {
+    font-size: 0.72rem;
+    padding: 3px 8px;
   }
 }
