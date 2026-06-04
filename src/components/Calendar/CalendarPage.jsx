@@ -71,8 +71,8 @@ export default function CalendarPage() {
   }
 
   const commentCount = (day) => {
-    if (viewMonth === null) return 0
-    return getCalendarComments(viewMonth, day).length
+    if (viewMonth === null || viewYear === null) return 0
+    return getCalendarComments(viewMonth, day, viewYear).length
   }
 
   const handlePrevDay = async () => {
@@ -96,8 +96,8 @@ export default function CalendarPage() {
 
   const openDay = (day) => {
     setSelectedDay(day)
-    if (viewMonth !== null) {
-      setDayComments(getCalendarComments(viewMonth, day))
+    if (viewMonth !== null && viewYear !== null) {
+      setDayComments(getCalendarComments(viewMonth, day, viewYear))
     }
     setCommentText('')
     setConfirmingDelete(null)
@@ -107,19 +107,19 @@ export default function CalendarPage() {
     e.preventDefault()
     const words = commentText.trim().split(/\s+/)
     const limited = words.slice(0, 25).join(' ')
-    if (!limited || !session || submitting || viewMonth === null || selectedDay == null) return
+    if (!limited || !session || submitting || viewMonth === null || viewYear === null || selectedDay == null) return
     setSubmitting(true)
-    await addCalendarComment(viewMonth, selectedDay, session.username, limited)
+    await addCalendarComment(viewMonth, selectedDay, session.username, limited, viewYear)
     setCommentText('')
-    setDayComments(getCalendarComments(viewMonth, selectedDay))
+    setDayComments(getCalendarComments(viewMonth, selectedDay, viewYear))
     setSubmitting(false)
   }
 
   const handleDeleteComment = async (commentId) => {
-    if (viewMonth === null || selectedDay == null) return
-    await deleteCalendarComment(commentId, viewMonth, selectedDay)
+    if (viewMonth === null || viewYear === null || selectedDay == null) return
+    await deleteCalendarComment(commentId, viewMonth, selectedDay, viewYear)
     setConfirmingDelete(null)
-    setDayComments(getCalendarComments(viewMonth, selectedDay))
+    setDayComments(getCalendarComments(viewMonth, selectedDay, viewYear))
   }
 
   const handleDmSetDate = async () => {

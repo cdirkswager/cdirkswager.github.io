@@ -312,20 +312,17 @@ export default function MapPage() {
 
       <div className="map-area">
         <div className="map-content">
+          <img
+            src={currentMap?.imageUrl || ContinentMap}
+            alt={currentMap?.name || 'Map'}
+            className="map-image"
+            draggable={false}
+            onLoad={handleImgLoad}
+          />
           <div
             className="map-image-layer"
             ref={layerRef}
-            style={{
-              aspectRatio: imgRatio,
-              backgroundImage: `url(${currentMap?.imageUrl || ContinentMap})`,
-            }}
           >
-            <img
-              src={currentMap?.imageUrl || ContinentMap}
-              alt=""
-              onLoad={handleImgLoad}
-              style={{ display: 'none' }}
-            />
             <div className="map-border" />
             <div
               className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
@@ -462,15 +459,27 @@ export default function MapPage() {
         {sortedMaps.length > 1 && (
           <div className="timeline-bar">
             <div className="timeline-track">
-              <input
-                type="range"
-                className="timeline-slider"
-                min={0}
-                max={sortedMaps.length - 1}
-                value={timelineIndex}
-                onChange={e => setTimelineIndex(parseInt(e.target.value))}
-                step={1}
-              />
+              <div className="timeline-slider-wrap">
+                <input
+                  type="range"
+                  className="timeline-slider"
+                  min={0}
+                  max={sortedMaps.length - 1}
+                  value={timelineIndex}
+                  onChange={e => setTimelineIndex(parseInt(e.target.value))}
+                  step={1}
+                />
+                {currentMap && (
+                  <div
+                    className="timeline-current-year"
+                    style={{
+                      left: `${sortedMaps.length > 1 ? (timelineIndex / (sortedMaps.length - 1)) * 100 : 50}%`,
+                    }}
+                  >
+                    Year {currentMap.year}
+                  </div>
+                )}
+              </div>
               <div className="timeline-labels">
                 {sortedMaps.map((m, i) => (
                   <button

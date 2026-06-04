@@ -642,29 +642,29 @@ export async function advanceCalendarDay(direction = 1) {
   return data.calendar.state
 }
 
-export function getCalendarComments(month, day) {
+export function getCalendarComments(month, day, year) {
   const data = getStore()
   const cal = data.calendar || {}
-  const key = `${month}-${day}`
+  const key = year !== undefined ? `${year}-${month}-${day}` : `${month}-${day}`
   return cal.comments?.[key] || []
 }
 
-export async function addCalendarComment(month, day, author, text) {
+export async function addCalendarComment(month, day, author, text, year) {
   const data = getStore()
   if (!data.calendar) data.calendar = { ...defaultData.calendar }
   if (!data.calendar.comments) data.calendar.comments = {}
-  const key = `${month}-${day}`
+  const key = year !== undefined ? `${year}-${month}-${day}` : `${month}-${day}`
   if (!data.calendar.comments[key]) data.calendar.comments[key] = []
-  const comment = { id: 'cc-' + Date.now(), author, text, timestamp: Date.now(), month, day }
+  const comment = { id: 'cc-' + Date.now(), author, text, timestamp: Date.now(), month, day, year }
   data.calendar.comments[key].push(comment)
   await saveData(data)
   return comment
 }
 
-export async function deleteCalendarComment(commentId, month, day) {
+export async function deleteCalendarComment(commentId, month, day, year) {
   const data = getStore()
   if (!data.calendar?.comments) return
-  const key = `${month}-${day}`
+  const key = year !== undefined ? `${year}-${month}-${day}` : `${month}-${day}`
   if (!data.calendar.comments[key]) return
   data.calendar.comments[key] = data.calendar.comments[key].filter(c => c.id !== commentId)
   await saveData(data)
