@@ -58,9 +58,13 @@ export default function CalendarPage() {
   }, [calState, viewYear])
 
   const monthEvents = useMemo(() => {
-    if (viewMonth === null) return []
-    return allEvents.filter(e => e.month === viewMonth)
-  }, [allEvents, viewMonth])
+    if (viewMonth === null || viewYear === null) return []
+    return allEvents.filter(e => {
+      if (e.month !== viewMonth) return false
+      if (e.year !== undefined) return e.year === viewYear
+      return true
+    })
+  }, [allEvents, viewMonth, viewYear])
 
   const eventsForDay = (day) => {
     return monthEvents.filter(e => e.day === day)
@@ -74,15 +78,20 @@ export default function CalendarPage() {
   const handlePrevDay = async () => {
     const state = await advanceCalendarDay(-1)
     setCalState(state)
+    setViewMonth(state.month)
+    setViewYear(state.year)
   }
 
   const handleNextDay = async () => {
     const state = await advanceCalendarDay(1)
     setCalState(state)
+    setViewMonth(state.month)
+    setViewYear(state.year)
   }
 
   const handleToday = () => {
     setViewMonth(calState.month)
+    setViewYear(calState.year)
   }
 
   const openDay = (day) => {
@@ -117,6 +126,8 @@ export default function CalendarPage() {
     await setCalendarState({ year: pickerYear, month: pickerMonth, day: pickerDay })
     setShowDatePicker(false)
     refresh()
+    setViewMonth(pickerMonth)
+    setViewYear(pickerYear)
   }
 
   const openDatePicker = () => {

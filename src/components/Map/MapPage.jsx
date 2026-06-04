@@ -27,8 +27,8 @@ export default function MapPage() {
   const [focusedPin, setFocusedPin] = useState(null)
   const [showPinList, setShowPinList] = useState(false)
   const [mobilePinDetail, setMobilePinDetail] = useState(null)
-  const mapAreaRef = useRef()
-  const mapContentRef = useRef()
+  const [imgRatio, setImgRatio] = useState(1294 / 909)
+  const layerRef = useRef()
   const longPressTimer = useRef(null)
 
   const sortedMaps = useMemo(() => getSortedMaps(), [maps])
@@ -106,10 +106,17 @@ export default function MapPage() {
     return pin.addedBy === currentId
   }, [session])
 
+  const handleImgLoad = useCallback((e) => {
+    const img = e.target
+    if (img.naturalWidth && img.naturalHeight) {
+      setImgRatio(img.naturalWidth / img.naturalHeight)
+    }
+  }, [])
+
   const getPosFromEvent = useCallback((e) => {
-    const content = mapContentRef.current
-    if (!content) return { x: 50, y: 50, inside: false }
-    const rect = content.getBoundingClientRect()
+    const layer = layerRef.current
+    if (!layer) return { x: 50, y: 50, inside: false }
+    const rect = layer.getBoundingClientRect()
     const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
     const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
     const relX = (cx - rect.left) / rect.width
@@ -303,138 +310,147 @@ export default function MapPage() {
         )}
       </div>
 
-      <div className="map-area" ref={mapAreaRef}>
-        <div className="map-content" ref={mapContentRef}>
-          <img
-            src={currentMap?.imageUrl || ContinentMap}
-            alt={currentMap?.name || 'Map'}
-            className="map-image"
-            draggable={false}
-          />
-          <div className="map-border" />
+      <div className="map-area">
+        <div className="map-content">
           <div
-            className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
-            tabIndex={0}
-            role="application"
-            aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
-            onClick={handleMapTap}
-            onKeyDown={async (e) => {
-              if (session && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault()
-                const center = getPosFromEvent({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 })
-                setTooltipPin(null)
-                setPlacingPos(center)
-                setFormData({ label: '', description: '', color: '#c9a84c' })
-                setShowForm(true)
-              }
-              if (session && e.key.startsWith('Arrow') && focusedPin) {
-                e.preventDefault()
-                const pin = pins.find(p => p.id === focusedPin)
-                if (!pin) return
-                const step = 1
-                const moves = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] }
-                const [dx, dy] = moves[e.key]
-                const newX = Math.min(100, Math.max(0, Math.round((pin.x + dx) * 10) / 10))
-                const newY = Math.min(100, Math.max(0, Math.round((pin.y + dy) * 10) / 10))
-                const updated = { ...pin, x: newX, y: newY }
-                await saveMapPin(updated)
-                refresh()
-              }
-              if (session && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {
-                setFocusedPin(pins[0].id)
-                setTooltipPin(pins[0])
-              }
+            className="map-image-layer"
+            ref={layerRef}
+            style={{
+              aspectRatio: imgRatio,
+              backgroundImage: `url(${currentMap?.imageUrl || ContinentMap})`,
             }}
-            onTouchStart={handleMapTouchStart}
-            onTouchEnd={cancelLongPress}
-            onTouchMove={cancelLongPress}
-          />
-          {prevPins.map(pin => (
+          >
+            <img
+              src={currentMap?.imageUrl || ContinentMap}
+              alt=""
+              onLoad={handleImgLoad}
+              style={{ display: 'none' }}
+            />
+            <div className="map-border" />
             <div
-              key={'prev-' + pin.id}
-              className="map-pin map-pin-ghost"
-              style={pinStyle(pin, true)}
-            >
-              <div className="pin-dot" />
-            </div>
-          ))}
-          {pins.map(pin => {
-            const isDragging = dragging?.id === pin.id
-            const showTooltip = tooltipPin?.id === pin.id && !isDragging && !mobilePinDetail
-            return (
+              className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
+              tabIndex={0}
+              role="application"
+              aria-label="Campaign map. Press Enter to add a pin at the center. Use arrow keys to move the focused pin."
+              onClick={handleMapTap}
+              onKeyDown={async (e) => {
+                if (session && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault()
+                  const center = getPosFromEvent({ clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 })
+                  setTooltipPin(null)
+                  setPlacingPos(center)
+                  setFormData({ label: '', description: '', color: '#c9a84c' })
+                  setShowForm(true)
+                }
+                if (session && e.key.startsWith('Arrow') && focusedPin) {
+                  e.preventDefault()
+                  const pin = pins.find(p => p.id === focusedPin)
+                  if (!pin) return
+                  const step = 1
+                  const moves = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] }
+                  const [dx, dy] = moves[e.key]
+                  const newX = Math.min(100, Math.max(0, Math.round((pin.x + dx) * 10) / 10))
+                  const newY = Math.min(100, Math.max(0, Math.round((pin.y + dy) * 10) / 10))
+                  const updated = { ...pin, x: newX, y: newY }
+                  await saveMapPin(updated)
+                  refresh()
+                }
+                if (session && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !focusedPin && pins.length > 0) {
+                  setFocusedPin(pins[0].id)
+                  setTooltipPin(pins[0])
+                }
+              }}
+              onTouchStart={handleMapTouchStart}
+              onTouchEnd={cancelLongPress}
+              onTouchMove={cancelLongPress}
+            />
+            {prevPins.map(pin => (
               <div
-                key={pin.id}
-                className={`map-pin ${isDragging ? 'dragging' : ''}`}
-                style={pinStyle(pin, false)}
-                tabIndex={-1}
-                onMouseDown={(e) => handlePinPointerDown(e, pin)}
-                onClick={(e) => handlePinTap(e, pin)}
-                onFocus={() => { setFocusedPin(pin.id); setTooltipPin(pin) }}
-                onTouchStart={(e) => {
-                  if (longPressTimer.current) clearTimeout(longPressTimer.current)
-                  handlePinPointerDown(e, pin)
-                }}
+                key={'prev-' + pin.id}
+                className="map-pin map-pin-ghost"
+                style={pinStyle(pin, true)}
               >
                 <div className="pin-dot" />
-                <span className="pin-label">{pin.label}</span>
-                {showTooltip && (
-                  <div className={'pin-tooltip' + (pin.y < 15 ? ' pin-tooltip-below' : '')} onClick={(e) => e.stopPropagation()}>
-                    <strong>{pin.label}</strong>
-                    {pin.description && <p className="pin-tooltip-desc">{pin.description}</p>}
-                    {pin.addedBy && <p className="text-muted" style={{ fontSize: '0.7rem', margin: '2px 0' }}>by {pin.addedBy}</p>}
-                    {canModifyPin(pin) && (
-                      <div className="pin-tooltip-actions">
-                        <button className="btn btn-sm" onClick={() => openEditPin(pin)}>✏️ Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => setConfirmDeletePin(pin)}>🗑️</button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-            )
-          })}
-          {placingPos && showForm && (
-            <div
-              className="map-inline-form animate__animated animate__fadeIn"
-              style={{
-                left: `${placingPos.x}%`,
-                top: `${placingPos.y}%`,
-              }}
-            >
-              <div className="inline-form-header">
-                <span className="inline-form-title">📍 New Pin</span>
-                <button className="inline-form-close" onClick={() => { setShowForm(false); setPlacingPos(null) }}>&times;</button>
+            ))}
+            {pins.map(pin => {
+              const isDragging = dragging?.id === pin.id
+              const showTooltip = tooltipPin?.id === pin.id && !isDragging && !mobilePinDetail
+              return (
+                <div
+                  key={pin.id}
+                  className={`map-pin ${isDragging ? 'dragging' : ''}`}
+                  style={pinStyle(pin, false)}
+                  tabIndex={-1}
+                  onMouseDown={(e) => handlePinPointerDown(e, pin)}
+                  onClick={(e) => handlePinTap(e, pin)}
+                  onFocus={() => { setFocusedPin(pin.id); setTooltipPin(pin) }}
+                  onTouchStart={(e) => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+                    handlePinPointerDown(e, pin)
+                  }}
+                >
+                  <div className="pin-dot" />
+                  <span className="pin-label">{pin.label}</span>
+                  {showTooltip && (
+                    <div className={'pin-tooltip' + (pin.y < 15 ? ' pin-tooltip-below' : '')} onClick={(e) => e.stopPropagation()}>
+                      <strong>{pin.label}</strong>
+                      {pin.description && <p className="pin-tooltip-desc">{pin.description}</p>}
+                      {pin.addedBy && <p className="text-muted" style={{ fontSize: '0.7rem', margin: '2px 0' }}>by {pin.addedBy}</p>}
+                      {canModifyPin(pin) && (
+                        <div className="pin-tooltip-actions">
+                          <button className="btn btn-sm" onClick={() => openEditPin(pin)}>✏️ Edit</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => setConfirmDeletePin(pin)}>🗑️</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {placingPos && showForm && (
+              <div
+                className="map-inline-form animate__animated animate__fadeIn"
+                style={{
+                  left: `${placingPos.x}%`,
+                  top: `${placingPos.y}%`,
+                }}
+              >
+                <div className="inline-form-header">
+                  <span className="inline-form-title">📍 New Pin</span>
+                  <button className="inline-form-close" onClick={() => { setShowForm(false); setPlacingPos(null) }}>&times;</button>
+                </div>
+                <input
+                  value={formData.label}
+                  onChange={e => setFormData({ ...formData, label: e.target.value })}
+                  placeholder="Pin name..."
+                  autoFocus
+                />
+                <textarea
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Description (optional)"
+                  rows={2}
+                />
+                <div className="inline-colors">
+                  {pinColors.map(c => (
+                    <button
+                      key={c}
+                      className={`inline-swatch ${formData.color === c ? 'active' : ''}`}
+                      style={{ background: c }}
+                      onClick={() => setFormData({ ...formData, color: c })}
+                    />
+                  ))}
+                </div>
+                <div className="inline-form-actions">
+                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    {placingPos.x}%, {placingPos.y}%
+                  </span>
+                  <button className="btn btn-primary btn-sm" onClick={saveNewPin}>💾 Save</button>
+                </div>
               </div>
-              <input
-                value={formData.label}
-                onChange={e => setFormData({ ...formData, label: e.target.value })}
-                placeholder="Pin name..."
-                autoFocus
-              />
-              <textarea
-                value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Description (optional)"
-                rows={2}
-              />
-              <div className="inline-colors">
-                {pinColors.map(c => (
-                  <button
-                    key={c}
-                    className={`inline-swatch ${formData.color === c ? 'active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => setFormData({ ...formData, color: c })}
-                  />
-                ))}
-              </div>
-              <div className="inline-form-actions">
-                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                  {placingPos.x}%, {placingPos.y}%
-                </span>
-                <button className="btn btn-primary btn-sm" onClick={saveNewPin}>💾 Save</button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {!showForm && !tooltipPin && (
