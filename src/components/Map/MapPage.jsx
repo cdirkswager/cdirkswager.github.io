@@ -29,7 +29,6 @@ function calcImageBounds(containerW, containerH, imgW, imgH) {
 export default function MapPage() {
   const [maps, setMaps] = useState([])
   const [selectedMapId, setSelectedMapId] = useState(null)
-  const [timelineMode, setTimelineMode] = useState(false)
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [pins, setPins] = useState([])
   const [allPinsCache, setAllPinsCache] = useState({})
@@ -66,14 +65,13 @@ export default function MapPage() {
     return groups
   }, [sortedMaps])
 
-  const displayMaps = timelineMode ? sortedMaps : maps
-  const currentMap = displayMaps.find(m => m.id === selectedMapId) || displayMaps[0] || null
+  const currentMap = sortedMaps[timelineIndex] || null
 
   const prevPins = useMemo(() => {
-    if (!timelineMode || timelineIndex <= 0) return []
+    if (timelineIndex <= 0) return []
     const prevMap = sortedMaps[timelineIndex - 1]
     return prevMap ? allPinsCache[prevMap.id] || [] : []
-  }, [timelineMode, timelineIndex, sortedMaps, allPinsCache])
+  }, [timelineIndex, sortedMaps, allPinsCache])
 
   const refresh = useCallback(() => {
     setPlayers(getPlayers())
@@ -88,7 +86,10 @@ export default function MapPage() {
     const loadedMaps = getMaps()
     setMaps(loadedMaps)
     if (loadedMaps.length > 0) {
-      setSelectedMapId(prev => prev || loadedMaps[0].id)
+      const sorted = getSortedMaps()
+      const lastIdx = sorted.length - 1
+      setTimelineIndex(lastIdx)
+      setSelectedMapId(sorted[lastIdx].id)
     }
     setPlayers(getPlayers())
   }, [])
@@ -105,10 +106,10 @@ export default function MapPage() {
   }, [selectedMapId])
 
   useEffect(() => {
-    if (timelineMode && sortedMaps[timelineIndex]) {
+    if (sortedMaps[timelineIndex]) {
       setSelectedMapId(sortedMaps[timelineIndex].id)
     }
-  }, [timelineMode, timelineIndex, sortedMaps])
+  }, [timelineIndex, sortedMaps])
 
   const recalcBounds = useCallback(() => {
     const container = mapRef.current
@@ -128,49 +129,30 @@ export default function MapPage() {
     if (imgRef.current?.complete) {
       setImageNatural({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight })
     }
-  }, [currentMap, timelineMode, timelineIndex])
+  }, [currentMap, timelineIndex])
 
   useEffect(() => {
-    if (timelineMode && sortedMaps[timelineIndex]) {
+    if (sortedMaps[timelineIndex]) {
       const currentMapImg = sortedMaps[timelineIndex]
       const imgUrl = currentMapImg.imageUrl || ContinentMap
       const img = new Image()
       img.onload = () => setImageNatural({ w: img.naturalWidth, h: img.naturalHeight })
       img.src = imgUrl
     }
-  }, [timelineMode, timelineIndex, sortedMaps])
+  }, [timelineIndex, sortedMaps])
 
   useEffect(() => {
-    if (timelineMode) {
-      const cache = {}
-      sortedMaps.forEach(m => {
-        cache[m.id] = getMapPins(m.id)
-      })
-      setAllPinsCache(prev => ({ ...prev, ...cache }))
-    }
-  }, [timelineMode, sortedMaps])
+    const cache = {}
+    sortedMaps.forEach(m => {
+      cache[m.id] = getMapPins(m.id)
+    })
+    setAllPinsCache(prev => ({ ...prev, ...cache }))
+  }, [sortedMaps])
 
   const handleImgLoad = useCallback((e) => {
     const img = e.target
     setImageNatural({ w: img.naturalWidth, h: img.naturalHeight })
   }, [])
-
-  const toggleTimeline = () => {
-    if (timelineMode) {
-      setTimelineMode(false)
-    } else if (maps.length > 1) {
-      const cache = {}
-      sortedMaps.forEach(m => {
-        cache[m.id] = getMapPins(m.id)
-      })
-      setAllPinsCache(prev => ({ ...prev, ...cache }))
-      setTimelineIndex(sortedMaps.length - 1)
-      setTimelineMode(true)
-      setShowForm(false)
-      setPlacingPos(null)
-      setTooltipPin(null)
-    }
-  }
 
   const session = currentUser()
   const canModifyPin = useCallback((pin) => {
@@ -296,16 +278,6 @@ export default function MapPage() {
     }
   }, [dragStart, dragging, pins, refresh, getPosFromEvent])
 
-  const switchMap = (mapId) => {
-    setSelectedMapId(mapId)
-    setTooltipPin(null)
-    setShowForm(false)
-    setPlacingPos(null)
-    setEditPin(null)
-    setShowEditModal(false)
-    setConfirmDeletePin(null)
-  }
-
   const saveNewPin = async () => {
     if (!formData.label.trim() || !selectedMapId) return
     await saveMapPin({
@@ -362,46 +334,22 @@ export default function MapPage() {
   }, [imageBounds, dragging])
 
   return (
-    <div className={`map-page ${timelineMode ? 'map-page-timeline' : ''}`}>
+    <div className="map-page">
       <div className="map-header">
         <div className="map-header-left">
           <h1 className="map-title">
-            {timelineMode && currentMap ? (
+            {currentMap ? (
                <>📅 Year {currentMap.year ?? '?'} &mdash; {currentMap.name}</>
             ) : (
-              <>🗺️ {currentMap?.name || 'The Realm'}</>
+              <>🗺️ The Realm</>
             )}
           </h1>
         </div>
         <div className="map-header-center">
-          {timelineMode ? (
-            <span className="map-pin-count">
-              {sortedMaps[timelineIndex]?.name || ''} &middot; {pins.length} pin{pins.length !== 1 ? 's' : ''}
-              {prevPins.length > 0 && <> +{prevPins.length} prev</>}
-            </span>
-          ) : (
-            <>
-              <select
-                className="map-selector"
-                value={selectedMapId || ''}
-                onChange={e => switchMap(e.target.value)}
-              >
-                {maps.map(m => {
-                  const seasonEmojis = ['🌱', '☀️', '🍂', '❄️']
-                  const emoji = seasonEmojis[m.season] || ''
-                  return (
-                    <option key={m.id} value={m.id}>{emoji} Year {m.year} — {m.name}</option>
-                  )
-                })}
-              </select>
-              <span className="map-pin-count">{pins.length} pin{pins.length !== 1 ? 's' : ''}</span>
-            </>
-          )}
-          {maps.length > 1 && (
-            <button className={`btn btn-sm ${timelineMode ? 'btn-primary' : ''}`} onClick={toggleTimeline}>
-              {timelineMode ? '🗺️ Single Map' : '📜 Overview'}
-            </button>
-          )}
+          <span className="map-pin-count">
+            {sortedMaps[timelineIndex]?.name || ''} &middot; {pins.length} pin{pins.length !== 1 ? 's' : ''}
+            {prevPins.length > 0 && <> +{prevPins.length} prev</>}
+          </span>
         </div>
         {!showForm && selectedMapId && session && (
           <button className="btn btn-primary btn-sm map-add-btn" onClick={() => setShowForm(true)}>
@@ -411,50 +359,29 @@ export default function MapPage() {
       </div>
 
       <div className="map-area" ref={mapRef}>
-        {timelineMode ? (
-          <>
-            <div className="map-border" style={{
-              left: `${imageBounds.x}px`,
-              top: `${imageBounds.y}px`,
-              width: `${imageBounds.w}px`,
-              height: `${imageBounds.h}px`,
-            }} />
-            <img
-              ref={imgRef}
-              src={currentMap?.imageUrl || ContinentMap}
-              alt={currentMap?.name || 'Map'}
-              className="map-image"
-              draggable={false}
-              onLoad={handleImgLoad}
-            />
-            {prevPins.map(pin => (
-              <div
-                key={'prev-' + pin.id}
-                className="map-pin map-pin-ghost"
-                style={pinStyle(pin, true)}
-              >
-                <div className="pin-dot" />
-              </div>
-            ))}
-          </>
-        ) : (
-          <>
-            <div className="map-border" style={{
-              left: `${imageBounds.x}px`,
-              top: `${imageBounds.y}px`,
-              width: `${imageBounds.w}px`,
-              height: `${imageBounds.h}px`,
-            }} />
-            <img
-              ref={imgRef}
-              src={currentMap?.imageUrl || ContinentMap}
-              alt={currentMap?.name || 'Map'}
-              className="map-image"
-              draggable={false}
-              onLoad={handleImgLoad}
-            />
-          </>
-        )}
+        <div className="map-border" style={{
+          left: `${imageBounds.x}px`,
+          top: `${imageBounds.y}px`,
+          width: `${imageBounds.w}px`,
+          height: `${imageBounds.h}px`,
+        }} />
+        <img
+          ref={imgRef}
+          src={currentMap?.imageUrl || ContinentMap}
+          alt={currentMap?.name || 'Map'}
+          className="map-image"
+          draggable={false}
+          onLoad={handleImgLoad}
+        />
+        {prevPins.map(pin => (
+          <div
+            key={'prev-' + pin.id}
+            className="map-pin map-pin-ghost"
+            style={pinStyle(pin, true)}
+          >
+            <div className="pin-dot" />
+          </div>
+        ))}
 
         <div
           className={`map-touch-layer ${placingPos ? 'placing' : ''}`}
@@ -585,7 +512,7 @@ export default function MapPage() {
           </div>
         )}
 
-        {timelineMode && sortedMaps.length > 1 && (
+        {sortedMaps.length > 1 && (
           <div className="timeline-bar">
             <div className="timeline-track">
               <input

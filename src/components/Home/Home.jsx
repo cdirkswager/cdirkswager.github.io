@@ -124,11 +124,14 @@ function initGenieIdle(root = document) {
   }
 }
 
+const SFX = ['/recordings/Hello1.m4a', '/recordings/Hello2.m4a', '/recordings/Heretohelp.m4a']
+
 export default function Home() {
   const [players, setPlayers] = useState([])
   const [loaded, setLoaded] = useState(false)
   const stageRef = useRef(null)
   const ctlRef = useRef(null)
+  const cooldownRef = useRef(0)
 
   useEffect(() => {
     setPlayers(getPlayers())
@@ -144,13 +147,23 @@ export default function Home() {
     return () => ctl.destroy()
   }, [loaded])
 
+  const handleLampClick = () => {
+    ctlRef.current?.wave()
+    const now = Date.now()
+    if (now - cooldownRef.current < 20000) return
+    cooldownRef.current = now
+    const audio = new Audio(SFX[Math.floor(Math.random() * SFX.length)])
+    audio.volume = 0.6
+    audio.play().catch(() => {})
+  }
+
   return (
     <div className="home">
       <section className="hero">
         <div className="hero-bg" />
         <div className="container hero-content">
          
-          <div ref={stageRef} className={`genie-stage ${loaded ? 'animate__animated animate__fadeIn' : ''}`} onClick={() => ctlRef.current?.wave()}>
+          <div ref={stageRef} className={`genie-stage ${loaded ? 'animate__animated animate__fadeIn' : ''}`} onClick={handleLampClick}>
             <svg id="genie-lamp" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-label="Genie lamp">
               <defs>
                 <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
