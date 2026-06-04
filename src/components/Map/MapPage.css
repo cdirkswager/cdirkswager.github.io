@@ -75,6 +75,22 @@
   position: relative;
 }
 
+.map-area.space-held {
+  cursor: grab;
+}
+
+.map-area.space-held .map-touch-layer {
+  cursor: grab;
+}
+
+.map-area.is-panning {
+  cursor: grabbing;
+}
+
+.map-area.is-panning .map-touch-layer {
+  cursor: grabbing;
+}
+
 .map-content {
   position: relative;
   display: flex;
