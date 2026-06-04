@@ -37,6 +37,7 @@ export default function MapPage() {
   const spaceHeldRef = useRef(false)
   const panStartRef = useRef(null)
   const panOffsetRef = useRef({ x: 0, y: 0 })
+  const panDidMoveRef = useRef(false)
 
   const sortedMaps = useMemo(() => getSortedMaps(), [maps])
   const yearGroups = useMemo(() => {
@@ -160,6 +161,20 @@ export default function MapPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const esc = (e) => {
+      if (e.key === 'Escape') {
+        setTooltipPin(null)
+        setShowForm(false)
+        setPlacingPos(null)
+        setMobilePinDetail(null)
+        setShowPinList(false)
+      }
+    }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [])
+
   const panPointerDown = useCallback((e) => {
     if (e.target.closest('.map-pin')) return
     if (e.target.closest('.map-inline-form')) return
@@ -193,6 +208,9 @@ export default function MapPage() {
       const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
       const dx = cx - start.clientX
       const dy = cy - start.clientY
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        panDidMoveRef.current = true
+      }
       const newX = Math.min(maxPanX, Math.max(-maxPanX, dx))
       const newY = Math.min(maxPanY, Math.max(-maxPanY, dy))
       panOffsetRef.current = { x: newX, y: newY }
@@ -232,6 +250,10 @@ export default function MapPage() {
 
   const handleMapTap = useCallback((e) => {
     if (dragging) return
+    if (panDidMoveRef.current) {
+      panDidMoveRef.current = false
+      return
+    }
     if (!session) return
     const pos = getPosFromEvent(e)
     if (!pos.inside) return
@@ -251,6 +273,10 @@ export default function MapPage() {
 
   const handleMapTouchStart = useCallback((e) => {
     if (!session) return
+    if (panDidMoveRef.current) {
+      panDidMoveRef.current = false
+      return
+    }
     if (e.touches.length > 1) return
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -567,61 +593,6 @@ export default function MapPage() {
           </div>
         )}
 
-        {sortedMaps.length > 1 && (
-          <div className="timeline-bar">
-            <div className="timeline-track">
-              <div className="timeline-slider-wrap">
-                <input
-                  type="range"
-                  className="timeline-slider"
-                  min={0}
-                  max={sortedMaps.length - 1}
-                  value={timelineIndex}
-                  onChange={e => setTimelineIndex(parseInt(e.target.value))}
-                  step={1}
-                />
-                {currentMap && (
-                  <div
-                    className="timeline-current-year"
-                    style={{
-                      left: `${sortedMaps.length > 1 ? (timelineIndex / (sortedMaps.length - 1)) * 100 : 50}%`,
-                    }}
-                  >
-                    Year {currentMap.year}
-                  </div>
-                )}
-              </div>
-              <div className="timeline-labels">
-                {sortedMaps.map((m, i) => (
-                  <button
-                    key={m.id}
-                    className={`timeline-label ${i === timelineIndex ? 'active' : ''}`}
-                    onClick={() => setTimelineIndex(i)}
-                    type="button"
-                    title={`${m.name} (Year ${m.year ?? 0})`}
-                  >
-                    {m.name.substring(0, 3)}
-                  </button>
-                ))}
-              </div>
-              <div className="timeline-year-groups">
-                {yearGroups.map(g => (
-                  <span
-                    key={g.year}
-                    className="timeline-year-group"
-                    style={{
-                      left: `${(g.startIndex / sortedMaps.length) * 100}%`,
-                      width: `${(g.count / sortedMaps.length) * 100}%`,
-                    }}
-                  >
-                    Year {g.year}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         <button
           className="map-pin-list-toggle"
           onClick={() => setShowPinList(prev => !prev)}
@@ -691,6 +662,61 @@ export default function MapPage() {
           </div>
         )}
       </div>
+
+      {sortedMaps.length > 1 && (
+        <div className="timeline-bar">
+          <div className="timeline-track">
+            <div className="timeline-slider-wrap">
+              <input
+                type="range"
+                className="timeline-slider"
+                min={0}
+                max={sortedMaps.length - 1}
+                value={timelineIndex}
+                onChange={e => setTimelineIndex(parseInt(e.target.value))}
+                step={1}
+              />
+              {currentMap && (
+                <div
+                  className="timeline-current-year"
+                  style={{
+                    left: `${sortedMaps.length > 1 ? (timelineIndex / (sortedMaps.length - 1)) * 100 : 50}%`,
+                  }}
+                >
+                  Year {currentMap.year}
+                </div>
+              )}
+            </div>
+            <div className="timeline-labels">
+              {sortedMaps.map((m, i) => (
+                <button
+                  key={m.id}
+                  className={`timeline-label ${i === timelineIndex ? 'active' : ''}`}
+                  onClick={() => setTimelineIndex(i)}
+                  type="button"
+                  title={`${m.name} (Year ${m.year ?? 0})`}
+                >
+                  {m.name.substring(0, 3)}
+                </button>
+              ))}
+            </div>
+            <div className="timeline-year-groups">
+              {yearGroups.map(g => (
+                <span
+                  key={g.year}
+                  className="timeline-year-group"
+                  style={{
+                    left: `${(g.startIndex / sortedMaps.length) * 100}%`,
+                    width: `${(g.count / sortedMaps.length) * 100}%`,
+                  }}
+                >
+                  Year {g.year}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEditModal && editPin && (
         <Modal title={`✏️ Edit: ${editPin.label}`} onClose={() => { setShowEditModal(false); setEditPin(null) }}>

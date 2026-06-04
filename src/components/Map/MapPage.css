@@ -559,10 +559,7 @@
 }
 
 .timeline-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   background: rgba(10, 10, 10, 0.92);
   backdrop-filter: blur(8px);
   border-top: 1px solid var(--border-light);

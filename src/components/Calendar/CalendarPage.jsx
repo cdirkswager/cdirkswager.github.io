@@ -139,7 +139,7 @@ export default function CalendarPage() {
   }
 
   const isGameDate = (day) => {
-    return calState && viewMonth === calState.month && calState.day === day
+    return calState && viewYear === calState.year && viewMonth === calState.month && calState.day === day
   }
 
   if (!calState || viewMonth === null) {
