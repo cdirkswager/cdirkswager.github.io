@@ -28,16 +28,8 @@ export default function MapPage() {
   const [showPinList, setShowPinList] = useState(false)
   const [mobilePinDetail, setMobilePinDetail] = useState(null)
   const [imgRatio, setImgRatio] = useState(1294 / 909)
-  const [spaceHeld, setSpaceHeld] = useState(false)
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
-  const [isPanning, setIsPanning] = useState(false)
   const layerRef = useRef()
-  const contentRef = useRef()
   const longPressTimer = useRef(null)
-  const spaceHeldRef = useRef(false)
-  const panStartRef = useRef(null)
-  const panOffsetRef = useRef({ x: 0, y: 0 })
-  const panDidMoveRef = useRef(false)
 
   const sortedMaps = useMemo(() => getSortedMaps(), [maps])
   const yearGroups = useMemo(() => {
@@ -138,30 +130,6 @@ export default function MapPage() {
   }, [])
 
   useEffect(() => {
-    const key = (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault()
-        if (!spaceHeldRef.current) {
-          spaceHeldRef.current = true
-          setSpaceHeld(true)
-        }
-      }
-    }
-    const up = (e) => {
-      if (e.code === 'Space') {
-        spaceHeldRef.current = false
-        setSpaceHeld(false)
-      }
-    }
-    window.addEventListener('keydown', key)
-    window.addEventListener('keyup', up)
-    return () => {
-      window.removeEventListener('keydown', key)
-      window.removeEventListener('keyup', up)
-    }
-  }, [])
-
-  useEffect(() => {
     const esc = (e) => {
       if (e.key === 'Escape') {
         setTooltipPin(null)
@@ -175,85 +143,8 @@ export default function MapPage() {
     return () => window.removeEventListener('keydown', esc)
   }, [])
 
-  const panPointerDown = useCallback((e) => {
-    if (e.target.closest('.map-pin')) return
-    if (e.target.closest('.map-inline-form')) return
-    if (e.target.closest('.pin-tooltip')) return
-    e.preventDefault()
-    const content = contentRef.current
-    const area = content?.parentElement
-    if (!content || !area) return
-    const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
-    const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
-    setIsPanning(true)
-    panStartRef.current = { clientX: cx, clientY: cy }
-  }, [])
-
-  useEffect(() => {
-    if (!isPanning) return
-    const content = contentRef.current
-    const area = content?.parentElement
-    if (!content || !area) return
-    const areaRect = area.getBoundingClientRect()
-    const contentW = content.scrollWidth
-    const contentH = content.scrollHeight
-    const maxPanX = Math.max(0, (contentW - areaRect.width) / 2)
-    const maxPanY = Math.max(0, (contentH - areaRect.height) / 2)
-
-    const move = (e) => {
-      e.preventDefault()
-      const start = panStartRef.current
-      if (!start) return
-      const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0
-      const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0
-      const dx = cx - start.clientX
-      const dy = cy - start.clientY
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-        panDidMoveRef.current = true
-      }
-      const newX = Math.min(maxPanX, Math.max(-maxPanX, dx))
-      const newY = Math.min(maxPanY, Math.max(-maxPanY, dy))
-      panOffsetRef.current = { x: newX, y: newY }
-      setPanOffset({ x: newX, y: newY })
-    }
-
-    const up = () => {
-      setIsPanning(false)
-      panStartRef.current = null
-    }
-
-    window.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', up)
-    window.addEventListener('touchmove', move, { passive: false })
-    window.addEventListener('touchend', up)
-    window.addEventListener('touchcancel', up)
-    return () => {
-      window.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', up)
-      window.removeEventListener('touchmove', move)
-      window.removeEventListener('touchend', up)
-      window.removeEventListener('touchcancel', up)
-    }
-  }, [isPanning])
-
-  const handlePanMouseDown = useCallback((e) => {
-    if (!spaceHeldRef.current) return
-    panPointerDown(e)
-  }, [panPointerDown])
-
-  const handlePanTouchStart = useCallback((e) => {
-    if (e.touches.length >= 2) {
-      e.preventDefault()
-      panPointerDown(e)
-    }
-  }, [panPointerDown])
-
   const handleMapTap = useCallback((e) => {
     if (dragging) return
-    if (panDidMoveRef.current) {
-      panDidMoveRef.current = false
-      return
-    }
     if (!session) return
     const pos = getPosFromEvent(e)
     if (!pos.inside) return
@@ -273,10 +164,6 @@ export default function MapPage() {
 
   const handleMapTouchStart = useCallback((e) => {
     if (!session) return
-    if (panDidMoveRef.current) {
-      panDidMoveRef.current = false
-      return
-    }
     if (e.touches.length > 1) return
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -437,17 +324,10 @@ export default function MapPage() {
         )}
       </div>
 
-      <div
-        className={`map-area ${spaceHeld ? 'space-held' : ''} ${isPanning ? 'is-panning' : ''}`}
-        onMouseDown={handlePanMouseDown}
-        onTouchStart={handlePanTouchStart}
-      >
+      <div className="map-area">
         <div
           className="map-content"
-          ref={contentRef}
-          style={{
-            transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-          }}
+          style={{ aspectRatio: imgRatio }}
         >
           <img
             src={currentMap?.imageUrl || ContinentMap}
@@ -589,7 +469,7 @@ export default function MapPage() {
 
         {!showForm && !tooltipPin && (
           <div className="map-hint">
-            {session ? 'Hold Space + drag to pan — tap to add a pin — drag pins to move them' : 'Sign in to add pins'}
+            {session ? 'Tap to add a pin — drag pins to move them' : 'Sign in to add pins'}
           </div>
         )}
 
