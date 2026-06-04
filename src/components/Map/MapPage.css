@@ -66,26 +66,37 @@
 
 .map-area {
   flex: 1;
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   background: var(--bg-primary);
   min-height: 0;
+  position: relative;
+}
+
+.map-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .map-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
   display: block;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-  position: absolute;
-  inset: 0;
+  object-fit: contain;
 }
 
 .map-touch-layer {
   position: absolute;
+  inset: 0;
   z-index: 2;
   cursor: default;
 }
@@ -96,6 +107,7 @@
 
 .map-border {
   position: absolute;
+  inset: 0;
   z-index: 1;
   border: 2px dashed rgba(201, 168, 76, 0.35);
   border-radius: 2px;
