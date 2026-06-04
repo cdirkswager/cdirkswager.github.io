@@ -55,8 +55,7 @@ export default function Layout({ children }) {
       <nav className="navbar">
         <div className="container nav-inner">
           <Link to="/" className="nav-brand" onClick={() => setMenuOpen(false)}>
-            <span className="nav-icon">🐉</span>
-            <span className="nav-title">The Hunt</span>
+            <span className="nav-title">Hunt</span>
           </Link>
 
           <button

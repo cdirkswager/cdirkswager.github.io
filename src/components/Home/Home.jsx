@@ -149,22 +149,7 @@ export default function Home() {
       <section className="hero">
         <div className="hero-bg" />
         <div className="container hero-content">
-          <div className={`hero-text ${loaded ? 'animate__animated animate__fadeIn' : ''}`}>
-            <h1 className="hero-title">The Hunt</h1>
-            <p className="hero-subtitle">A Medieval Fantasy Campaign</p>
-            <p className="hero-desc">
-              Fate has brought you together. The road ahead is dark and uncertain.
-              Stand united, for the realm depends on you.
-            </p>
-            <div className="hero-actions">
-              <Link to="/map" className="btn btn-primary">
-                🗺️ Explore the Map
-              </Link>
-              <Link to="/dm" className="btn">
-                ⚔️ DM Tools
-              </Link>
-            </div>
-          </div>
+         
           <div ref={stageRef} className={`genie-stage ${loaded ? 'animate__animated animate__fadeIn' : ''}`} onClick={() => ctlRef.current?.wave()}>
             <svg id="genie-lamp" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-label="Genie lamp">
               <defs>
