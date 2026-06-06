@@ -107,7 +107,7 @@ function emptyChronicleData() {
       friend: { name: '', desc: '' },
     },
     factions: [{ name: '', note: '' }, { name: '', note: '' }, { name: '', note: '' }],
-    party: PARTY_NAMES.map(name => ({ name, note: '' })),
+    party: Array.from({ length: 5 }, () => ({ name: '', note: '' })),
     hobby: '',
     memories: ['', '', ''],
     threads: ['', ''],
@@ -263,6 +263,11 @@ export default function DowntimeChronicle() {
   const rmvFaction = (fi) => updateData(d => ({
     ...d,
     factions: d.factions.filter((_, i) => i !== fi),
+  }))
+
+  const handlePartyName = (pi, val) => updateData(d => ({
+    ...d,
+    party: d.party.map((p, i) => i === pi ? { ...p, name: val } : p),
   }))
 
   const handlePartyNote = (pi, val) => updateData(d => ({
@@ -660,7 +665,16 @@ export default function DowntimeChronicle() {
               <div>
                 {data.party.map((p, pi) => (
                   <div key={pi} className="party-row">
-                    <span className="party-name">{p.name}</span>
+                    <select
+                      className="party-select"
+                      value={p.name}
+                      onChange={e => handlePartyName(pi, e.target.value)}
+                    >
+                      <option value="">— Choose —</option>
+                      {PARTY_NAMES.map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
                     <textarea
                       className="party-note"
                       value={p.note}
