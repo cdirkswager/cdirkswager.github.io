@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../../../lib/dnd/api'
-import { RESOURCE_TEMPLATES } from '../../../lib/dnd/reference'
+import { RESOURCE_TEMPLATES, spellSlotTemplate } from '../../../lib/dnd/reference'
 import { DndLayout } from '../DndLayout'
 
 function emptyPlayer() {
@@ -191,22 +191,69 @@ export function PlayersPage() {
                     <InlineNum label="AC" value={p.ac} onChange={(v) => updatePlayer(p.id, { ac: v })} />
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-line pt-2">
+                  <div className="border-t border-line pt-2">
                     <span className="text-[10px] font-medium uppercase tracking-wide text-dim">Resources</span>
-                    <div className="flex gap-1">
-                      <ResourceDropdown
-                        onSelect={(tpl) => addResource(p.id, { ...tpl, current_value: tpl.max_value ?? 1, max_value: tpl.max_value ?? 1 })}
-                        templates={RESOURCE_TEMPLATES}
-                      />
-                      <button
-                        onClick={() => {
-                          const name = prompt('Resource name:')
-                          if (name) addResource(p.id, { name, resource_type: 'numeric', recovery_type: 'long_rest', max_value: 1, current_value: 1 })
-                        }}
-                        className="rounded bg-ink px-2 py-1 text-[10px] text-dim hover:text-fg"
-                      >
-                        + Custom
-                      </button>
+                    <div className="mt-1 grid grid-cols-2 gap-1">
+                      <div className="space-y-0.5">
+                        {RESOURCE_TEMPLATES.map((tpl) => (
+                          <button
+                            key={tpl.name}
+                            onClick={() => addResource(p.id, { ...tpl, current_value: tpl.max_value ?? 1, max_value: tpl.max_value ?? 1 })}
+                            className="block w-full rounded border border-line bg-ink px-2 py-1 text-left text-[10px] text-dim hover:border-accent hover:text-fg"
+                          >
+                            {tpl.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="space-y-0.5">
+                        <button
+                          onClick={() => {
+                            for (let lv = 1; lv <= 3; lv++) {
+                              const maxSlots = lv <= 2 ? 3 : 3
+                              const tpl = spellSlotTemplate(lv, maxSlots)
+                              addResource(p.id, { ...tpl, current_value: maxSlots, max_value: maxSlots })
+                            }
+                          }}
+                          className="block w-full rounded border border-accent/40 bg-accent/5 px-2 py-1 text-left text-[10px] text-accent hover:bg-accent/10"
+                        >
+                          + Spell Slots (1st–3rd)
+                        </button>
+                        <button
+                          onClick={() => {
+                            for (let lv = 4; lv <= 6; lv++) {
+                              const maxSlots = lv <= 4 ? 3 : lv <= 5 ? 2 : 1
+                              const tpl = spellSlotTemplate(lv, maxSlots)
+                              addResource(p.id, { ...tpl, current_value: maxSlots, max_value: maxSlots })
+                            }
+                          }}
+                          className="block w-full rounded border border-accent/40 bg-accent/5 px-2 py-1 text-left text-[10px] text-accent hover:bg-accent/10"
+                        >
+                          + Spell Slots (4th–6th)
+                        </button>
+                        <button
+                          onClick={() => {
+                            for (let lv = 7; lv <= 9; lv++) {
+                              const maxSlots = lv <= 7 ? 2 : lv <= 8 ? 2 : 1
+                              const tpl = spellSlotTemplate(lv, maxSlots)
+                              addResource(p.id, { ...tpl, current_value: maxSlots, max_value: maxSlots })
+                            }
+                          }}
+                          className="block w-full rounded border border-accent/40 bg-accent/5 px-2 py-1 text-left text-[10px] text-accent hover:bg-accent/10"
+                        >
+                          + Spell Slots (7th–9th)
+                        </button>
+                        <div className="border-t border-line pt-0.5">
+                          <button
+                            onClick={() => {
+                              const name = prompt('Resource name:')
+                              if (name) addResource(p.id, { name, resource_type: 'numeric', recovery_type: 'long_rest', max_value: 1, current_value: 1 })
+                            }}
+                            className="block w-full rounded border border-line bg-ink px-2 py-1 text-left text-[10px] text-dim hover:border-accent hover:text-fg"
+                          >
+                            + Custom
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -307,38 +354,4 @@ function InlineNum({ label, value, onChange }) {
   )
 }
 
-function ResourceDropdown({ onSelect, templates }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
 
-  useEffect(() => {
-    if (!open) return
-    const handle = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="rounded border border-line bg-ink px-2 py-1 text-[10px] text-dim hover:border-accent hover:text-fg"
-      >
-        + Template
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded border border-line bg-panel shadow-xl">
-          {templates.map((tpl) => (
-            <button
-              key={tpl.name}
-              onClick={() => { onSelect(tpl); setOpen(false) }}
-              className="block w-full px-3 py-1.5 text-left text-[11px] text-dim hover:bg-panel-2 hover:text-fg"
-            >
-              {tpl.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

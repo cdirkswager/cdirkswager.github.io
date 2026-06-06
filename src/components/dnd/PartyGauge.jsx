@@ -229,42 +229,46 @@ function AggregateSpellSlots({ slots, playerId, onChange }) {
   const totalCur = sorted.reduce((s, r) => s + (r.current_value ?? 0) * r.slot_level, 0)
 
   const distribute = (newTotal) => {
-    const diff = newTotal - totalCur
-    let remaining = Math.abs(diff)
-    const dir = diff >= 0 ? 1 : -1
-    const order = dir > 0 ? [...sorted] : [...sorted].reverse()
+    const work = sorted.map(s => ({ ...s }))
+    let curTotal = work.reduce((s, r) => s + (r.current_value ?? 0) * r.slot_level, 0)
+    let diff = newTotal - curTotal
+    if (diff === 0) return
 
-    const updates = []
-    for (const s of order) {
-      if (remaining <= 0) break
-      const pts = s.slot_level
-      if (dir > 0) {
-        const canAdd = (s.max_value - (s.current_value ?? 0)) * pts
-        const add = Math.min(canAdd, remaining)
-        const slotsAdd = Math.floor(add / pts)
-        if (slotsAdd > 0) {
-          updates.push({ id: s.id, current_value: (s.current_value ?? 0) + slotsAdd })
-          remaining -= slotsAdd * pts
+    if (diff > 0) {
+      let remaining = diff
+      for (const s of work.sort((a, b) => a.slot_level - b.slot_level)) {
+        const pts = s.slot_level
+        while (remaining >= pts && (s.current_value ?? 0) < s.max_value) {
+          s.current_value = (s.current_value ?? 0) + 1
+          remaining -= pts
         }
-      } else {
-        const canRemove = (s.current_value ?? 0) * pts
-        const remove = Math.min(canRemove, remaining)
-        const slotsRemove = Math.ceil(remove / pts)
-        if (slotsRemove > 0) {
-          updates.push({ id: s.id, current_value: Math.max(0, (s.current_value ?? 0) - slotsRemove) })
-          remaining -= slotsRemove * pts
+      }
+    } else {
+      let remaining = -diff
+      for (const s of work.sort((a, b) => b.slot_level - a.slot_level)) {
+        const pts = s.slot_level
+        while (remaining >= pts && (s.current_value ?? 0) > 0) {
+          s.current_value = (s.current_value ?? 0) - 1
+          remaining -= pts
         }
       }
     }
-    for (const u of updates) {
-      onChange(playerId, u.id, 'current_value', u.current_value)
+
+    for (const s of work) {
+      const orig = sorted.find(x => x.id === s.id)
+      if (orig && (orig.current_value ?? 0) !== (s.current_value ?? 0)) {
+        onChange(playerId, s.id, 'current_value', s.current_value ?? 0)
+      }
     }
   }
 
-  const expend = (slotLevel) => {
-    const slot = [...sorted].reverse().find(s => s.slot_level === slotLevel && (s.current_value ?? 0) > 0)
-    if (slot) {
-      onChange(playerId, slot.id, 'current_value', (slot.current_value ?? 0) - 1)
+  const adjustSlot = (slotLevel, delta) => {
+    const slot = sorted.find(s => s.slot_level === slotLevel)
+    if (!slot) return
+    const cur = slot.current_value ?? 0
+    const newVal = Math.max(0, Math.min(slot.max_value, cur + delta))
+    if (newVal !== cur) {
+      onChange(playerId, slot.id, 'current_value', newVal)
     }
   }
 
@@ -288,16 +292,26 @@ function AggregateSpellSlots({ slots, playerId, onChange }) {
           const cur = s.current_value ?? 0
           const lv = s.slot_level
           return (
-            <button
-              key={s.id}
-              disabled={cur === 0}
-              onClick={() => expend(lv)}
-              className="flex items-center gap-1 rounded border border-line bg-ink px-1.5 py-0.5 text-[10px] text-dim hover:border-accent hover:text-fg disabled:opacity-30"
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: cur > 0 ? 'var(--accent)' : 'var(--line)' }} />
-              Lv{lv}
-              <span className="mono text-[9px]">({cur}/{s.max_value})</span>
-            </button>
+            <div key={s.id} className="flex items-center rounded border border-line bg-ink">
+              <button
+                onClick={() => adjustSlot(lv, -1)}
+                className="px-1 py-0.5 text-[10px] text-dim hover:text-fg"
+              >
+                −
+              </button>
+              <span className="flex items-center gap-1 px-1 text-[10px]">
+                <span className="h-2 w-2 rounded-full" style={{ background: cur > 0 ? 'var(--accent)' : 'var(--line)' }} />
+                Lv{lv}
+                <span className="mono text-[9px]">{cur}/{s.max_value}</span>
+              </span>
+              <button
+                disabled={cur >= s.max_value}
+                onClick={() => adjustSlot(lv, 1)}
+                className="px-1 py-0.5 text-[10px] text-dim hover:text-fg disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
           )
         })}
       </div>
