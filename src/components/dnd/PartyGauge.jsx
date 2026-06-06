@@ -5,22 +5,10 @@ const COLOR = {
   ok: "var(--ok)", warn: "var(--warn)", risk: "var(--risk)", crit: "var(--crit)",
 }
 
-function Bar({ label, value, color }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 text-[10px] uppercase tracking-wide text-dim">{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink">
-        <div className="gauge-fill h-full rounded-full" style={{ width: `${value}%`, background: color }} />
-      </div>
-      <span className="mono w-9 text-right text-xs">{value}%</span>
-    </div>
-  )
-}
-
 export function PartyGauge({ report, players, onRefresh }) {
   const [open, setOpen] = useState(false)
-  const [expandedPlayer, setExpandedPlayer] = useState(null)
   const [localPlayers, setLocalPlayers] = useState(players || [])
+  const [resting, setResting] = useState(false)
 
   useEffect(() => {
     setLocalPlayers(players || [])
@@ -28,6 +16,12 @@ export function PartyGauge({ report, players, onRefresh }) {
 
   if (!report) return null
   const tierColor = COLOR[report.risk.color] ?? "var(--dim)"
+
+  const allResources = localPlayers.flatMap(
+    (p) => (p.resources || []).map((r) => ({ ...r, playerName: p.name, playerId: p.id }))
+  )
+  const slotResources = allResources.filter((r) => r.resource_type === 'spell_slot')
+  const otherResources = allResources.filter((r) => r.resource_type !== 'spell_slot')
 
   const updateResource = async (playerId, resourceId, field, value) => {
     setLocalPlayers((prev) =>
@@ -40,164 +34,103 @@ export function PartyGauge({ report, players, onRefresh }) {
     await api.patch('/api/dnd/players/resources', { id: resourceId, [field]: value })
   }
 
-  const shortRest = async (playerId) => {
-    const p = localPlayers.find((x) => x.id === playerId)
-    if (!p) return
-    const batch = (p.resources || []).filter((r) => r.recovery_type === 'short_rest')
-    for (const r of batch) {
-      await api.patch('/api/dnd/players/resources', { id: r.id, current_value: r.max_value })
+  const shortRestAll = async () => {
+    setResting(true)
+    const targets = localPlayers.flatMap((p) =>
+      (p.resources || []).filter((r) => r.recovery_type === 'short_rest').map((r) => r.id)
+    )
+    for (const id of targets) {
+      const r = allResources.find((x) => x.id === id)
+      if (r) await api.patch('/api/dnd/players/resources', { id, current_value: r.max_value })
     }
     setLocalPlayers((prev) =>
-      prev.map((pl) =>
-        pl.id === playerId
-          ? { ...pl, resources: (pl.resources || []).map((r) => (r.recovery_type === 'short_rest' ? { ...r, current_value: r.max_value } : r)) }
-          : pl
-      )
+      prev.map((p) => ({
+        ...p,
+        resources: (p.resources || []).map((r) =>
+          r.recovery_type === 'short_rest' ? { ...r, current_value: r.max_value } : r
+        ),
+      }))
     )
     if (onRefresh) onRefresh()
+    setResting(false)
   }
 
-  const longRest = async (playerId) => {
-    const p = localPlayers.find((x) => x.id === playerId)
-    if (!p) return
-    const batch = p.resources || []
-    for (const r of batch) {
-      await api.patch('/api/dnd/players/resources', { id: r.id, current_value: r.max_value })
+  const longRestAll = async () => {
+    setResting(true)
+    const targets = localPlayers.flatMap((p) =>
+      (p.resources || []).map((r) => r.id)
+    )
+    for (const id of targets) {
+      const r = allResources.find((x) => x.id === id)
+      if (r) await api.patch('/api/dnd/players/resources', { id, current_value: r.max_value })
     }
     setLocalPlayers((prev) =>
-      prev.map((pl) =>
-        pl.id === playerId
-          ? { ...pl, resources: (pl.resources || []).map((r) => ({ ...r, current_value: r.max_value })) }
-          : pl
-      )
+      prev.map((p) => ({
+        ...p,
+        resources: (p.resources || []).map((r) => ({ ...r, current_value: r.max_value })),
+      }))
     )
     if (onRefresh) onRefresh()
+    setResting(false)
   }
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30">
       {open && (
         <div className="mx-auto max-w-[1400px] px-4">
-          <div className="fadeup rounded-t-lg border border-b-0 border-line bg-panel p-4 shadow-2xl">
-            <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <div className="min-w-[220px] flex-1">
-                <Bar label="Offense" value={report.category.offense} color="var(--accent)" />
-                <div className="mt-1.5"><Bar label="Defense" value={report.category.defense} color="var(--player)" /></div>
-                <div className="mt-1.5"><Bar label="Sustain" value={report.category.sustain} color="var(--ok)" /></div>
-              </div>
-              <div className="text-xs text-dim">
-                <p className="text-fg">{report.risk.guidance}</p>
-                <p className="mt-1">Safe to run: {report.risk.safeEncounter}</p>
-                {report.shortRestWouldHelp && (
-                  <p className="mt-1 text-warn">⟳ A short rest would restore meaningful combat value.</p>
-                )}
-              </div>
-            </div>
+          <div className="fadeup rounded-t-lg border border-b-0 border-line bg-panel shadow-2xl">
+            <div className="max-h-72 overflow-y-auto p-3">
+              {otherResources.length === 0 && slotResources.length === 0 && (
+                <p className="py-6 text-center text-xs text-dim">No resources defined. Add them in the Party tab.</p>
+              )}
 
-            <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-              {localPlayers.map((p) => {
-                const spotlight = p.id === report.spotlightPlayerId
-                const depleted = p.id === report.depletedPlayerId
-                const expanded = expandedPlayer === p.id
-                const perPlayer = report.perPlayer?.find((pp) => pp.playerId === p.id)
-                return (
-                  <div
-                    key={p.id}
-                    className={`rounded border bg-ink ${expanded ? 'border-accent' : 'border-line'}`}
-                  >
-                    <button
-                      onClick={() => setExpandedPlayer(expanded ? null : p.id)}
-                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left"
-                    >
-                      <span className="flex-1 truncate text-sm">
-                        {spotlight && <span title="Most resources left — spotlight them">🎯 </span>}
-                        {depleted && <span title="Running on empty">⚠ </span>}
-                        {p.name}
-                      </span>
-                      {p.is_active && <span className="text-[10px] text-player">●</span>}
-                      <span className="mono text-xs text-dim">{perPlayer?.resourcesRemainingPct ?? 100}%</span>
-                      <span className="mono text-sm font-bold" style={{ color: tierColorFor(perPlayer?.overall ?? 100) }}>
-                        {perPlayer?.overall ?? 100}
-                      </span>
-                      <span className="text-xs text-dim">{expanded ? '▴' : '▾'}</span>
-                    </button>
+              {otherResources.map((r) => (
+                <div key={r.id} className="mb-1 flex items-center gap-2 rounded border border-line bg-ink px-2 py-1">
+                  <span className="w-20 truncate text-[11px] font-medium text-player">{r.playerName}</span>
+                  <span className="w-28 truncate text-[11px] text-dim">{r.name}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max={r.max_value}
+                    step="1"
+                    value={r.current_value ?? 0}
+                    onChange={(e) => updateResource(r.playerId, r.id, 'current_value', parseInt(e.target.value) || 0)}
+                    className="flex-1 accent-accent"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    className="mono w-11 rounded border border-line bg-panel px-1 py-0.5 text-center text-[10px]"
+                    value={r.current_value ?? 0}
+                    onChange={(e) => {
+                      const val = Math.max(0, Math.min(r.max_value, parseInt(e.target.value) || 0))
+                      updateResource(r.playerId, r.id, 'current_value', val)
+                    }}
+                  />
+                  <span className="mono text-[10px] text-dim">/{r.max_value}</span>
+                  {r.recovery_type === 'short_rest' && <span className="mono text-[9px] text-warn">SR</span>}
+                </div>
+              ))}
 
-                    {expanded && (
-                      <div className="border-t border-line px-2.5 pb-2 pt-1.5">
-                        {(p.resources || []).length === 0 && (
-                          <p className="py-2 text-center text-[10px] text-dim">No resources defined.</p>
-                        )}
-                        {(p.resources || []).map((r) => (
-                          <div key={r.id} className="mb-1.5 rounded border border-line bg-panel p-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-medium">{r.name}</span>
-                              {r.resource_type === 'spell_slot' && r.slot_level != null && (
-                                <span className="text-[9px] text-accent">Lv{r.slot_level}</span>
-                              )}
-                            </div>
-                            <div className="mt-1 flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="0"
-                                max={r.max_value}
-                                step="1"
-                                value={r.current_value ?? 0}
-                                onChange={(e) => updateResource(p.id, r.id, 'current_value', parseInt(e.target.value) || 0)}
-                                className="flex-1 accent-accent"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                className="mono w-12 rounded border border-line bg-ink px-1 py-0.5 text-center text-[11px]"
-                                value={r.current_value ?? 0}
-                                onChange={(e) => {
-                                  const val = Math.max(0, Math.min(r.max_value, parseInt(e.target.value) || 0))
-                                  updateResource(p.id, r.id, 'current_value', val)
-                                }}
-                              />
-                              <span className="mono text-[10px] text-dim">/{r.max_value}</span>
-                            </div>
-                            <div className="mt-0.5 flex items-center justify-between">
-                              <div className="flex items-center gap-1 text-[9px] text-dim">
-                                <span>Max</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  className="mono w-10 rounded border border-line bg-ink px-1 py-0.5 text-center text-[10px]"
-                                  value={r.max_value}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 0
-                                    updateResource(p.id, r.id, 'max_value', val)
-                                  }}
-                                />
-                              </div>
-                              {r.recovery_type && (
-                                <span className="text-[9px] uppercase text-dim">{r.recovery_type === 'short_rest' ? 'SR' : 'LR'}</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {(p.resources || []).length > 0 && (
-                          <div className="mt-1.5 flex gap-1">
-                            <button
-                              onClick={() => shortRest(p.id)}
-                              className="flex-1 rounded border border-line bg-ink px-2 py-1 text-[10px] text-dim hover:border-accent hover:text-fg"
-                            >
-                              Short Rest
-                            </button>
-                            <button
-                              onClick={() => longRest(p.id)}
-                              className="flex-1 rounded border border-line bg-ink px-2 py-1 text-[10px] text-dim hover:border-accent hover:text-fg"
-                            >
-                              Long Rest
-                            </button>
-                          </div>
-                        )}
+              {slotResources.length > 0 && (
+                <div className="mt-2 rounded border border-line bg-ink p-2">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-accent">Spell Slots</span>
+                  <div className="mt-1 space-y-0.5">
+                    {groupSlots(localPlayers).map(({ playerName, slotLevel, current, max }, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px]">
+                        <span className="w-20 truncate text-player">{playerName}</span>
+                        <span className="w-6 text-dim">Lv{slotLevel}</span>
+                        <span className="mono">
+                          {dots(current, max)}
+                        </span>
+                        <span className="mono text-[10px] text-dim">
+                          ({current}/{max})
+                        </span>
                       </div>
-                    )}
+                    ))}
                   </div>
-                )
-              })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -209,24 +142,58 @@ export function PartyGauge({ report, players, onRefresh }) {
         style={{ boxShadow: `inset 0 2px 0 0 ${tierColor}` }}
       >
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-2">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: tierColor, boxShadow: `0 0 8px ${tierColor}` }} />
-          <span className="display text-sm font-bold uppercase tracking-wide" style={{ color: tierColor }}>
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tierColor, boxShadow: `0 0 8px ${tierColor}` }} />
+          <span className="display shrink-0 text-sm font-bold uppercase tracking-wide" style={{ color: tierColor }}>
             {report.risk.label}
           </span>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink">
+          <div className="h-1.5 w-32 shrink-0 overflow-hidden rounded-full bg-ink sm:w-48">
             <div className="gauge-fill h-full rounded-full" style={{ width: `${report.overall}%`, background: tierColor }} />
           </div>
-          <span className="mono text-sm font-bold" style={{ color: tierColor }}>{report.overall}%</span>
-          <span className="text-xs text-dim">{open ? "▾" : "▴"}</span>
+          <span className="mono shrink-0 text-sm font-bold" style={{ color: tierColor }}>{report.overall}%</span>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); shortRestAll() }}
+              disabled={resting}
+              className="rounded border border-line bg-ink px-2.5 py-1 text-[10px] font-medium text-dim hover:border-warn hover:text-warn disabled:opacity-40"
+            >
+              Short Rest
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); longRestAll() }}
+              disabled={resting}
+              className="rounded border border-line bg-ink px-2.5 py-1 text-[10px] font-medium text-dim hover:border-ok hover:text-ok disabled:opacity-40"
+            >
+              Long Rest
+            </button>
+          </div>
+
+          <span className="shrink-0 text-xs text-dim">{open ? "▾" : "▴"}</span>
         </div>
       </button>
     </div>
   )
 }
 
-function tierColorFor(v) {
-  if (v > 75) return COLOR.ok
-  if (v > 50) return COLOR.warn
-  if (v > 25) return COLOR.risk
-  return COLOR.crit
+function groupSlots(players) {
+  const out = []
+  for (const p of players) {
+    const slots = (p.resources || []).filter((r) => r.resource_type === 'spell_slot' && r.slot_level != null)
+    const byLevel = {}
+    for (const s of slots) {
+      if (!byLevel[s.slot_level]) byLevel[s.slot_level] = { current: 0, max: 0 }
+      byLevel[s.slot_level].current += s.current_value ?? 0
+      byLevel[s.slot_level].max += s.max_value ?? 0
+    }
+    for (const [level, v] of Object.entries(byLevel).sort((a, b) => Number(a[0]) - Number(b[0]))) {
+      out.push({ playerName: p.name, slotLevel: Number(level), ...v })
+    }
+  }
+  return out
+}
+
+function dots(current, max) {
+  const filled = '●'.repeat(Math.min(current, max))
+  const empty = '○'.repeat(Math.max(0, max - current))
+  return filled + empty || '○'
 }
