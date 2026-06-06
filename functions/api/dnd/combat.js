@@ -94,6 +94,7 @@ function computeEffectiveness(party, weights, opts) {
 
   const allResources = partyWithHP.flatMap(p => p.resources)
   const category = scoreResources(allResources)
+  const overallRaw = blendOverall(category, weights)
 
   const perPlayer = partyWithHP.map(({ player, resources }) => {
     const scores = scoreResources(resources)
