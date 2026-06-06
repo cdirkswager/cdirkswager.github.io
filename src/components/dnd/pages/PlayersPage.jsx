@@ -71,6 +71,8 @@ export function PlayersPage() {
     }
   }
 
+  const notifyResources = () => window.dispatchEvent(new Event('dnd-resources-changed'))
+
   const addResource = async (playerId, resource) => {
     try {
       const r = await api.post('/api/dnd/players/resources', { player_id: playerId, ...resource })
@@ -79,6 +81,7 @@ export function PlayersPage() {
           p.id === playerId ? { ...p, resources: [...(p.resources || []), { ...resource, id: r.id }] } : p
         )
       )
+      notifyResources()
     } catch (err) {
       setError(err.message)
     }
@@ -94,6 +97,7 @@ export function PlayersPage() {
             : p
         )
       )
+      notifyResources()
     } catch (err) {
       setError(err.message)
     }
@@ -231,6 +235,7 @@ export function PlayersPage() {
                               ? { ...pl, resources: (pl.resources || []).map((x) => x.id === r.id ? { ...x, max_value: val } : x) }
                               : pl
                           ))
+                          notifyResources()
                         }}
                       />
                       <button onClick={() => deleteResource(p.id, r.id)} className="text-[10px] text-dim hover:text-crit">✕</button>

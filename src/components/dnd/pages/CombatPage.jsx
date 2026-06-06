@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../lib/dnd/api'
 import { DndLayout } from '../DndLayout'
 import { CombatantRow } from '../CombatantRow'
-import { PartyGauge } from '../PartyGauge'
 import { StatBlockPanel } from '../StatBlockPanel'
 import { SlideOver } from '../SlideOver'
 
@@ -16,7 +15,7 @@ export function CombatPage() {
   const [error, setError] = useState(null)
   const [statBlockMonster, setStatBlockMonster] = useState(null)
   const [partyReport, setPartyReport] = useState(null)
-  const [partyPlayers, setPartyPlayers] = useState([])
+  const addingRef = useRef(false)
 
   const sessionId = params.get('sessionId') || session?.id
 
@@ -28,7 +27,6 @@ export function CombatPage() {
       setSession(data.session)
       setCombatants(data.combatants || [])
       setPartyReport(data.gauge || null)
-      setPartyPlayers(data.players || [])
       setCurrentIdx(0)
     } catch (err) {
       setError(err.message)
@@ -46,6 +44,8 @@ export function CombatPage() {
   }, [loadCombat])
 
   const addActivePlayersToCombat = async (sessionId) => {
+    if (addingRef.current) return
+    addingRef.current = true
     try {
       const data = await api.get('/api/dnd/players')
       const activePlayers = (data.players || []).filter((p) => p.is_active)
@@ -59,7 +59,9 @@ export function CombatPage() {
         })
       }
       await loadCombat()
-    } catch { }
+    } catch { } finally {
+      addingRef.current = false
+    }
   }
 
   const startNewCombat = async () => {
@@ -73,7 +75,7 @@ export function CombatPage() {
   }
 
   useEffect(() => {
-    if (session?.id && combatants.length === 0) {
+    if (session?.id && combatants.length === 0 && !addingRef.current) {
       addActivePlayersToCombat(session.id)
     }
   }, [session?.id])
@@ -104,7 +106,6 @@ export function CombatPage() {
     try {
       const data = await api.get('/api/dnd/combat')
       setPartyReport(data.gauge || null)
-      setPartyPlayers(data.players || [])
     } catch { }
   }
 
@@ -245,8 +246,6 @@ export function CombatPage() {
       <SlideOver open={!!statBlockMonster} onClose={() => setStatBlockMonster(null)} title="Stat Block">
         {statBlockMonster && <StatBlockPanel monster={statBlockMonster} />}
       </SlideOver>
-
-      <PartyGauge report={partyReport} players={partyPlayers} onRefresh={loadCombat} />
     </DndLayout>
   )
 }

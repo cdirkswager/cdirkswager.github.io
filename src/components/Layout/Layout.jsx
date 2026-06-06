@@ -35,6 +35,8 @@ export default function Layout({ children }) {
     navLinks.push({ path: '/profile', label: 'My Profile', icon: '🎭' })
   }
 
+  const isDnd = location.pathname.startsWith('/dm/dnd')
+
   return (
     <div className={`layout${impersonating ? ' layout-impersonating' : ''}`}>
       {impersonating && (
@@ -52,7 +54,7 @@ export default function Layout({ children }) {
         </div>
       )}
 
-      <nav className="navbar">
+      {!isDnd && <nav className="navbar">
         <div className="container nav-inner">
           <Link to="/" className="nav-brand" onClick={() => setMenuOpen(false)}>
             <span className="nav-title">Hunt</span>
@@ -105,7 +107,7 @@ export default function Layout({ children }) {
             )}
           </div>
         </div>
-      </nav>
+      </nav>}
 
       {menuOpen && (
         <div className="nav-overlay" onClick={() => setMenuOpen(false)} />
@@ -115,13 +117,13 @@ export default function Layout({ children }) {
         {children}
       </main>
 
-      <footer className="footer">
+      {!isDnd && <footer className="footer">
         <div className="container">
           <p className="footer-text">
             ⚔️ The Hunt — A Medieval Fantasy Campaign ⚔️
           </p>
         </div>
-      </footer>
+      </footer>}
     </div>
   )
 }

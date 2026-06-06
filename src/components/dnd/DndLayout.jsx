@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { TopNav } from './TopNav'
 import { CommandPalette } from './CommandPalette'
+import { PartyGauge } from './PartyGauge'
 import './DndGlobals.css'
 
 export function DndLayout({ children }) {
@@ -25,10 +26,11 @@ export function DndLayout({ children }) {
   return (
     <div className="dnd-layout min-h-screen bg-ink text-fg font-sans">
       <TopNav onSearchClick={() => setSearchOpen(true)} />
-      <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-3">
+      <div className="mx-auto max-w-[1400px] px-4 pb-32 pt-3">
         {children}
       </div>
       <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <PartyGauge />
     </div>
   )
 }
