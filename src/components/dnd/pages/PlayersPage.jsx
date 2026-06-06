@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../lib/dnd/api'
 import { RESOURCE_TEMPLATES, spellSlotTemplate } from '../../../lib/dnd/reference'
-import { DndLayout } from '../DndLayout'
 
 function emptyPlayer() {
   return { name: '', level: 1, class: '', ac: 10, max_hp: 10 }
@@ -105,14 +104,10 @@ export function PlayersPage() {
 
   if (loading) {
     return (
-      <DndLayout>
-        <div className="flex items-center justify-center py-24 text-sm text-dim">Loading party...</div>
-      </DndLayout>
+      <div className="flex items-center justify-center py-24 text-sm text-dim">Loading party...</div>
     )
-  }
 
   return (
-    <DndLayout>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Party</h1>
         <button
@@ -300,7 +295,6 @@ export function PlayersPage() {
           )
         })}
       </div>
-    </DndLayout>
   )
 }
 

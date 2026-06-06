@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../../../lib/dnd/api'
-import { DndLayout } from '../DndLayout'
 import { StatBlockPanel } from '../StatBlockPanel'
 import { SlideOver } from '../SlideOver'
 
@@ -90,7 +89,6 @@ export function MonstersPage() {
   }
 
   return (
-    <DndLayout>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Bestiary</h1>
         <div className="flex gap-2">
@@ -221,7 +219,6 @@ export function MonstersPage() {
       >
         {selectedMonster && <StatBlockPanel monster={selectedMonster} />}
       </SlideOver>
-    </DndLayout>
   )
 }
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../../lib/dnd/api'
 import { XP_THRESHOLDS, encounterMultiplier } from '../../../lib/dnd/reference'
-import { DndLayout } from '../DndLayout'
 import { SlideOver } from '../SlideOver'
 
 function emptyEncounter() {
@@ -144,9 +143,7 @@ export function EncountersPage() {
 
   if (loading) {
     return (
-      <DndLayout>
-        <div className="flex items-center justify-center py-24 text-sm text-dim">Loading encounters...</div>
-      </DndLayout>
+      <div className="flex items-center justify-center py-24 text-sm text-dim">Loading encounters...</div>
     )
   }
 
@@ -154,7 +151,6 @@ export function EncountersPage() {
   const difficulty = calcDifficulty(selected, partyLevel, partySize)
 
   return (
-    <DndLayout>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Encounters</h1>
         <button
@@ -337,7 +333,6 @@ export function EncountersPage() {
           )}
         </SlideOver>
       </div>
-    </DndLayout>
   )
 }
 

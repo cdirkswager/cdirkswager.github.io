@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../../lib/dnd/api'
-import { DndLayout } from '../DndLayout'
 import { SlideOver } from '../SlideOver'
 
 export function NpcsPage() {
@@ -96,14 +95,10 @@ export function NpcsPage() {
 
   if (loading) {
     return (
-      <DndLayout>
-        <div className="flex items-center justify-center py-24 text-sm text-dim">Loading NPCs...</div>
-      </DndLayout>
+      <div className="flex items-center justify-center py-24 text-sm text-dim">Loading NPCs...</div>
     )
-  }
 
   return (
-    <DndLayout>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">NPCs</h1>
         <button
@@ -259,7 +254,6 @@ export function NpcsPage() {
           )}
         </SlideOver>
       </div>
-    </DndLayout>
   )
 }
 

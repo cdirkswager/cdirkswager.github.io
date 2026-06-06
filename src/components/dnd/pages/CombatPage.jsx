@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../lib/dnd/api'
-import { DndLayout } from '../DndLayout'
 import { CombatantRow } from '../CombatantRow'
 import { StatBlockPanel } from '../StatBlockPanel'
 import { SlideOver } from '../SlideOver'
@@ -154,36 +153,45 @@ export function CombatPage() {
 
   if (loading) {
     return (
-      <DndLayout>
-        <div className="flex items-center justify-center py-24 text-sm text-dim">Loading combat...</div>
-      </DndLayout>
+      <div className="flex items-center justify-center py-24 text-sm text-dim">Loading combat...</div>
     )
-  }
 
   if (error) {
     return (
-      <DndLayout>
-        <div className="rounded border border-crit/30 bg-crit/5 px-4 py-3 text-sm text-crit">{error}</div>
-      </DndLayout>
+      <div className="rounded border border-crit/30 bg-crit/5 px-4 py-3 text-sm text-crit">{error}</div>
     )
   }
 
   if (!session) {
     return (
-      <DndLayout>
-        <div className="flex flex-col items-center justify-center py-24">
-          <h2 className="display text-xl font-bold text-dim">No Active Combat</h2>
-          <p className="mt-2 text-sm text-dim">Start a new combat session to begin tracking initiative.</p>
-          <button onClick={startNewCombat} className="mt-6 rounded bg-accent px-6 py-2 text-sm font-bold text-ink hover:brightness-110">
-            Start New Combat
-          </button>
-        </div>
-      </DndLayout>
+      <div className="flex flex-col items-center justify-center py-24">
+        <h2 className="display text-xl font-bold text-dim">No Active Combat</h2>
+        <p className="mt-2 text-sm text-dim">Start a new combat session to begin tracking initiative.</p>
+        <button onClick={startNewCombat} className="mt-6 rounded bg-accent px-6 py-2 text-sm font-bold text-ink hover:brightness-110">
+          Start New Combat
+        </button>
+      </div>
     )
   }
 
   return (
-    <DndLayout>
+      <div className="rounded border border-crit/30 bg-crit/5 px-4 py-3 text-sm text-crit">{error}</div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <h2 className="display text-xl font-bold text-dim">No Active Combat</h2>
+        <p className="mt-2 text-sm text-dim">Start a new combat session to begin tracking initiative.</p>
+        <button onClick={startNewCombat} className="mt-6 rounded bg-accent px-6 py-2 text-sm font-bold text-ink hover:brightness-110">
+          Start New Combat
+        </button>
+      </div>
+    )
+  }
+
+  return (
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Combat</h1>
         <div className="flex items-center gap-2">
@@ -246,6 +254,5 @@ export function CombatPage() {
       <SlideOver open={!!statBlockMonster} onClose={() => setStatBlockMonster(null)} title="Stat Block">
         {statBlockMonster && <StatBlockPanel monster={statBlockMonster} />}
       </SlideOver>
-    </DndLayout>
   )
 }
