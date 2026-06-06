@@ -98,15 +98,18 @@ export function CombatPage() {
   const updateCombatant = async (combatantId, updates) => {
     if (!session?.id) return
     await api.patch(`/api/dnd/combat/combatants`, { id: combatantId, ...updates })
+    let playerId = null
     setCombatants((prev) =>
       prev.map((c) => {
         if (c.id !== combatantId) return c
-        if (c.is_player && c.player_id && updates.hp_current !== undefined) {
-          api.patch('/api/dnd/players', { id: c.player_id, current_hp: updates.hp_current })
-        }
+        if (c.is_player && c.player_id && updates.hp_current !== undefined) playerId = c.player_id
         return { ...c, ...updates }
       })
     )
+    if (playerId && updates.hp_current !== undefined) {
+      await api.patch('/api/dnd/players', { id: playerId, current_hp: updates.hp_current })
+      window.dispatchEvent(new Event('dnd-resources-changed'))
+    }
   }
 
   const refreshReport = async () => {

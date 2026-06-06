@@ -47,6 +47,22 @@ export function PartyGauge() {
   const totalCur = allResources.reduce((s, r) => s + (r.current_value ?? 0), 0)
   const overallPct = totalMax > 0 ? Math.round((totalCur / totalMax) * 100) : 100
 
+  const lowHpPlayers = players.filter((p) => {
+    const cur = p.current_hp ?? p.max_hp ?? 0; const max = p.max_hp || 1
+    return (cur / max) <= 0.5
+  })
+  const depletedCount = players.reduce((c, p) => c + (p.resources || []).filter((r) => (r.current_value ?? 0) === 0).length, 0)
+  const totalResCount = players.reduce((c, p) => c + (p.resources || []).length, 0)
+  let readinessLabel, readinessColor
+  if (overallPct >= 90) { readinessLabel = 'Full strength'; readinessColor = 'var(--ok)' }
+  else if (overallPct >= 70) { readinessLabel = 'Lightly tapped'; readinessColor = 'var(--ok)' }
+  else if (overallPct >= 50) { readinessLabel = 'Moderately spent'; readinessColor = 'var(--warn)' }
+  else if (overallPct >= 30) { readinessLabel = 'Heavily depleted'; readinessColor = 'var(--risk)' }
+  else { readinessLabel = 'Critically low'; readinessColor = 'var(--crit)' }
+  const readinessDetail = []
+  if (lowHpPlayers.length > 0) readinessDetail.push(`${lowHpPlayers.length} bloodied`)
+  if (depletedCount > 0) readinessDetail.push(`${depletedCount}/${totalResCount} resources spent`)
+
   const report = combatData?.gauge
   const tierColor = report ? (COLOR[report.risk.color] ?? "var(--dim)") : "var(--accent)"
   const tierLabel = report ? report.risk.label : "Well Rested"
@@ -75,6 +91,7 @@ export function PartyGauge() {
         await api.patch(`/api/dnd/combat/combatants`, { id: match.id, hp_current: clamped })
       }
     }
+    window.dispatchEvent(new Event('dnd-combatants-changed'))
   }
 
   const restAll = async (type) => {
@@ -112,6 +129,25 @@ export function PartyGauge() {
       {open && (
         <div className="mx-auto max-w-[1400px] px-4">
           <div className="fadeup rounded-t-lg border border-b-0 border-line bg-panel shadow-2xl">
+            {players.length > 0 && (
+              <div className="border-b border-line px-4 py-2.5">
+                <div className="flex items-baseline gap-6 text-xs">
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-dim">Readiness</span>
+                    <p className="mt-0.5" style={{ color: readinessColor }}>
+                      {readinessLabel}
+                      {readinessDetail.length > 0 && <span className="text-dim"> · {readinessDetail.join(' · ')}</span>}
+                    </p>
+                  </div>
+                  {report && (
+                    <div>
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-dim">Encounter</span>
+                      <p className="mt-0.5" style={{ color: tierColor }}>{tierLabel}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="max-h-80 overflow-y-auto p-2">
               {players.length === 0 && (
                 <p className="py-6 text-center text-xs text-dim">No party members. Add them in the Party tab.</p>
