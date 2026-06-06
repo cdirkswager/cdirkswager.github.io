@@ -77,11 +77,25 @@ function riskFromOverall(overall) {
 }
 
 function computeEffectiveness(party, weights, opts) {
-  const allResources = party.flatMap(p => p.resources)
-  const category = scoreResources(allResources)
-  const overallRaw = blendOverall(category, weights)
+  const partyWithHP = party.map(({ player, resources }) => ({
+    player,
+    resources: [
+      {
+        max_value: player.max_hp || 1,
+        current_value: player.current_hp ?? player.max_hp ?? 0,
+        weight_damage_boost: 0,
+        weight_damage_reduction: 1,
+        weight_healing: 1,
+        recovery_type: 'long_rest',
+      },
+      ...resources,
+    ],
+  }))
 
-  const perPlayer = party.map(({ player, resources }) => {
+  const allResources = partyWithHP.flatMap(p => p.resources)
+  const category = scoreResources(allResources)
+
+  const perPlayer = partyWithHP.map(({ player, resources }) => {
     const scores = scoreResources(resources)
     let overall = blendOverall(scores, weights)
     overall = Math.round(overall * exhaustionMultiplier(player.exhaustion_level))

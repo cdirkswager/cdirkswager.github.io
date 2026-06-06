@@ -19,8 +19,8 @@ export function PartyGauge() {
         api.get('/api/dnd/combat'),
       ])
       if (pData.status === 'fulfilled') setPlayers(pData.value.players || [])
-      if (cData.status === 'fulfilled' && cData.value.session) {
-        setCombatData(cData.value)
+      if (cData.status === 'fulfilled') {
+        setCombatData(cData.value.session ? cData.value : null)
       }
     } catch {}
   }, [])
@@ -29,7 +29,11 @@ export function PartyGauge() {
   useEffect(() => {
     const h = () => fetchData()
     window.addEventListener('dnd-resources-changed', h)
-    return () => window.removeEventListener('dnd-resources-changed', h)
+    window.addEventListener('dnd-combatants-changed', h)
+    return () => {
+      window.removeEventListener('dnd-resources-changed', h)
+      window.removeEventListener('dnd-combatants-changed', h)
+    }
   }, [fetchData])
 
   const hpEntries = players.map((p) => ({
@@ -63,9 +67,12 @@ export function PartyGauge() {
   if (lowHpPlayers.length > 0) readinessDetail.push(`${lowHpPlayers.length} bloodied`)
   if (depletedCount > 0) readinessDetail.push(`${depletedCount}/${totalResCount} resources spent`)
 
+  const hasCombat = !!combatData?.session
   const report = combatData?.gauge
-  const tierColor = report ? (COLOR[report.risk.color] ?? "var(--dim)") : "var(--accent)"
-  const tierLabel = report ? report.risk.label : "Well Rested"
+  const gaugeColor = report ? (COLOR[report.risk.color] ?? "var(--dim)") : "var(--dim)"
+  const gaugeLabel = report ? report.risk.label : null
+  const bannerColor = hasCombat ? gaugeColor : readinessColor
+  const bannerLabel = hasCombat ? (report?.risk?.label ?? 'Active') : readinessLabel
 
   const updateResource = async (playerId, resourceId, field, value) => {
     setPlayers((prev) =>
@@ -76,6 +83,7 @@ export function PartyGauge() {
       )
     )
     await api.patch('/api/dnd/players/resources', { id: resourceId, [field]: value })
+    window.dispatchEvent(new Event('dnd-combatants-changed'))
   }
 
   const updatePlayerHp = async (playerId, newHp) => {
@@ -122,6 +130,8 @@ export function PartyGauge() {
       }))
     )
     setResting(false)
+    window.dispatchEvent(new Event('dnd-resources-changed'))
+    window.dispatchEvent(new Event('dnd-combatants-changed'))
   }
 
   return (
@@ -139,12 +149,14 @@ export function PartyGauge() {
                       {readinessDetail.length > 0 && <span className="text-dim"> · {readinessDetail.join(' · ')}</span>}
                     </p>
                   </div>
-                  {report && (
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-dim">Encounter</span>
-                      <p className="mt-0.5" style={{ color: tierColor }}>{tierLabel}</p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-dim">Encounter</span>
+                    {hasCombat ? (
+                      <p className="mt-0.5" style={{ color: gaugeColor }}>{gaugeLabel ?? 'Active'}</p>
+                    ) : (
+                      <p className="mt-0.5 text-dim">No active encounter</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -222,17 +234,17 @@ export function PartyGauge() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full border-t border-line bg-panel/95 backdrop-blur"
-        style={{ boxShadow: `inset 0 2px 0 0 ${tierColor}` }}
+        style={{ boxShadow: `inset 0 2px 0 0 ${bannerColor}` }}
       >
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-2">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tierColor, boxShadow: `0 0 8px ${tierColor}` }} />
-          <span className="display shrink-0 text-sm font-bold uppercase tracking-wide" style={{ color: tierColor }}>
-            {tierLabel}
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: bannerColor, boxShadow: `0 0 8px ${bannerColor}` }} />
+          <span className="display shrink-0 text-sm font-bold uppercase tracking-wide" style={{ color: bannerColor }}>
+            {bannerLabel}
           </span>
           <div className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-ink sm:w-36">
-            <div className="gauge-fill h-full rounded-full" style={{ width: `${overallPct}%`, background: tierColor }} />
+            <div className="gauge-fill h-full rounded-full" style={{ width: `${overallPct}%`, background: bannerColor }} />
           </div>
-          <span className="mono shrink-0 text-sm font-bold" style={{ color: tierColor }}>{overallPct}%</span>
+          <span className="mono shrink-0 text-sm font-bold" style={{ color: bannerColor }}>{overallPct}%</span>
 
           <div className="ml-auto flex items-center gap-1.5">
             <button

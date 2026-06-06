@@ -68,6 +68,7 @@ export function CombatPage() {
       const result = await api.post('/api/dnd/combat', {})
       await loadCombat()
       if (result.id) await addActivePlayersToCombat(result.id)
+      window.dispatchEvent(new Event('dnd-combatants-changed'))
     } catch (err) {
       setError(err.message)
     }
@@ -166,26 +167,10 @@ export function CombatPage() {
     return (
       <div className="flex items-center justify-center py-24 text-sm text-dim">Loading combat...</div>
     )
+  }
 
   if (error) {
     return (
-      <div className="rounded border border-crit/30 bg-crit/5 px-4 py-3 text-sm text-crit">{error}</div>
-    )
-  }
-
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <h2 className="display text-xl font-bold text-dim">No Active Combat</h2>
-        <p className="mt-2 text-sm text-dim">Start a new combat session to begin tracking initiative.</p>
-        <button onClick={startNewCombat} className="mt-6 rounded bg-accent px-6 py-2 text-sm font-bold text-ink hover:brightness-110">
-          Start New Combat
-        </button>
-      </div>
-    )
-  }
-
-  return (
       <div className="rounded border border-crit/30 bg-crit/5 px-4 py-3 text-sm text-crit">{error}</div>
     )
   }
