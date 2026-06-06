@@ -29,6 +29,10 @@
   font-family: inherit;
   color: inherit;
 }
+
+.dnd-layout button:not([class*="border"]) {
+  border: 1px solid var(--line);
+}
 .dnd-layout input.hp-input {
   background: var(--ink);
   border: 1px solid var(--line);

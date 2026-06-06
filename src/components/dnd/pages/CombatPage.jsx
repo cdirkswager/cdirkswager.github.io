@@ -6,7 +6,6 @@ import { CombatantRow } from '../CombatantRow'
 import { PartyGauge } from '../PartyGauge'
 import { StatBlockPanel } from '../StatBlockPanel'
 import { SlideOver } from '../SlideOver'
-import { CommandPalette } from '../CommandPalette'
 
 export function CombatPage() {
   const [params] = useSearchParams()
@@ -17,7 +16,7 @@ export function CombatPage() {
   const [error, setError] = useState(null)
   const [statBlockMonster, setStatBlockMonster] = useState(null)
   const [partyReport, setPartyReport] = useState(null)
-  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [partyPlayers, setPartyPlayers] = useState([])
 
   const sessionId = params.get('sessionId') || session?.id
 
@@ -29,6 +28,7 @@ export function CombatPage() {
       setSession(data.session)
       setCombatants(data.combatants || [])
       setPartyReport(data.gauge || null)
+      setPartyPlayers(data.players || [])
       setCurrentIdx(0)
     } catch (err) {
       setError(err.message)
@@ -39,14 +39,44 @@ export function CombatPage() {
 
   useEffect(() => { loadCombat() }, [loadCombat])
 
+  useEffect(() => {
+    const handle = () => loadCombat()
+    window.addEventListener('dnd-combatants-changed', handle)
+    return () => window.removeEventListener('dnd-combatants-changed', handle)
+  }, [loadCombat])
+
+  const addActivePlayersToCombat = async (sessionId) => {
+    try {
+      const data = await api.get('/api/dnd/players')
+      const activePlayers = (data.players || []).filter((p) => p.is_active)
+      const existingPlayerIds = new Set(combatants.filter((c) => c.is_player).map((c) => c.player_id))
+      for (const p of activePlayers) {
+        if (existingPlayerIds.has(p.id)) continue
+        await api.post('/api/dnd/combat/combatants', {
+          combat_session_id: sessionId,
+          source: 'player',
+          ref_id: p.id,
+        })
+      }
+      await loadCombat()
+    } catch { }
+  }
+
   const startNewCombat = async () => {
     try {
-      await api.post('/api/dnd/combat', {})
+      const result = await api.post('/api/dnd/combat', {})
       await loadCombat()
+      if (result.id) await addActivePlayersToCombat(result.id)
     } catch (err) {
       setError(err.message)
     }
   }
+
+  useEffect(() => {
+    if (session?.id && combatants.length === 0) {
+      addActivePlayersToCombat(session.id)
+    }
+  }, [session?.id])
 
   const endCombat = async () => {
     if (!session?.id) return
@@ -56,16 +86,6 @@ export function CombatPage() {
     } catch (err) {
       setError(err.message)
     }
-  }
-
-  const addToCombat = async (item) => {
-    if (!session?.id && !sessionId) return
-    const sid = session?.id || sessionId
-    const sourceMap = { monster: 'monster', npc: 'npc', player: 'player' }
-    const body = { combat_session_id: sid, source: sourceMap[item._cat] || 'custom', ref_id: item.id }
-    await api.post(`/api/dnd/combat/combatants`, body)
-    const data = await api.get('/api/dnd/combat')
-    setCombatants(data.combatants || [])
   }
 
   const removeCombatant = async (combatantId) => {
@@ -84,7 +104,8 @@ export function CombatPage() {
     try {
       const data = await api.get('/api/dnd/combat')
       setPartyReport(data.gauge || null)
-    } catch { /* not critical */ }
+      setPartyPlayers(data.players || [])
+    } catch { }
   }
 
   useEffect(() => { if (session?.id) refreshReport() }, [session])
@@ -166,8 +187,8 @@ export function CombatPage() {
         <h1 className="display text-lg font-bold text-accent">Combat</h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setPaletteOpen(true)}
-            className="rounded bg-panel-2 px-3 py-1.5 text-xs font-medium text-dim hover:text-fg"
+            onClick={() => window.dispatchEvent(new Event('dnd-open-search'))}
+            className="rounded border border-line bg-panel-2 px-3 py-1.5 text-xs font-medium text-dim hover:border-accent hover:text-fg"
           >
             + Add
           </button>
@@ -221,13 +242,11 @@ export function CombatPage() {
         </div>
       )}
 
-      <CommandPalette combatSessionId={session?.id} onAddToCombat={addToCombat} />
-
       <SlideOver open={!!statBlockMonster} onClose={() => setStatBlockMonster(null)} title="Stat Block">
         {statBlockMonster && <StatBlockPanel monster={statBlockMonster} />}
       </SlideOver>
 
-      <PartyGauge report={partyReport} playerNames={[]} />
+      <PartyGauge report={partyReport} players={partyPlayers} onRefresh={loadCombat} />
     </DndLayout>
   )
 }

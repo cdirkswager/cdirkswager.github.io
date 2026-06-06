@@ -166,7 +166,10 @@ export async function onRequest(context) {
         { deathSaveFailures }
       )
 
-      return Response.json({ campaign, session, combatants, gauge })
+      return Response.json({
+        campaign, session, combatants, gauge,
+        players: players.map(p => ({ ...p, resources: resByPlayer[p.id] ?? [] })),
+      })
     }
 
     if (request.method === "POST") {

@@ -1,17 +1,34 @@
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { TopNav } from './TopNav'
+import { CommandPalette } from './CommandPalette'
 import './DndGlobals.css'
 
 export function DndLayout({ children }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const down = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen((v) => !v)
+      }
+    }
+    const openSearch = () => setSearchOpen(true)
+    window.addEventListener('keydown', down)
+    window.addEventListener('dnd-open-search', openSearch)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('dnd-open-search', openSearch)
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen bg-ink text-fg font-sans">
-      <TopNav />
+    <div className="dnd-layout min-h-screen bg-ink text-fg font-sans">
+      <TopNav onSearchClick={() => setSearchOpen(true)} />
       <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-3">
-        <div className="mb-2">
-          <Link to="/dm" className="text-xs text-dim hover:text-fg">← Back to DM Tools</Link>
-        </div>
         {children}
       </div>
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   )
 }

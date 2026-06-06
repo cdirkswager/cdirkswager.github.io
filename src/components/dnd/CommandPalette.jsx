@@ -1,36 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { api } from '../../lib/dnd/api'
 
 const CAT_ICON = { monster: '▤', npc: '★', player: '♔' }
 const CAT_ROUTE = { monster: '/dm/dnd/monsters', npc: '/dm/dnd/npcs', player: '/dm/dnd/players' }
 
-export function CommandPalette({ combatSessionId, onAddToCombat }) {
-  const [open, setOpen] = useState(false)
+export function CommandPalette({ open, onClose }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [selectedIdx, setSelectedIdx] = useState(0)
+  const [adding, setAdding] = useState(null)
   const inputRef = useRef(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const isCombatRoute = location.pathname.startsWith('/dm/dnd/combat')
 
   const flat = results
     ? Object.entries(results).flatMap(([cat, items]) => items.map((item) => ({ ...item, _cat: cat })))
     : []
 
   const close = useCallback(() => {
-    setOpen(false)
+    onClose?.()
     setQuery('')
     setResults(null)
     setSelectedIdx(0)
-  }, [])
+    setAdding(null)
+  }, [onClose])
 
   useEffect(() => {
     const down = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setOpen((v) => !v)
-      }
       if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', down)
@@ -53,9 +52,35 @@ export function CommandPalette({ combatSessionId, onAddToCombat }) {
     return () => clearTimeout(timer)
   }, [query, open])
 
+  const addToCombat = async (item) => {
+    setAdding(item.id)
+    try {
+      const sessionData = await api.get('/api/dnd/combat')
+      const session = sessionData.session
+      if (!session) {
+        alert('No active combat session. Start one first.')
+        setAdding(null)
+        return
+      }
+      const sourceMap = { monster: 'monster', npc: 'npc', player: 'player' }
+      await api.post('/api/dnd/combat/combatants', {
+        combat_session_id: session.id,
+        source: sourceMap[item._cat] || 'custom',
+        ref_id: item.id,
+        quantity: 1,
+      })
+      window.dispatchEvent(new CustomEvent('dnd-combatants-changed'))
+      close()
+    } catch (err) {
+      alert('Failed to add: ' + err.message)
+    } finally {
+      setAdding(null)
+    }
+  }
+
   const pick = (item) => {
-    if (combatSessionId && onAddToCombat) {
-      onAddToCombat(item).then(close)
+    if (isCombatRoute) {
+      addToCombat(item)
     } else {
       navigate(CAT_ROUTE[item._cat])
       close()
@@ -106,21 +131,27 @@ export function CommandPalette({ combatSessionId, onAddToCombat }) {
                 <span>{cat}s</span>
                 <span className="text-dim">({items.length})</span>
               </div>
-              {items.map((item, i) => {
+              {items.map((item) => {
                 const idx = flat.indexOf(item)
                 return (
                   <button
                     key={item.id}
                     onClick={() => pick(item)}
                     onMouseEnter={() => setSelectedIdx(idx)}
+                    disabled={adding === item.id}
                     className={`flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm transition-colors ${
                       selectedIdx === idx ? 'bg-accent-soft text-fg' : 'text-dim hover:bg-panel-2 hover:text-fg'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     <span className="w-6 text-center text-xs">{CAT_ICON[item._cat]}</span>
                     <span className="flex-1 truncate">{item.name}</span>
                     {item.cr != null && <span className="mono text-xs">CR {item.cr}</span>}
                     {item.type && <span className="rounded bg-ink px-1.5 py-0.5 text-[10px]">{item.type}</span>}
+                    {isCombatRoute && (
+                      <span className="mono text-[10px] text-accent">
+                        {adding === item.id ? '...' : '+Combat'}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -128,7 +159,11 @@ export function CommandPalette({ combatSessionId, onAddToCombat }) {
           ))}
 
           {query.length === 0 && (
-            <div className="py-8 text-center text-xs text-dim">Type to search monsters, NPCs, and players</div>
+            <div className="py-8 text-center text-xs text-dim">
+              {isCombatRoute
+                ? 'Type to search and add monsters, NPCs, or players to combat'
+                : 'Type to search monsters, NPCs, and players'}
+            </div>
           )}
         </div>
       </div>

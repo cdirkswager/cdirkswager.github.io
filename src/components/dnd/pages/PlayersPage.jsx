@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../../../lib/dnd/api'
 import { RESOURCE_TEMPLATES, spellSlotTemplate } from '../../../lib/dnd/reference'
 import { DndLayout } from '../DndLayout'
@@ -61,6 +61,16 @@ export function PlayersPage() {
     }
   }
 
+  const toggleActive = async (p) => {
+    const next = p.is_active ? 0 : 1
+    try {
+      await api.patch('/api/dnd/players', { id: p.id, is_active: next })
+      setPlayers((prev) => prev.map((pl) => (pl.id === p.id ? { ...pl, is_active: next } : pl)))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const addResource = async (playerId, resource) => {
     try {
       const r = await api.post('/api/dnd/players/resources', { player_id: playerId, ...resource })
@@ -89,8 +99,8 @@ export function PlayersPage() {
     }
   }
 
-  const updateResourceWeight = async (playerId, resourceId, field, value) => {
-    const patch = { [field]: parseFloat(value) || 0 }
+  const updateResourceField = async (playerId, resourceId, field, value) => {
+    const patch = { [field]: value }
     try {
       await api.patch('/api/dnd/players/resources', { id: resourceId, ...patch })
       setPlayers((prev) =>
@@ -177,8 +187,21 @@ export function PlayersPage() {
           return (
             <div
               key={p.id}
-              className="rounded border border-line bg-panel fadeup"
+              className={`rounded border bg-panel fadeup ${
+                p.is_active ? 'border-l-2 border-accent border-line' : 'border-line'
+              }`}
             >
+              <div className="flex items-center gap-2 px-4 pt-3">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-dim hover:text-fg" title={p.is_active ? 'Active in party' : 'Inactive'}>
+                  <input
+                    type="checkbox"
+                    checked={!!p.is_active}
+                    onChange={() => toggleActive(p)}
+                    className="accent-accent h-3.5 w-3.5 cursor-pointer"
+                  />
+                  <span>{p.is_active ? 'Active' : 'Off'}</span>
+                </label>
+              </div>
               <button
                 onClick={() => setExpandedId(expanded ? null : p.id)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left"
@@ -234,49 +257,13 @@ export function PlayersPage() {
                     )}
 
                     {res.map((r) => (
-                      <div key={r.id} className="rounded border border-line bg-ink p-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">{r.name}</span>
-                          <button
-                            onClick={() => deleteResource(p.id, r.id)}
-                            className="text-xs text-dim hover:text-crit"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        {r.resource_type === 'spell_slot' && r.slot_level != null && (
-                          <span className="text-[10px] text-accent">Level {r.slot_level}</span>
-                        )}
-                        <div className="mt-1 flex items-center gap-2 text-xs">
-                          <span className="text-dim">Max:</span>
-                          <input
-                            type="number"
-                            className="mono w-12 rounded border border-line bg-panel px-1 py-0.5 text-center text-xs"
-                            value={r.max_value}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0
-                              api.patch('/api/dnd/players/resources', { id: r.id, max_value: val })
-                            }}
-                          />
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          <WeightSlider
-                            label="Offense"
-                            value={r.weight_damage_boost}
-                            onChange={(v) => updateResourceWeight(p.id, r.id, 'weight_damage_boost', v)}
-                          />
-                          <WeightSlider
-                            label="Defense"
-                            value={r.weight_damage_reduction}
-                            onChange={(v) => updateResourceWeight(p.id, r.id, 'weight_damage_reduction', v)}
-                          />
-                          <WeightSlider
-                            label="Healing"
-                            value={r.weight_healing}
-                            onChange={(v) => updateResourceWeight(p.id, r.id, 'weight_healing', v)}
-                          />
-                        </div>
-                      </div>
+                      <ResourceCard
+                        key={r.id}
+                        resource={r}
+                        playerId={p.id}
+                        onDelete={deleteResource}
+                        onUpdate={updateResourceField}
+                      />
                     ))}
                   </div>
 
@@ -295,6 +282,100 @@ export function PlayersPage() {
         })}
       </div>
     </DndLayout>
+  )
+}
+
+function ResourceCard({ resource: r, playerId, onDelete, onUpdate }) {
+  const [showWeights, setShowWeights] = useState(false)
+
+  return (
+    <div className="rounded border border-line bg-ink p-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">{r.name}</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowWeights((v) => !v)}
+            className="rounded px-1.5 py-0.5 text-[10px] text-dim hover:text-fg"
+            title="Toggle weights"
+          >
+            {showWeights ? '▸' : '▾'}
+          </button>
+          <button
+            onClick={() => onDelete(playerId, r.id)}
+            className="text-xs text-dim hover:text-crit"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      {r.resource_type === 'spell_slot' && r.slot_level != null && (
+        <span className="text-[10px] text-accent">Level {r.slot_level}</span>
+      )}
+      <div className="mt-1.5 flex items-center gap-3">
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-dim">Current:</span>
+          <input
+            type="number"
+            min="0"
+            max={r.max_value}
+            className="mono w-14 rounded border border-line bg-panel px-1.5 py-0.5 text-center text-xs"
+            value={r.current_value ?? 0}
+            onChange={(e) => {
+              const val = Math.max(0, Math.min(r.max_value, parseInt(e.target.value) || 0))
+              onUpdate(playerId, r.id, 'current_value', val)
+            }}
+          />
+        </div>
+        <span className="mono text-[10px] text-dim">/ {r.max_value}</span>
+      </div>
+      <div className="mt-1.5">
+        <input
+          type="range"
+          min="0"
+          max={r.max_value}
+          step="1"
+          value={r.current_value ?? 0}
+          onChange={(e) => onUpdate(playerId, r.id, 'current_value', parseInt(e.target.value) || 0)}
+          className="w-full accent-accent"
+        />
+        <div className="flex justify-between text-[9px] text-dim">
+          <span>0</span>
+          <span>consume</span>
+          <span>{r.max_value}</span>
+        </div>
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-xs">
+        <span className="text-dim">Max:</span>
+        <input
+          type="number"
+          className="mono w-12 rounded border border-line bg-panel px-1 py-0.5 text-center text-xs"
+          value={r.max_value}
+          onChange={(e) => {
+            const val = parseInt(e.target.value) || 0
+            onUpdate(playerId, r.id, 'max_value', val)
+          }}
+        />
+      </div>
+      {showWeights && (
+        <div className="mt-2 space-y-1 border-t border-line pt-2">
+          <WeightSlider
+            label="Offense"
+            value={r.weight_damage_boost}
+            onChange={(v) => onUpdate(playerId, r.id, 'weight_damage_boost', parseFloat(v) || 0)}
+          />
+          <WeightSlider
+            label="Defense"
+            value={r.weight_damage_reduction}
+            onChange={(v) => onUpdate(playerId, r.id, 'weight_damage_reduction', parseFloat(v) || 0)}
+          />
+          <WeightSlider
+            label="Healing"
+            value={r.weight_healing}
+            onChange={(v) => onUpdate(playerId, r.id, 'weight_healing', parseFloat(v) || 0)}
+          />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -333,16 +414,25 @@ function WeightSlider({ label, value, onChange }) {
 
 function ResourceDropdown({ onSelect, templates }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="rounded bg-ink px-2 py-1 text-[10px] text-dim hover:text-fg"
+        className="rounded border border-line bg-ink px-2 py-1 text-[10px] text-dim hover:border-accent hover:text-fg"
       >
         + Template
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded border border-line bg-panel shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded border border-line bg-panel shadow-xl">
           {templates.map((tpl) => (
             <button
               key={tpl.name}

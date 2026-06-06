@@ -38,15 +38,17 @@ export async function onRequest(context) {
         `INSERT INTO players
           (id, campaign_id, name, class, subclass, level, race, ac, max_hp,
            passive_perception, passive_investigation, passive_insight,
-           exhaustion_level, languages, notable_abilities, display_order, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-          id, campaign.id, body.name ?? "New Player", body.class ?? null,
+           exhaustion_level, languages, notable_abilities, display_order,
+           is_active, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         [
+           id, campaign.id, body.name ?? "New Player", body.class ?? null,
           body.subclass ?? null, body.level ?? 1, body.race ?? null, body.ac ?? null,
           body.max_hp ?? 10, body.passive_perception ?? null,
           body.passive_investigation ?? null, body.passive_insight ?? null,
           body.exhaustion_level ?? 0, body.languages ?? null,
-          body.notable_abilities ?? null, body.display_order ?? 0, ts, ts,
+           body.notable_abilities ?? null, body.display_order ?? 0,
+           body.is_active ?? 1, ts, ts,
         ]
       )
       return Response.json({ id }, { status: 201 })
@@ -62,6 +64,7 @@ export async function onRequest(context) {
         "name", "class", "subclass", "level", "race", "ac", "max_hp",
         "passive_perception", "passive_investigation", "passive_insight",
         "exhaustion_level", "languages", "notable_abilities", "display_order",
+        "is_active",
       ]
       for (const k of allowed) {
         if (k in body) { fields.push(`${k} = ?`); params.push(body[k]) }
