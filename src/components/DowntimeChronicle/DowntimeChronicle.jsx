@@ -533,6 +533,7 @@ export default function DowntimeChronicle() {
                             onChange={e => handleEvent(yi, ei, 'name', e.target.value)}
                           >
                             <option value="">— Choose an event —</option>
+                            <option value="__custom__">📝 Custom Event</option>
                             {EVENTS.map(evt => (
                               <option key={evt.name} value={evt.name}>{evt.name}</option>
                             ))}
