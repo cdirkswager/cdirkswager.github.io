@@ -52,3 +52,15 @@
 .dnd-layout .fadeup { animation: fadeup 0.25s ease both; }
 
 .dnd-layout .gauge-fill { transition: width 0.5s cubic-bezier(.2,.7,.2,1), background-color 0.5s ease; }
+
+.dnd-layout .heal-toggle {
+  font-size: 5px;
+  line-height: 1;
+  padding: 0;
+  border: none;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+}
+.dnd-layout .heal-toggle:hover { color: var(--dim); }
+.dnd-layout .heal-toggle.active { color: var(--ok); }
