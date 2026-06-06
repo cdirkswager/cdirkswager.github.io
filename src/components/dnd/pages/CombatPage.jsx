@@ -41,6 +41,18 @@ export function CombatPage() {
     window.addEventListener('dnd-combatants-changed', handle)
     return () => window.removeEventListener('dnd-combatants-changed', handle)
   }, [loadCombat])
+  useEffect(() => {
+    const handle = (e) => {
+      const { playerId, current_hp } = e.detail
+      setCombatants((prev) =>
+        prev.map((c) =>
+          c.is_player && c.player_id === playerId ? { ...c, hp_current: current_hp } : c
+        )
+      )
+    }
+    window.addEventListener('dnd-player-hp-changed', handle)
+    return () => window.removeEventListener('dnd-player-hp-changed', handle)
+  }, [])
 
   const addActivePlayersToCombat = async (sessionId) => {
     if (addingRef.current) return

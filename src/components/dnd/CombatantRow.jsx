@@ -89,20 +89,29 @@ export function CombatantRow({ c, isCurrent, onChange, onRemove, onViewStatBlock
               {c.hp_current}<span className="text-dim">/{c.hp_max}</span>
               {c.hp_temp > 0 && <span className="text-player"> +{c.hp_temp}</span>}
             </div>
-            <div className="h-1 w-20 overflow-hidden rounded-full bg-ink">
-              <div className="gauge-fill h-full rounded-full" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+            <div className="relative h-1 w-20 overflow-hidden rounded-full bg-ink">
+              <div className="gauge-fill h-full rounded-full pointer-events-none" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+              <input
+                type="range"
+                min="0"
+                max={c.hp_max}
+                step="1"
+                value={c.hp_current}
+                onChange={(e) => onChange({ hp_current: Math.min(c.hp_max, parseInt(e.target.value) || 0) })}
+                className="absolute inset-0 cursor-col-resize opacity-0"
+              />
             </div>
           </div>
-          <div className="relative">
+          <div className="flex flex-col items-center">
             <button
               onClick={() => setHealMode((v) => !v)}
-              className={`absolute -top-2.5 left-1/2 -translate-x-1/2 p-0 leading-none text-[9px] ${healMode ? "text-ok" : "text-transparent hover:text-dim"}`}
+              className={`p-0 leading-none text-[9px] h-2.5 ${healMode ? "text-ok" : "text-transparent hover:text-dim"}`}
               title={healMode ? "Healing mode (click for damage)" : "Damage mode (click for healing)"}
             >
               ♥
             </button>
             <input
-              className="hp-input mono w-10 py-1 text-sm"
+              className="hp-input mono w-10 py-0.5 text-xs"
               placeholder="val"
               value={dmg}
               onChange={(e) => setDmg(e.target.value)}
