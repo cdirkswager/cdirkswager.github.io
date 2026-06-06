@@ -54,9 +54,10 @@
 .dnd-layout .gauge-fill { transition: width 0.5s cubic-bezier(.2,.7,.2,1), background-color 0.5s ease; }
 
 .dnd-layout button.heal-toggle {
-  font-size: 10px;
+  font-size: 20px;
   line-height: 1;
   padding: 0;
+  width: fit-content;
   border: none;
   background: none;
   color: transparent;

@@ -105,7 +105,7 @@ export function CombatantRow({ c, isCurrent, onChange, onRemove, onViewStatBlock
           <div className="relative">
             <button
               onClick={() => setHealMode((v) => !v)}
-              className={`heal-toggle absolute -top-1.5 left-1/2 -translate-x-1/2 ${healMode ? "active" : ""}`}
+              className={`heal-toggle absolute -top-3 left-1/2 -translate-x-1/2 ${healMode ? "active" : ""}`}
               title={healMode ? "Healing mode (click for damage)" : "Damage mode (click for healing)"}
             >
               ♥
