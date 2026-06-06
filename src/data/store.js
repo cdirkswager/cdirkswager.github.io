@@ -713,6 +713,12 @@ export async function deleteNotification(notifId) {
   await saveData(data)
 }
 
+export async function clearAllNotifications() {
+  const data = getStore()
+  data.notifications = []
+  await saveData(data)
+}
+
 export function getComments(playerId) {
   const data = getStore()
   return data.comments?.[playerId] || []

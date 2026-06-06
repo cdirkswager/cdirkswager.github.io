@@ -10,6 +10,7 @@ import {
   initStore, getCalendarData, getCalendarState, setCalendarState, getAllCalendarComments,
   deleteCalendarComment,
   getAllDowntimeChronicles, openDowntimeChronicle, closeDowntimeChronicle,
+  clearAllNotifications,
 } from '../../data/store'
 import {
   getAccessRequests, approveRequest, denyRequest,
@@ -627,6 +628,16 @@ export default function DMTools() {
               })}
             </div>
           )}
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-sm btn-danger" onClick={async () => {
+              if (confirm('Clear all notifications for all players? This cannot be undone.')) {
+                await clearAllNotifications()
+                refresh()
+              }
+            }}>
+              🗑️ Clear All Notifications
+            </button>
+          </div>
         </div>
 
         {calendarData && (

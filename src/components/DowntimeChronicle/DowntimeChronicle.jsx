@@ -106,6 +106,24 @@ export default function DowntimeChronicle() {
   const isOwner = session?.playerId === playerId
   const isDm = session?.role === 'dm'
 
+  function mergeData(src) {
+    const base = emptyChronicleData()
+    const merged = { ...base, ...src }
+    if (src?.years) {
+      merged.years = src.years.map((yr, i) => ({
+        ...base.years[i],
+        ...yr,
+        events: Array.from({ length: 5 }, (_, ei) => ({
+          ...(base.years[i]?.events?.[ei] || { name: '', memory: '' }),
+          ...(yr.events?.[ei] || {}),
+        })),
+        objectives: yr.objectives?.length ? yr.objectives : base.years[i]?.objectives || ['', '', ''],
+        scars: yr.scars?.length ? yr.scars : base.years[i]?.scars || ['', ''],
+      }))
+    }
+    return merged
+  }
+
   useEffect(() => {
     const existing = getDowntimeChronicle(playerId)
     if (existing) {
@@ -116,23 +134,23 @@ export default function DowntimeChronicle() {
           const draft = JSON.parse(draftRaw)
           if (draft && draft._updatedAt && existing.updatedAt) {
             if (draft._updatedAt > existing.updatedAt) {
-              setData({ ...emptyChronicleData(), ...draft })
+              setData(mergeData(draft))
               setDraftReady(true)
               return
             }
           } else if (draft) {
-            setData({ ...emptyChronicleData(), ...draft })
+            setData(mergeData(draft))
             setDraftReady(true)
             return
           }
         } catch { }
       }
-      setData({ ...emptyChronicleData(), ...existing.data })
+      setData(mergeData(existing.data))
     } else {
       const draftRaw = localStorage.getItem(DRAFT_KEY + playerId)
       if (draftRaw) {
         try {
-          setData({ ...emptyChronicleData(), ...JSON.parse(draftRaw) })
+          setData(mergeData(JSON.parse(draftRaw)))
         } catch {
           setData(emptyChronicleData())
         }

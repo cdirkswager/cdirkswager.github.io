@@ -419,9 +419,9 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          {!isNPC && (
+          {isOwner && (
             <div className="container" style={{ position: 'relative', marginTop: 0, paddingTop: 8, paddingBottom: 0 }}>
-              <NotificationsPanel playerId={session?.playerId || player.id} />
+              <NotificationsPanel playerId={player.id} />
             </div>
           )}
 
