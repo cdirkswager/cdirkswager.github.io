@@ -97,8 +97,10 @@ export function NpcsPage() {
     return (
       <div className="flex items-center justify-center py-24 text-sm text-dim">Loading NPCs...</div>
     )
+  }
 
   return (
+    <>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">NPCs</h1>
         <button
@@ -254,6 +256,7 @@ export function NpcsPage() {
           )}
         </SlideOver>
       </div>
+    </>
   )
 }
 

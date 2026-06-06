@@ -106,8 +106,10 @@ export function PlayersPage() {
     return (
       <div className="flex items-center justify-center py-24 text-sm text-dim">Loading party...</div>
     )
+  }
 
   return (
+    <>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Party</h1>
         <button
@@ -295,6 +297,7 @@ export function PlayersPage() {
           )
         })}
       </div>
+    </>
   )
 }
 

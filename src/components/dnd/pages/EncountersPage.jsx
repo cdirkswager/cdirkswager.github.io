@@ -151,6 +151,7 @@ export function EncountersPage() {
   const difficulty = calcDifficulty(selected, partyLevel, partySize)
 
   return (
+    <>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Encounters</h1>
         <button
@@ -333,6 +334,7 @@ export function EncountersPage() {
           )}
         </SlideOver>
       </div>
+    </>
   )
 }
 

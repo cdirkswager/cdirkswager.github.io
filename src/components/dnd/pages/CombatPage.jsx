@@ -192,6 +192,7 @@ export function CombatPage() {
   }
 
   return (
+    <>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Combat</h1>
         <div className="flex items-center gap-2">
@@ -254,5 +255,6 @@ export function CombatPage() {
       <SlideOver open={!!statBlockMonster} onClose={() => setStatBlockMonster(null)} title="Stat Block">
         {statBlockMonster && <StatBlockPanel monster={statBlockMonster} />}
       </SlideOver>
+    </>
   )
 }

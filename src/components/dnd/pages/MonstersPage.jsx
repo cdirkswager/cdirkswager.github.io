@@ -89,6 +89,7 @@ export function MonstersPage() {
   }
 
   return (
+    <>
       <div className="flex items-center justify-between">
         <h1 className="display text-lg font-bold text-accent">Bestiary</h1>
         <div className="flex gap-2">
@@ -219,6 +220,7 @@ export function MonstersPage() {
       >
         {selectedMonster && <StatBlockPanel monster={selectedMonster} />}
       </SlideOver>
+    </>
   )
 }
 
