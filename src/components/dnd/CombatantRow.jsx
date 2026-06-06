@@ -7,6 +7,7 @@ function conditions(c) {
 
 export function CombatantRow({ c, isCurrent, onChange, onRemove, onViewStatBlock, onConvertNpc, onAddNote }) {
   const [dmg, setDmg] = useState("");
+  const [healMode, setHealMode] = useState(false);
   const [condMenu, setCondMenu] = useState(false);
   const conds = conditions(c);
   const hpPct = c.hp_max > 0 ? (c.hp_current / c.hp_max) * 100 : 0;
@@ -101,16 +102,26 @@ export function CombatantRow({ c, isCurrent, onChange, onRemove, onViewStatBlock
               />
             </div>
           </div>
-          <input
-            className="hp-input mono w-14 py-1 text-sm"
-            placeholder="dmg"
-            value={dmg}
-            onChange={(e) => setDmg(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") applyDamage(e.shiftKey);
-            }}
-            title="Type damage + Enter. Shift+Enter or negative to heal."
-          />
+          <div className="flex flex-col items-center gap-0">
+            <button
+              onClick={() => setHealMode((v) => !v)}
+              className={`leading-1 text-[10px] ${healMode ? "text-ok" : "text-dim hover:text-fg"}`}
+              title={healMode ? "Healing mode (click for damage)" : "Damage mode (click for healing)"}
+            >
+              ❤️
+            </button>
+            <input
+              className="hp-input mono w-10 py-1 text-sm"
+              placeholder="val"
+              value={dmg}
+              onChange={(e) => setDmg(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyDamage(healMode);
+              }}
+              style={healMode ? { borderColor: 'var(--ok)' } : undefined}
+              title="Enter applies damage or healing based on toggle"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-0.5 text-dim">

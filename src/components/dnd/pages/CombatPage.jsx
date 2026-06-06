@@ -109,7 +109,9 @@ export function CombatPage() {
     )
     if (playerId && updates.hp_current !== undefined) {
       await api.patch('/api/dnd/players', { id: playerId, current_hp: updates.hp_current })
-      window.dispatchEvent(new Event('dnd-resources-changed'))
+      window.dispatchEvent(new CustomEvent('dnd-player-hp-changed', {
+        detail: { playerId, current_hp: updates.hp_current }
+      }))
     }
   }
 

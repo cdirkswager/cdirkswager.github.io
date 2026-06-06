@@ -5,6 +5,13 @@ const COLOR = {
   ok: "var(--ok)", warn: "var(--warn)", risk: "var(--risk)", crit: "var(--crit)",
 }
 
+function riskFromOverall(pct) {
+  if (pct > 75) return { label: "Well Rested", color: "ok" }
+  if (pct > 50) return { label: "Engaged", color: "warn" }
+  if (pct > 25) return { label: "Tested", color: "risk" }
+  return { label: "Critical", color: "crit" }
+}
+
 export function PartyGauge() {
   const [open, setOpen] = useState(false)
   const [players, setPlayers] = useState([])
@@ -27,14 +34,15 @@ export function PartyGauge() {
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => {
-    const h = () => fetchData()
-    window.addEventListener('dnd-resources-changed', h)
-    window.addEventListener('dnd-combatants-changed', h)
-    return () => {
-      window.removeEventListener('dnd-resources-changed', h)
-      window.removeEventListener('dnd-combatants-changed', h)
+    const hpHandler = (e) => {
+      const { playerId, current_hp } = e.detail
+      setPlayers((prev) =>
+        prev.map((p) => (p.id === playerId ? { ...p, current_hp } : p))
+      )
     }
-  }, [fetchData])
+    window.addEventListener('dnd-player-hp-changed', hpHandler)
+    return () => window.removeEventListener('dnd-player-hp-changed', hpHandler)
+  }, [])
 
   const hpEntries = players.map((p) => ({
     playerName: p.name, playerId: p.id,
@@ -68,11 +76,11 @@ export function PartyGauge() {
   if (depletedCount > 0) readinessDetail.push(`${depletedCount}/${totalResCount} resources spent`)
 
   const hasCombat = !!combatData?.session
-  const report = combatData?.gauge
-  const gaugeColor = report ? (COLOR[report.risk.color] ?? "var(--dim)") : "var(--dim)"
-  const gaugeLabel = report ? report.risk.label : null
+  const encounter = riskFromOverall(overallPct)
+  const gaugeColor = COLOR[encounter.color] ?? "var(--dim)"
+  const gaugeLabel = encounter.label
   const bannerColor = hasCombat ? gaugeColor : readinessColor
-  const bannerLabel = hasCombat ? (report?.risk?.label ?? 'Active') : readinessLabel
+  const bannerLabel = hasCombat ? gaugeLabel : readinessLabel
 
   const updateResource = async (playerId, resourceId, field, value) => {
     setPlayers((prev) =>
