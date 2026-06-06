@@ -30,9 +30,17 @@ export function PartyGauge() {
     return () => window.removeEventListener('dnd-resources-changed', h)
   }, [fetchData])
 
-  const allResources = players.flatMap(
-    (p) => (p.resources || []).map((r) => ({ ...r, playerName: p.name, playerId: p.id }))
-  )
+  const hpEntries = players.map((p) => ({
+    playerName: p.name, playerId: p.id,
+    max_value: p.max_hp || 0,
+    current_value: p.current_hp ?? p.max_hp ?? 0,
+  }))
+  const allResources = [
+    ...hpEntries,
+    ...players.flatMap(
+      (p) => (p.resources || []).map((r) => ({ ...r, playerName: p.name, playerId: p.id }))
+    ),
+  ]
   const totalMax = allResources.reduce((s, r) => s + (r.max_value || 0), 0)
   const totalCur = allResources.reduce((s, r) => s + (r.current_value ?? 0), 0)
   const overallPct = totalMax > 0 ? Math.round((totalCur / totalMax) * 100) : 100
@@ -52,6 +60,14 @@ export function PartyGauge() {
     await api.patch('/api/dnd/players/resources', { id: resourceId, [field]: value })
   }
 
+  const updatePlayerHp = async (playerId, newHp) => {
+    const clamped = Math.max(0, newHp)
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === playerId ? { ...p, current_hp: clamped } : p))
+    )
+    await api.patch('/api/dnd/players', { id: playerId, current_hp: clamped })
+  }
+
   const restAll = async (type) => {
     setResting(true)
     const targets = players.flatMap((p) =>
@@ -59,6 +75,12 @@ export function PartyGauge() {
     )
     for (const r of targets) {
       await api.patch('/api/dnd/players/resources', { id: r.id, current_value: r.max_value })
+    }
+    for (const p of players) {
+      const hp = type === 'long'
+        ? p.max_hp
+        : Math.min(p.max_hp, (p.current_hp ?? p.max_hp) + Math.ceil(p.max_hp / 4))
+      await api.patch('/api/dnd/players', { id: p.id, current_hp: hp })
     }
     setPlayers((prev) =>
       prev.map((p) => ({
@@ -68,6 +90,9 @@ export function PartyGauge() {
             ? { ...r, current_value: r.max_value }
             : r
         ),
+        current_hp: type === 'long'
+          ? p.max_hp
+          : Math.min(p.max_hp, (p.current_hp ?? p.max_hp) + Math.ceil(p.max_hp / 4)),
       }))
     )
     setResting(false)
@@ -87,16 +112,35 @@ export function PartyGauge() {
                 const res = p.resources || []
                 const others = res.filter(r => r.resource_type !== 'spell_slot')
                 const slots = res.filter(r => r.resource_type === 'spell_slot')
+                const hpCur = p.current_hp ?? p.max_hp ?? 0
+                const hpMax = p.max_hp || 0
+                const hpPct = hpMax > 0 ? (hpCur / hpMax) * 100 : 0
+                const hpColor = hpPct > 50 ? 'var(--ok)' : hpPct > 25 ? 'var(--warn)' : 'var(--crit)'
                 return (
                   <div key={p.id} className="mb-1 rounded border border-line bg-ink">
-                    <button
+                    <div
+                      className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5"
                       onClick={() => setExpandedId(expanded ? null : p.id)}
-                      className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left"
                     >
                       <span className="flex-1 truncate text-sm font-medium text-player">{p.name}</span>
-                      {p.is_active && <span className="h-1.5 w-1.5 rounded-full bg-player" />}
-                      <span className="mono text-xs text-dim">{expanded ? '▴' : '▾'}</span>
-                    </button>
+                      {p.is_active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-player" />}
+
+                      <div className="relative h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-ink sm:w-28" onClick={(e) => e.stopPropagation()}>
+                        <div className="gauge-fill h-full rounded-full pointer-events-none" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+                        <input
+                          type="range"
+                          min="0"
+                          max={hpMax}
+                          step="1"
+                          value={hpCur}
+                          onChange={(e) => updatePlayerHp(p.id, Math.min(hpMax, parseInt(e.target.value) || 0))}
+                          className="absolute inset-0 cursor-col-resize opacity-0"
+                        />
+                      </div>
+                      <span className="mono shrink-0 text-xs text-dim">{hpCur}/{hpMax}</span>
+
+                      <span className="mono shrink-0 text-xs text-dim">{expanded ? '▴' : '▾'}</span>
+                    </div>
                     {expanded && (
                       <div className="border-t border-line px-2 pb-2 pt-1">
                         {res.length === 0 && (
@@ -318,3 +362,5 @@ function AggregateSpellSlots({ slots, playerId, onChange }) {
     </div>
   )
 }
+
+
