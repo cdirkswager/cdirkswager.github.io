@@ -372,6 +372,22 @@
   color: var(--text-primary);
 }
 
+.guestbook-search {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.guestbook-search:focus {
+  border-color: var(--accent-gold);
+}
+
 .guestbook-list {
   display: flex;
   flex-direction: column;

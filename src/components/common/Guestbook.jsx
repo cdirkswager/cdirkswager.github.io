@@ -6,6 +6,7 @@ import { useImpersonation } from '../../context/ImpersonationContext'
 
 export default function Guestbook({ playerId }) {
   const [comments, setComments] = useState([])
+  const [search, setSearch] = useState('')
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [confirmingId, setConfirmingId] = useState(null)
@@ -58,6 +59,11 @@ export default function Guestbook({ playerId }) {
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  const q = search.trim().toLowerCase()
+  const filteredComments = q
+    ? comments.filter(c => c.text.toLowerCase().includes(q) || c.author.toLowerCase().includes(q))
+    : comments
+
   return (
     <div className="card gold-border">
       <h3 className="widget-title mb-2">📝 Ping Ring</h3>
@@ -68,8 +74,22 @@ export default function Guestbook({ playerId }) {
         </p>
       )}
 
+      {comments.length > 0 && (
+        <input
+          className="guestbook-search"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="🔍 Search pings by name or message..."
+        />
+      )}
+
       <div className="guestbook-list">
-        {comments.map(c => (
+        {filteredComments.length === 0 && search.trim() && (
+          <p className="text-muted" style={{ fontSize: '0.9rem', padding: '12px 0', textAlign: 'center' }}>
+            No pings match "{search.trim()}"
+          </p>
+        )}
+        {filteredComments.map(c => (
           <div key={c.id} className="guestbook-entry">
             <div className="guestbook-entry-header">
               {c.authorId ? (

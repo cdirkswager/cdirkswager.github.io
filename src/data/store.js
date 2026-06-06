@@ -577,10 +577,24 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
   for (const playerId of playerIds) {
     const existing = data.downtimeChronicles.find(c => c.playerId === playerId)
     if (existing) {
+      const wasClosed = existing.status === 'closed' || existing.status === 'submitted'
       existing.status = 'pending'
       existing.dmNotes = dmNotes
       existing.updatedAt = now
       created.push(existing)
+      // Notify on reopen
+      if (wasClosed) {
+        data.notifications.push({
+          id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),
+          playerId,
+          type: 'downtime',
+          title: '📜 Downtime Chronicle reopened',
+          message: dmNotes || 'Your downtime chronicle has been reopened. The DM would like you to revisit it.',
+          link: `/player/${playerId}/downtime`,
+          read: false,
+          createdAt: Date.now(),
+        })
+      }
     } else {
       const chronicle = {
         id: 'dc-' + now + '-' + Math.random().toString(36).slice(2, 6),
@@ -608,7 +622,6 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
       }
       data.downtimeChronicles.push(chronicle)
       created.push(chronicle)
-      // Notify only for newly opened chronicles
       const p = data.players.find(pl => pl.id === playerId)
       data.notifications.push({
         id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),

@@ -13,58 +13,84 @@ const YEARS = [
 
 const PARTY_NAMES = ['Shiro', 'Gloom', 'Natalia', 'Zephyr', 'Fiix', 'Amare']
 
+const MONTHS = [
+  { name: 'Hammer', season: 'Winter', icon: '❄️', num: 1 },
+  { name: 'Alturiak', season: 'Winter', icon: '❄️', num: 2 },
+  { name: 'Ches', season: 'Spring', icon: '🌱', num: 3 },
+  { name: 'Tarsakh', season: 'Spring', icon: '🌱', num: 4 },
+  { name: 'Mirtul', season: 'Spring', icon: '🌱', num: 5 },
+  { name: 'Kythorn', season: 'Summer', icon: '☀️', num: 6 },
+  { name: 'Flamerule', season: 'Summer', icon: '☀️', num: 7 },
+  { name: 'Eleasis', season: 'Summer', icon: '☀️', num: 8 },
+  { name: 'Eleint', season: 'Autumn', icon: '🍂', num: 9 },
+  { name: 'Marpenoth', season: 'Autumn', icon: '🍂', num: 10 },
+  { name: 'Uktar', season: 'Autumn', icon: '🍂', num: 11 },
+  { name: 'Nightal', season: 'Winter', icon: '❄️', num: 12 },
+]
+
 const EVENTS = [
-  { name: 'Seeing Justice', desc: 'A mysterious night marked by unknown rites in Targ.' },
-  { name: 'Candle Rites', desc: 'A day of sea tales, drinking, and revelry in honor of Umberlee.' },
-  { name: 'The Maiming', desc: 'Midwinter masquerade balls and costumes. A celebration of indulgence and identity.' },
-  { name: 'Cold Counting Comfort', desc: 'A gift-giving day with outdoor ice events and shared joy.' },
-  { name: 'The Blinding', desc: 'Elves give thanks to those who defeated the Spider Queen.' },
-  { name: 'The Rallying', desc: 'A secretive nighttime ritual — details are obscured or unknown.' },
-  { name: 'The Putrescent Death', desc: 'A celebration of textile art and tapestry weaving across Evalis.' },
-  { name: "Sailor's Pledge", desc: 'A sacred ten-day mating ritual among the Beastkin.' },
-  { name: 'Holiday of Revelry', desc: 'A day of celebrating life, family, and the strength of community.' },
-  { name: 'Widwinter Festival', desc: 'A communal meal built on what the hunters return with.' },
-  { name: 'Remembrance of the Dark Court Slaughter', desc: 'The grand hunt. Many are christened as Venari, warriors of Evalis.' },
-  { name: 'The Unveiling', desc: "Festival honoring Umberlee's parting, when the seas briefly calmed." },
-  { name: 'Great Weave', desc: 'A Hel ritual of burning away impurities — spiritual and physical.' },
-  { name: 'The Festival of the Pride', desc: 'Worship of the sun and the divine forces of light and creation.' },
-  { name: 'Endless Revel of Life', desc: "Elven performance honoring the elegance of nature's air." },
-  { name: 'Four Feasts', desc: 'Honoring the wealthy and collecting donations for future festivals.' },
-  { name: 'High Hunt', desc: 'Games of strategy and wit. Celebrated via chess and Three-Dragon Ante.' },
-  { name: 'Last Storm', desc: "A playful desert day with sand skiff races and children's wind rider games." },
-  { name: 'Rite of Pain and Purity', desc: "Trade fair in Jutland, headlined by Avernus Corp's annual appearance." },
-  { name: 'Song of Dawn', desc: 'Celebration of the earth, nature, and what grows within it.' },
-  { name: 'The Dance of Swirling Winds', desc: 'A chaotic and violent ritual tied to the orc god Ilneval.' },
-  { name: 'High Coin', desc: 'Witch-led communion with the forces of nature.' },
-  { name: "Queen's Gambit", desc: 'A day of taming, riding, and honoring beasts.' },
-  { name: 'Windride', desc: 'A massive 12-day convention of invention, research, and recognition.' },
-  { name: 'Coin Festival', desc: 'Final day of the Convergence, when merchants secure rights to inventions.' },
-  { name: 'Greengrass', desc: "Honoring those who died for good; a reimagining of 'The Maiming'." },
-  { name: 'Orgy of Destruction', desc: 'Feast to thank the land for its bounty and to plant new trees.' },
-  { name: 'Song of the Trees', desc: 'Honoring magical progress and the enrichment it brings.' },
-  { name: 'Wild Ride', desc: 'Balance of light and dark celebrated with seasonal rites.' },
-  { name: 'Convergence of Minds', desc: 'Jutlandic tradition involving the hunt for the mythical Nkyur Stag.' },
-  { name: 'Day of Riches', desc: 'Classic harvest festival — food, flowers, and gratitude.' },
-  { name: 'Divine Death', desc: 'A day for guards and soldiers who protect wealth and trade.' },
-  { name: 'Huldark', desc: 'Graduation day for witches; apprentices chosen by the Strix.' },
-  { name: 'Spryndalstar', desc: 'Night of wishes under a brilliant meteor shower.' },
-  { name: 'Autumnal Equinox', desc: 'Appreciation for mundane craftsmanship and invention.' },
-  { name: 'Feast of the Stags', desc: 'Desert bonfire dance honoring those who paved the way.' },
-  { name: 'Harvestide', desc: "Orc tradition tied to winter's arrival — details scarce." },
-  { name: 'Marthoon', desc: "Morrigan's warriors parade in silence for the fallen." },
-  { name: 'Ascension Day', desc: 'Candle-lit town centers in silent remembrance of the lost.' },
-  { name: 'Starfall', desc: 'Martial arts and spiritual rites at Lake Tazo.' },
-  { name: 'Tehennteahan', desc: 'Beastkin let loose, giving into primal selves for one night.' },
-  { name: 'Ceremony of Remembrance', desc: 'The longest night; a turning point honored across cultures.' },
-  { name: 'Coming of the Winter Cave', desc: "Celebrates Umberlee's return from the mists — sailors' day of rest." },
-  { name: 'Commemoration of the Fallen', desc: "A moral warning against greed, wealth's darker nature." },
-  { name: 'Honoring the Dead', desc: 'A fireworks celebration to mark the passing of the year.' },
-  { name: 'Mystic Rites of the Luminous Cloud', desc: '' },
-  { name: 'The Feast of the Moon', desc: '' },
-  { name: 'Winter Solstice', desc: '' },
-  { name: 'The Coming', desc: '' },
-  { name: 'Orbar', desc: '' },
-  { name: 'Night of Another Year', desc: '' },
+  { name: 'Seeing Justice', desc: 'Thunderously sung hymns to Freya. Reminder of what an unjust world looks like.', dateDisplay: '1st of every month', seasons: ['Winter','Spring','Summer','Autumn'] },
+  { name: 'Candle Rites', desc: 'Candle rites for Hel — sing, chant, and pray while dancing around lit candles.', dateDisplay: '12th of every month', seasons: ['Winter','Spring','Summer','Autumn'] },
+  { name: 'The Maiming', desc: 'Thunderously sung hymns to Freya. A day to remember that goodness is hard won.', dateDisplay: '13th of most months (not Eleasis, Eleint)', seasons: ['Winter','Spring','Summer','Autumn'] },
+  { name: 'The Blinding', desc: 'Thunderously sung hymns to Freya. A day to remember truth isnt always seen with the eyes.', dateDisplay: '22nd of most months (not Ches, Flamerule)', seasons: ['Winter','Spring','Summer','Autumn'] },
+  { name: 'Cold Counting Comfort', desc: 'Celebrated wintertime accounting.', dateDisplay: 'Hammer 15', seasons: ['Winter'] },
+  { name: 'The Rallying', desc: 'Meeting and planning for the year in heim.', dateDisplay: 'Hammer 30', seasons: ['Winter'] },
+  { name: 'The Putrescent Death', desc: 'Night — details unknown.', dateDisplay: 'Hammer 30', seasons: ['Winter'] },
+  { name: "Sailor's Pledge", desc: 'A day of tales of the sea, drinking, and revelry.', dateDisplay: 'Hammer · Tarsakh · Eleint · Uktar', seasons: ['Winter','Spring','Autumn'] },
+  { name: 'Holiday of Revelry', desc: 'Night — masquerade balls, midwinter costumes and outerwear. Also celebrated as an indoor Halloween with parties.', dateDisplay: 'Hammer · Flamerule · Uktar', seasons: ['Winter','Summer','Autumn'] },
+  { name: 'Midwinter Festival (Widwinter Festival)', desc: 'Day — giving gifts and outdoor ice events.', dateDisplay: 'Hammer', seasons: ['Winter'] },
+  { name: 'Remembrance of the Dark Court Slaughter', desc: 'Night — elves give thanks and remembrance to those who defeated the spider queen.', dateDisplay: 'Hammer', seasons: ['Winter'] },
+  { name: 'The Unveiling', desc: 'Night — details unknown.', dateDisplay: 'Hammer', seasons: ['Winter'] },
+  { name: 'Great Weave', desc: 'Celebrated wintertime textile practices and tapestry weaving.', dateDisplay: 'Alturiak 20', seasons: ['Winter'] },
+  { name: 'The Festival of the Pride', desc: 'Ten-day sacred mating festival for all beastkin.', dateDisplay: 'Ches 1–10', seasons: ['Spring'] },
+  { name: 'Vernal Equinox', desc: 'The spring equinox.', dateDisplay: 'Ches 19', seasons: ['Spring'] },
+  { name: 'Four Feasts', desc: 'Night — a feast prepared from what hunters return with.', dateDisplay: 'Ches 19 · Kythorn 20 · Eleint 21 · Nightal 20', seasons: ['Spring','Summer','Autumn','Winter'] },
+  { name: 'High Hunt', desc: 'Morning — a celebrated hunt. Many new hunters are christened as Venari (warriors of Evalis) on this day.', dateDisplay: 'Ches 19 · Kythorn 20 · Eleint 21 · Nightal 20', seasons: ['Spring','Summer','Autumn','Winter'] },
+  { name: 'Last Storm', desc: 'A fishing festival marking the day Umberlee left to explore the Mists and the storm that parted for her.', dateDisplay: 'Ches 19', seasons: ['Spring'] },
+  { name: 'Rite of Pain and Purity', desc: 'A ritual of burning impurities away.', dateDisplay: 'Ches 19 · Kythorn 20 · Nightal 20', seasons: ['Spring','Summer','Winter'] },
+  { name: 'Song of Dawn', desc: 'A day to worship the sun and the gods that give life to the universe.', dateDisplay: 'Ches 19 · Eleint 21', seasons: ['Spring','Autumn'] },
+  { name: 'The Dance of Swirling Winds', desc: 'A grand performance at the House of Fallen Leaves.', dateDisplay: 'Ches 19 · Eleint 21', seasons: ['Spring','Autumn'] },
+  { name: 'Endless Revel of Life', desc: 'Enjoy life and family — large beastkin gathering with tamed beasts, brawling, and prideful boasting.', dateDisplay: 'Ches 19 · Kythorn 20 · Flamerule 30 · Eleint 21 · Uktar · Nightal 20', seasons: ['Spring','Summer','Autumn','Winter'] },
+  { name: 'High Coin', desc: 'Celebrated the accomplishments of the wealthy and collected donations for the next festival.', dateDisplay: 'Ches 30', seasons: ['Spring'] },
+  { name: "Queen's Gambit", desc: 'A competition of games, particularly chess and Three-Dragon Ante.', dateDisplay: 'Tarsakh 1', seasons: ['Spring'] },
+  { name: 'Windride', desc: 'A day dedicated to learning to use a sand skiff. Children play with wind riders; adults race on sand skiffs.', dateDisplay: 'Tarsakh 15', seasons: ['Spring'] },
+  { name: 'Coin Festival', desc: 'A trade festival in Jutland, marked by the yearly visit of Avernus Corp.', dateDisplay: 'Tarsakh', seasons: ['Spring'] },
+  { name: 'Greengrass', desc: 'Festival of appreciating the earth and grown things.', dateDisplay: 'Tarsakh', seasons: ['Spring'] },
+  { name: 'Orgy of Destruction', desc: 'Details unknown.', dateDisplay: 'Tarsakh', seasons: ['Spring'] },
+  { name: 'Song of the Trees', desc: 'A witchs ritual to commune with the forces of nature.', dateDisplay: 'Tarsakh · Eleint', seasons: ['Spring','Autumn'] },
+  { name: 'Wild Ride', desc: 'Day of beasts — riding, taming, zoos.', dateDisplay: 'Tarsakh · Flamerule', seasons: ['Spring','Summer'] },
+  { name: 'Convergence of Minds', desc: 'A 12-day Magi-Science convention with panels, speeches, reward ceremonies, and magical breakthroughs.', dateDisplay: 'Mirtul 1–12', seasons: ['Spring'] },
+  { name: 'Day of Riches', desc: 'Last day of the Convergence of Minds, where merchants gain exclusive rights to inventors products.', dateDisplay: 'Mirtul 12', seasons: ['Spring'] },
+  { name: 'Summer Solstice', desc: 'The summer solstice.', dateDisplay: 'Kythorn 20', seasons: ['Summer'] },
+  { name: 'The Newborn Celebration', desc: 'Birth celebrations for beastkin newborns.', dateDisplay: 'Kythorn 21–29', seasons: ['Summer'] },
+  { name: 'Sornyn', desc: 'Marked by business planning, signing of new opportunities, and meetings between adversaries.', dateDisplay: 'Flamerule 3–5', seasons: ['Summer'] },
+  { name: 'Celebration of the Moon', desc: 'Night — songs and stories told over campfire in the deserts of Evadonia.', dateDisplay: 'Flamerule 30', seasons: ['Summer'] },
+  { name: 'Ceremony of Contagion', desc: 'Night — details unknown.', dateDisplay: 'Flamerule', seasons: ['Summer'] },
+  { name: 'Deeds of the Dead', desc: 'Very important day of Hel. Remembering the dead for their loyalty and strength to the cause.', dateDisplay: 'Flamerule', seasons: ['Summer'] },
+  { name: 'Oath Making', desc: 'The day all Paladin orders make their oaths.', dateDisplay: 'Flamerule', seasons: ['Summer'] },
+  { name: 'Day of Peace', desc: 'Day of reflection on ourselves and our past — to seek inner peace and relaxation.', dateDisplay: 'Flamerule', seasons: ['Summer'] },
+  { name: 'The Melding of the Three', desc: 'Night — a night to come together: essence, enjoyment, transformation.', dateDisplay: 'Flamerule', seasons: ['Summer'] },
+  { name: "Morrigan's Mirror", desc: 'A 9-day tournament testing the will of Venari (warriors of Evalis) with races, battles, and feats of strength.', dateDisplay: 'Eleasis 1–9', seasons: ['Summer'] },
+  { name: 'Divine Death', desc: 'A full day event celebrating death in service of goodness and justice, and its link to divinity.', dateDisplay: 'Eleasis 13', seasons: ['Summer'] },
+  { name: 'Huldark', desc: 'Feast to celebrate the bounty of the land and the planting of new trees.', dateDisplay: 'Eleasis 17', seasons: ['Summer'] },
+  { name: 'Spryndalstar', desc: 'Celebrated the enrichment provided by the use of magic.', dateDisplay: 'Eleint 7', seasons: ['Autumn'] },
+  { name: 'Autumnal Equinox', desc: 'The autumn equinox.', dateDisplay: 'Eleint 21', seasons: ['Autumn'] },
+  { name: 'Feast of the Stags', desc: 'Gard celebrates a feast hunting the Nkyur Stag — an elusive blue stag said to impart immortality when eaten.', dateDisplay: 'Eleint', seasons: ['Autumn'] },
+  { name: 'Harvestide', desc: 'Harvest festival of food and flowers.', dateDisplay: 'Eleint', seasons: ['Autumn'] },
+  { name: 'Marthoon', desc: 'Homage to soldiers and guards for their efforts to protect wealth.', dateDisplay: 'Marpenoth 1', seasons: ['Autumn'] },
+  { name: 'Ascension Day', desc: 'The day all Strix take on an apprentice as successor — now a graduation day for witches in Aeaea.', dateDisplay: 'Marpenoth 15', seasons: ['Autumn'] },
+  { name: 'Starfall', desc: 'A day of wishes — a yearly meteor shower lights the sky.', dateDisplay: 'Marpenoth 23', seasons: ['Autumn'] },
+  { name: 'Tehennteahan', desc: 'Celebrated everyday inventions and non-magical crafts.', dateDisplay: 'Uktar 10', seasons: ['Autumn'] },
+  { name: 'Ceremony of Remembrance', desc: 'Night — a massive bonfire with dancing and celebration for those who made our lives possible.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'Coming of the Winter Cave', desc: 'Details unknown.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'Commemoration of the Fallen', desc: 'A recounting of the deeds of Morrigan. Venari from across the realm gather in solemn parade for fallen warriors.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'Honoring the Dead', desc: 'Evening — a candle festival at the center of town, gathering in silence to appreciate those lost.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'Mystic Rites of the Luminous Cloud', desc: 'Monks of the Temple of Yomi arrive at Lake Tazo and perform rites and martial arts.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'The Feast of the Moon', desc: 'Night — a night in which beastkin indulge in their primal selves.', dateDisplay: 'Uktar', seasons: ['Autumn'] },
+  { name: 'Winter Solstice', desc: 'The winter solstice.', dateDisplay: 'Nightal 20', seasons: ['Winter'] },
+  { name: 'The Coming', desc: 'The day Umberlee returned from the Mists unscathed — a day of celebration and rest for all sailors.', dateDisplay: 'Nightal 20', seasons: ['Winter'] },
+  { name: 'Orbar', desc: 'A cautionary warning against the dark side of wealth and greed.', dateDisplay: 'Nightal 25', seasons: ['Winter'] },
+  { name: 'Night of Another Year', desc: 'Night — fireworks to ring in the new year.', dateDisplay: 'Nightal 30', seasons: ['Winter'] },
 ]
 
 function emptyChronicleData() {
@@ -81,7 +107,7 @@ function emptyChronicleData() {
       friend: { name: '', desc: '' },
     },
     factions: [{ name: '', note: '' }, { name: '', note: '' }, { name: '', note: '' }],
-    party: [{ name: '', note: '' }],
+    party: PARTY_NAMES.map(name => ({ name, note: '' })),
     hobby: '',
     memories: ['', '', ''],
     threads: ['', ''],
@@ -237,21 +263,6 @@ export default function DowntimeChronicle() {
   const rmvFaction = (fi) => updateData(d => ({
     ...d,
     factions: d.factions.filter((_, i) => i !== fi),
-  }))
-
-  const handlePartyName = (pi, val) => updateData(d => ({
-    ...d,
-    party: d.party.map((p, i) => i === pi ? { ...p, name: val } : p),
-  }))
-
-  const addPartyRow = () => updateData(d => ({
-    ...d,
-    party: [...d.party, { name: '', note: '' }],
-  }))
-
-  const rmvPartyRow = (pi) => updateData(d => ({
-    ...d,
-    party: d.party.filter((_, i) => i !== pi),
   }))
 
   const handlePartyNote = (pi, val) => updateData(d => ({
@@ -526,11 +537,23 @@ export default function DowntimeChronicle() {
                               <option key={evt.name} value={evt.name}>{evt.name}</option>
                             ))}
                           </select>
-                          {ev.name && EVENTS.find(e => e.name === ev.name)?.desc && (
-                            <div className="event-desc-hint visible">
-                              {EVENTS.find(e => e.name === ev.name)?.desc}
-                            </div>
-                          )}
+                          {(() => {
+                            const match = EVENTS.find(e => e.name === ev.name);
+                            if (!match) return null;
+                            const seasonIcons = match.seasons.map(s => {
+                              const m = MONTHS.find(mo => mo.season === s);
+                              return m ? m.icon : '';
+                            }).filter(Boolean);
+                            const uniqueIcons = [...new Set(seasonIcons)];
+                            return (
+                              <div className="event-desc-hint visible">
+                                <div className="event-dates">
+                                  {uniqueIcons.join(' ')} {match.dateDisplay}
+                                </div>
+                                <div className="event-desc-text">{match.desc}</div>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div className="event-memory-field">
                           <input
@@ -635,29 +658,18 @@ export default function DowntimeChronicle() {
               <div className="faction-subsection-label">The Party</div>
               <div>
                 {data.party.map((p, pi) => (
-                  <div key={pi} className="faction-row">
-                    <select
-                      className="faction-name-select"
-                      value={p.name}
-                      onChange={e => handlePartyName(pi, e.target.value)}
-                    >
-                      <option value="">— Choose —</option>
-                      {PARTY_NAMES.map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                    <span className="faction-sep">—</span>
-                    <input
-                      className="faction-note"
+                  <div key={pi} className="party-row">
+                    <span className="party-name">{p.name}</span>
+                    <textarea
+                      className="party-note"
                       value={p.note}
                       onChange={e => handlePartyNote(pi, e.target.value)}
                       placeholder="How did things stand between you two over these four years?..."
+                      rows={3}
                     />
-                    <button className="rmv-btn" onClick={() => rmvPartyRow(pi)} title="Remove">✕</button>
                   </div>
                 ))}
               </div>
-              <button className="add-btn" onClick={addPartyRow}>+ Add Party Member</button>
             </div>
           </div>
 
