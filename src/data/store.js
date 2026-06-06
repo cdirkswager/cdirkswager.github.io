@@ -10,6 +10,8 @@ const defaultData = {
   mapPins: [],
   questionnaires: [],
   responses: [],
+  downtimeChronicles: [],
+  notifications: [],
   comments: {},
   calendar: {
     events: [],
@@ -540,6 +542,103 @@ export async function deleteQuestionnaire(id) {
   await saveData(data)
 }
 
+/* ── DOWNTIME CHRONICLES ── */
+
+export function getDowntimeChronicle(playerId) {
+  const data = getStore()
+  return (data.downtimeChronicles || []).find(c => c.playerId === playerId) || null
+}
+
+export function getAllDowntimeChronicles() {
+  return getStore().downtimeChronicles || []
+}
+
+export async function saveDowntimeChronicle(chronicle) {
+  const data = getStore()
+  if (!data.downtimeChronicles) data.downtimeChronicles = []
+  const existing = data.downtimeChronicles.find(c => c.id === chronicle.id)
+  chronicle.updatedAt = Date.now()
+  if (existing) {
+    Object.assign(existing, chronicle)
+  } else {
+    chronicle.id = 'dc-' + Date.now()
+    data.downtimeChronicles.push(chronicle)
+  }
+  await saveData(data)
+  return chronicle
+}
+
+export async function openDowntimeChronicle(playerIds, dmNotes = '') {
+  const data = getStore()
+  if (!data.downtimeChronicles) data.downtimeChronicles = []
+  if (!data.notifications) data.notifications = []
+  const now = Date.now()
+  const created = []
+  for (const playerId of playerIds) {
+    const existing = data.downtimeChronicles.find(c => c.playerId === playerId)
+    if (existing) {
+      existing.status = 'pending'
+      existing.dmNotes = dmNotes
+      existing.updatedAt = now
+      created.push(existing)
+    } else {
+      const chronicle = {
+        id: 'dc-' + now + '-' + Math.random().toString(36).slice(2, 6),
+        playerId,
+        status: 'pending',
+        dmNotes,
+        openedAt: now,
+        submittedAt: null,
+        updatedAt: now,
+        data: {
+          name: '',
+          years: [
+            { objectives: [], events: [], scars: ['', ''] },
+            { objectives: [], events: [], scars: ['', ''] },
+            { objectives: [], events: [], scars: ['', ''] },
+            { objectives: [], events: [], scars: ['', ''] },
+          ],
+          relationships: { romantic: { name: '', desc: '' }, work: { name: '', desc: '' }, friend: { name: '', desc: '' } },
+          factions: [],
+          party: [],
+          hobby: '',
+          memories: ['', '', ''],
+          threads: ['', ''],
+        },
+      }
+      data.downtimeChronicles.push(chronicle)
+      created.push(chronicle)
+    }
+    // Create notification for this player
+    const p = data.players.find(pl => pl.id === playerId)
+    data.notifications.push({
+      id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),
+      playerId,
+      type: 'downtime',
+      title: '📜 Downtime Chronicle is open',
+      message: dmNotes || 'The DM has opened the four-year downtime chronicle for your character.',
+      link: `/player/${playerId}/downtime`,
+      read: false,
+      createdAt: Date.now(),
+    })
+  }
+  await saveData(data)
+  return created
+}
+
+export async function closeDowntimeChronicle(playerId) {
+  const data = getStore()
+  if (!data.downtimeChronicles) return null
+  const idx = data.downtimeChronicles.findIndex(c => c.playerId === playerId)
+  if (idx >= 0) {
+    data.downtimeChronicles[idx].status = 'closed'
+    data.downtimeChronicles[idx].updatedAt = Date.now()
+    await saveData(data)
+    return data.downtimeChronicles[idx]
+  }
+  return null
+}
+
 export async function saveResponse(response) {
   const data = getStore()
   response.id = 'r-' + Date.now()
@@ -552,6 +651,66 @@ export async function saveResponse(response) {
 export function getResponses(questionnaireId) {
   const data = getStore()
   return data.responses.filter(r => r.questionnaireId === questionnaireId)
+}
+
+export function getAllResponses() {
+  return getStore().responses || []
+}
+
+/* ── NOTIFICATIONS ── */
+
+export function getNotifications(playerId, unreadOnly = true) {
+  const data = getStore()
+  const all = (data.notifications || []).filter(n => n.playerId === playerId)
+  return unreadOnly ? all.filter(n => !n.read) : all
+}
+
+export function getUnreadNotificationCount(playerId) {
+  return getNotifications(playerId, true).length
+}
+
+export async function createNotification(notif) {
+  const data = getStore()
+  if (!data.notifications) data.notifications = []
+  const n = {
+    id: 'n-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    ...notif,
+    read: false,
+    createdAt: Date.now(),
+  }
+  data.notifications.push(n)
+  await saveData(data)
+  return n
+}
+
+export async function markNotificationRead(notifId) {
+  const data = getStore()
+  const n = (data.notifications || []).find(x => x.id === notifId)
+  if (n) {
+    n.read = true
+    n.readAt = Date.now()
+    await saveData(data)
+  }
+  return n
+}
+
+export async function markAllNotificationsRead(playerId) {
+  const data = getStore()
+  let changed = false
+  ;(data.notifications || []).forEach(n => {
+    if (n.playerId === playerId && !n.read) {
+      n.read = true
+      n.readAt = Date.now()
+      changed = true
+    }
+  })
+  if (changed) await saveData(data)
+}
+
+export async function deleteNotification(notifId) {
+  const data = getStore()
+  data.notifications = (data.notifications || []).filter(n => n.id !== notifId)
+  await saveData(data)
 }
 
 export function getComments(playerId) {
@@ -573,6 +732,22 @@ export async function addComment(playerId, author, text, authorId) {
   if (authorId) comment.authorId = authorId
   data.comments[playerId].push(comment)
   await saveData(data)
+
+  // Notify the page owner if someone else commented
+  if (authorId && authorId !== playerId && playerId) {
+    const p = getPlayer(playerId) || getNPC(playerId)
+    if (p) {
+      const notif = {
+        playerId,
+        type: 'comment',
+        title: `New message from ${author}`,
+        message: text.length > 120 ? text.slice(0, 120) + '...' : text,
+        link: `/player/${playerId}`,
+      }
+      await createNotification(notif)
+    }
+  }
+
   return comment
 }
 
@@ -688,7 +863,7 @@ export function exportData() {
 export async function importData(jsonStr) {
   try {
     const data = JSON.parse(jsonStr)
-    if (data.players && data.mapPins && data.questionnaires) {
+    if (data.players && data.mapPins) {
       await saveData(data)
       return true
     }

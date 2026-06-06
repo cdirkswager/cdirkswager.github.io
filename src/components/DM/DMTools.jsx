@@ -9,6 +9,7 @@ import {
   getAllComments, deleteComment,
   initStore, getCalendarData, getCalendarState, setCalendarState, getAllCalendarComments,
   deleteCalendarComment,
+  getAllDowntimeChronicles, openDowntimeChronicle, closeDowntimeChronicle,
 } from '../../data/store'
 import {
   getAccessRequests, approveRequest, denyRequest,
@@ -28,6 +29,7 @@ export default function DMTools() {
   const [maps, setMaps] = useState([])
   const [pins, setPins] = useState([])
   const [questionnaires, setQuestionnaires] = useState([])
+  const [chronicles, setChronicles] = useState([])
   const [requests, setRequests] = useState([])
   const [users, setUsers] = useState([])
   const [showImport, setShowImport] = useState(false)
@@ -76,6 +78,7 @@ export default function DMTools() {
     setMaps(getMaps())
     setPins(getMapPins())
     setQuestionnaires(getQuestionnaires())
+    setChronicles(getAllDowntimeChronicles())
     const [reqs, usrs] = await Promise.all([getAccessRequests(), getAllUsers()])
     if (reqs) setRequests(reqs)
     if (usrs) setUsers(usrs)
@@ -550,6 +553,58 @@ export default function DMTools() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card gold-border mb-2">
+          <div className="flex-between mb-2">
+            <h3 className="widget-title">📜 Downtime Chronicles</h3>
+            <div className="flex gap-1">
+              <button className="btn btn-sm btn-primary" onClick={async () => {
+                const allPlayers = getPlayers().filter(p => !p.id.startsWith('npc-'))
+                await openDowntimeChronicle(allPlayers.map(p => p.id), '')
+                refresh()
+              }}>
+                📢 Open for All Players
+              </button>
+            </div>
+          </div>
+          {chronicles.length === 0 ? (
+            <p className="text-muted">No downtime chronicles yet. Click "Open for All Players" to begin.</p>
+          ) : (
+            <div className="dm-list">
+              {chronicles.map(c => {
+                const p = getPlayers().find(pl => pl.id === c.playerId)
+                return (
+                  <div key={c.id} className="dm-list-item">
+                    <div className="dm-list-info">
+                      <span className="dm-list-name">{p?.name || c.playerId}</span>
+                      <span className={`dm-list-detail ${c.status === 'submitted' ? 'text-success' : c.status === 'pending' ? 'text-gold' : ''}`}>
+                        {c.status === 'submitted' && '✅ Submitted'}
+                        {c.status === 'pending' && '⏳ Pending'}
+                        {c.status === 'closed' && '🔒 Closed'}
+                        {c.data?.name ? ` — ${c.data.name}` : ''}
+                      </span>
+                    </div>
+                    <div className="dm-list-actions">
+                      <Link to={`/player/${c.playerId}/downtime`} className="btn btn-sm">👁️ View</Link>
+                      {c.status === 'pending' && (
+                        <button className="btn btn-sm" onClick={async () => {
+                          await closeDowntimeChronicle(c.playerId)
+                          refresh()
+                        }}>🔒 Close</button>
+                      )}
+                      {c.status === 'submitted' && (
+                        <button className="btn btn-sm" onClick={async () => {
+                          await openDowntimeChronicle([c.playerId], '')
+                          refresh()
+                        }}>🔓 Reopen</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

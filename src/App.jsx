@@ -4,6 +4,7 @@ import Home from './components/Home/Home'
 import MapPage from './components/Map/MapPage'
 import CalendarPage from './components/Calendar/CalendarPage'
 import PlayerPage from './components/PlayerPage/PlayerPage'
+import DowntimeChronicle from './components/DowntimeChronicle/DowntimeChronicle'
 import PlayerEditor from './components/PlayerEditor/PlayerEditor'
 import DMTools from './components/DM/DMTools'
 import Questionnaire from './components/Questionnaire/Questionnaire'
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
+          <Route path="/player/:id/downtime" element={<DowntimeChronicle />} />
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

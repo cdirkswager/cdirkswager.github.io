@@ -4,6 +4,7 @@ import { getPlayer, getPlayers, getNPC, savePlayer, generatePageSource, sanitize
 import { getSession } from '../../data/auth'
 import Guestbook from '../common/Guestbook'
 import Modal from '../common/Modal'
+import NotificationsPanel from '../Notifications/NotificationsPanel'
 import './PlayerPage.css'
 
 function BackgroundMusicPlayer({ url }) {
@@ -413,6 +414,11 @@ export default function PlayerPage() {
                   <p className="player-class-display">
                     {player.race} {player.class} &middot; Level {player.level}
                   </p>
+                  {!isNPC && (
+                    <div style={{ position: 'relative', marginTop: 12 }}>
+                      <NotificationsPanel playerId={player.id} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -474,6 +480,7 @@ export default function PlayerPage() {
                 <button className="btn" onClick={openSourcePanel}>
                   🔧 Edit Source
                 </button>
+                {!isNPC && <Link to={`/player/${player.id}/downtime`} className="btn">📜 Chronicle</Link>}
               </div>
             )}
           </div>

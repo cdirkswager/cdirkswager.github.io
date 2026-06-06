@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getQuestionnaire, getPlayers, saveResponse, getResponses } from '../../data/store'
+import { getSession } from '../../data/auth'
 import './Questionnaire.css'
 
 export default function Questionnaire() {
@@ -17,6 +18,15 @@ export default function Questionnaire() {
     setPlayers(getPlayers())
     setResponses(getResponses(id))
   }, [id])
+
+  const session = getSession()
+  const isAssigned = questionnaire?.assignedTo?.includes(session?.playerId)
+
+  useEffect(() => {
+    if (isAssigned && session?.playerId) {
+      setPlayerId(session.playerId)
+    }
+  }, [isAssigned, session])
 
   if (!questionnaire) {
     return (
@@ -74,6 +84,16 @@ export default function Questionnaire() {
               <p className="text-muted mt-1">{questionnaire.description}</p>
             )}
           </div>
+
+          {isAssigned && (
+            <div style={{
+              background: 'rgba(201,148,42,0.08)', border: '1px solid rgba(201,148,42,0.3)',
+              borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 20,
+              fontSize: '0.9rem', color: 'var(--accent-gold)',
+            }}>
+              📋 This questionnaire has been assigned to you by the DM.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="questionnaire-form">
             <div className="mb-3">
