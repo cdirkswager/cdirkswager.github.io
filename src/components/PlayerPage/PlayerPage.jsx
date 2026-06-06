@@ -7,6 +7,40 @@ import Modal from '../common/Modal'
 import NotificationsPanel from '../Notifications/NotificationsPanel'
 import './PlayerPage.css'
 
+function SkullsParticles() {
+  const skulls = useMemo(() => {
+    const items = []
+    for (let i = 0; i < 8; i++) {
+      items.push({
+        id: i,
+        left: Math.random() * 90 + 5,
+        top: Math.random() * 80 + 5,
+        delay: Math.random() * 18,
+        duration: 14 + Math.random() * 10,
+        size: 1.2 + Math.random() * 1.6,
+      })
+    }
+    return items
+  }, [])
+  return (
+    <div className="bg-anim-skulls-layer" aria-hidden="true">
+      {skulls.map(s => (
+        <span
+          key={s.id}
+          className="bg-anim-skull-float"
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            fontSize: `${s.size}rem`,
+            animationDelay: `${s.delay}s`,
+            animationDuration: `${s.duration}s`,
+          }}
+        >💀</span>
+      ))}
+    </div>
+  )
+}
+
 function BackgroundMusicPlayer({ url }) {
   const [playing, setPlaying] = useState(false)
   const [audioError, setAudioError] = useState(false)
@@ -202,10 +236,11 @@ function CarouselWidget({ widget }) {
   )
 }
 
-function WidgetContent({ widget, theme, animation, session }) {
+function WidgetContent({ widget, theme, animation, session, borderStyle }) {
   const animClass = animation ? `animate__${animation}` : 'animate__fadeIn'
+  const borderClass = borderStyle && borderStyle !== 'default' ? `widget-border-${borderStyle}` : ''
   return (
-    <div className={`card gold-border widget widget-${widget.type} animate__animated ${animClass}`}>
+    <div className={`card gold-border widget widget-${widget.type} animate__animated ${animClass} ${borderClass}`.trim()}>
       {widget.type === 'stats' && (
         <div>
           <h3 className="widget-title">📊 Stats</h3>
@@ -273,6 +308,19 @@ export default function PlayerPage() {
       setSourceEnabled(p.customCode.enabled || false)
     }
   }, [id])
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      const y = window.scrollY
+      const progress = max > 0 ? Math.min(y / max, 1) : 0
+      document.documentElement.style.setProperty('--scroll-y', `${y}px`)
+      document.documentElement.style.setProperty('--scroll-progress', String(progress))
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const fullDoc = useMemo(() => {
     if (!editHtml) return ''
@@ -377,6 +425,11 @@ export default function PlayerPage() {
 
   return (
     <div className={`player-page ${useCustomCode ? 'player-page-source' : ''}`} style={sectionStyle}>
+      {theme?.bgAnimation && theme.bgAnimation !== 'none' && (
+        <div className={`bg-anim-overlay bg-anim-${theme.bgAnimation}`} aria-hidden="true">
+          {theme.bgAnimation === 'skulls' && <SkullsParticles />}
+        </div>
+      )}
       {player.musicUrl && <BackgroundMusicPlayer url={player.musicUrl} />}
 
       <div className="player-profile">
@@ -456,18 +509,18 @@ export default function PlayerPage() {
             )}
 
             {!isTwoColumn && player.widgets?.map((widget, i) => (
-              <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
+              <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} borderStyle={player.widgetBorder} />
             ))}
             {isTwoColumn && (
               <>
                 <div className="player-col-left">
                   {leftWidgets.map((widget, i) => (
-                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} borderStyle={player.widgetBorder} />
                   ))}
                 </div>
                 <div className="player-col-right">
                   {rightWidgets.map((widget, i) => (
-                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} />
+                    <WidgetContent key={widget.id || i} widget={widget} theme={theme} animation={anims[widget.id]} session={session} borderStyle={player.widgetBorder} />
                   ))}
                 </div>
               </>

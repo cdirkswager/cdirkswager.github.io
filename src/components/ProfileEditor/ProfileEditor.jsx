@@ -346,6 +346,26 @@ export default function ProfileEditor() {
                 </div>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
+                <label>Animated Background Overlay</label>
+                <select value={form.theme.bgAnimation || ''} onChange={e => handleThemeChange('bgAnimation', e.target.value)}>
+                  <option value="">None</option>
+                  <option value="rain">🌧️ Rain</option>
+                  <option value="snow">❄️ Snow</option>
+                  <option value="stars">✨ Stars</option>
+                  <option value="sparkles">🌟 Sparkles</option>
+                  <option value="fog">🌫️ Fog</option>
+                  <option value="aurora">🌌 Aurora</option>
+                  <option value="embers">🔥 Embers</option>
+                  <option value="blood">🩸 Blood</option>
+                  <option value="skulls">💀 Skulls</option>
+                  <option value="clouds">☁️ Clouds</option>
+                  <option value="grass">🌿 Grass</option>
+                </select>
+                <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                  Adds a CSS-animated particle effect behind your content. Works alongside your background color/image.
+                </p>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label>Banner Image URL (optional)</label>
                 <input value={form.theme.bannerUrl || ''} onChange={e => handleThemeChange('bannerUrl', e.target.value)} placeholder="https://example.com/banner.jpg" />
                 <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
@@ -394,6 +414,23 @@ export default function ProfileEditor() {
                 <span className="layout-icon">📑</span>
                 <span>Two Column</span>
               </label>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🎨 Widget Borders</h3>
+            <div className="mb-2">
+              <label>Border Style (applies to all widgets)</label>
+              <select value={form.widgetBorder || 'default'} onChange={e => handleChange('widgetBorder', e.target.value)}>
+                <option value="default">✨ Default Gold</option>
+                <option value="runic">🔷 Runic Blue</option>
+                <option value="nature">🌿 Nature Green</option>
+                <option value="gothic">🖤 Gothic Dark</option>
+                <option value="arcane">🔮 Arcane Purple</option>
+                <option value="ember">🔥 Ember Orange</option>
+                <option value="celestial">⭐ Celestial Gold</option>
+                <option value="shadow">🌑 Shadowfell</option>
+              </select>
             </div>
           </div>
 

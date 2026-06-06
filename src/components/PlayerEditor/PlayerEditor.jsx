@@ -14,7 +14,7 @@ export default function PlayerEditor() {
   const [selectedId, setSelectedId] = useState(id || 'new')
   const [form, setForm] = useState({
     name: '', class: '', race: '', level: 1, title: '', bio: '',
-        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '', bannerOpacity: 0.3 },
+        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bgAnimation: '', bannerUrl: '', bannerOpacity: 0.3 },
     widgets: [],
     customCode: { enabled: false, html: '', css: '' },
   })
@@ -53,7 +53,7 @@ export default function PlayerEditor() {
         layout: 'single',
         musicUrl: '',
         commentsEnabled: true,
-        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bannerUrl: '', bannerOpacity: 0.3 },
+        theme: { bgColor: '#0d0d0d', textColor: '#e0d5c1', accentColor: '#c9a84c', fontFamily: 'IM Fell English, serif', bgImage: '', bgAnimation: '', bannerUrl: '', bannerOpacity: 0.3 },
         widgets: [],
         widgetAnimations: {},
         customCode: { enabled: false, html: '', css: '' },
@@ -294,6 +294,26 @@ export default function PlayerEditor() {
                 />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
+                <label>Animated Background Overlay</label>
+                <select value={form.theme.bgAnimation || ''} onChange={e => setForm({ ...form, theme: { ...form.theme, bgAnimation: e.target.value } })}>
+                  <option value="">None</option>
+                  <option value="rain">🌧️ Rain</option>
+                  <option value="snow">❄️ Snow</option>
+                  <option value="stars">✨ Stars</option>
+                  <option value="sparkles">🌟 Sparkles</option>
+                  <option value="fog">🌫️ Fog</option>
+                  <option value="aurora">🌌 Aurora</option>
+                  <option value="embers">🔥 Embers</option>
+                  <option value="blood">🩸 Blood</option>
+                  <option value="skulls">💀 Skulls</option>
+                  <option value="clouds">☁️ Clouds</option>
+                  <option value="grass">🌿 Grass</option>
+                </select>
+                <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                  Adds a CSS-animated particle effect behind your content. Works alongside your background color/image.
+                </p>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <label>Banner Image URL (optional)</label>
                 <input
                   value={form.theme.bannerUrl || ''}
@@ -346,6 +366,23 @@ export default function PlayerEditor() {
                 <span className="layout-icon">📑</span>
                 <span>Two Column</span>
               </label>
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🎨 Widget Borders</h3>
+            <div className="mb-2">
+              <label>Border Style (applies to all widgets)</label>
+              <select value={form.widgetBorder || 'default'} onChange={e => setForm({ ...form, widgetBorder: e.target.value })}>
+                <option value="default">✨ Default Gold</option>
+                <option value="runic">🔷 Runic Blue</option>
+                <option value="nature">🌿 Nature Green</option>
+                <option value="gothic">🖤 Gothic Dark</option>
+                <option value="arcane">🔮 Arcane Purple</option>
+                <option value="ember">🔥 Ember Orange</option>
+                <option value="celestial">⭐ Celestial Gold</option>
+                <option value="shadow">🌑 Shadowfell</option>
+              </select>
             </div>
           </div>
 

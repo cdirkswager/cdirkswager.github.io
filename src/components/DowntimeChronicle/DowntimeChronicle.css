@@ -87,27 +87,31 @@
 .chronicle-page .rel-desc{outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;font-weight:600;color:#0a0602;line-height:1.5;display:block;min-height:2.5em;width:100%;background:rgba(255,255,255,0.2);border:1px solid rgba(92,61,26,0.15);border-radius:2px;padding:4px 8px;resize:none;}
 .chronicle-page .rel-desc:focus{border-color:#8b6535;background:rgba(255,255,255,0.35);}
 .chronicle-page .rel-desc::placeholder{opacity:0.35;color:#5c3d1a;font-style:italic;}
-.chronicle-page .faction-box{border:1px solid rgba(92,61,26,0.4);border-radius:3px;padding:16px 20px;background:rgba(255,255,255,0.12);}
-.chronicle-page .faction-subsection-label{font-family:'Cinzel',serif;font-size:0.68rem;font-weight:600;letter-spacing:0.18em;color:#4a2e12;text-transform:uppercase;opacity:0.85;margin:14px 0 8px;border-top:1px dotted rgba(92,61,26,0.25);padding-top:10px;}
-.chronicle-page .faction-subsection-label:first-child{margin-top:0;border-top:none;padding-top:0;}
-.chronicle-page .faction-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dotted rgba(92,61,26,0.22);}
-.chronicle-page .faction-row:last-child{border-bottom:none;}
-.chronicle-page .faction-name{font-family:'Cinzel',serif;font-size:0.88rem;font-weight:600;color:#3a2008;outline:none;min-width:120px;flex-shrink:0;background:rgba(255,255,255,0.15);border:1px solid rgba(92,61,26,0.15);border-radius:2px;padding:3px 7px;}
-.chronicle-page .faction-name::placeholder{opacity:0.35;font-style:italic;font-family:'Crimson Text',serif;color:#5c3d1a;}
-.chronicle-page .faction-name-static{font-family:'Cinzel',serif;font-size:0.88rem;font-weight:600;color:#3a2008;min-width:120px;flex-shrink:0;}
-.chronicle-page .faction-name-select{background:rgba(255,255,255,0.25);border:1px solid rgba(92,61,26,0.2);font-family:'Cinzel',serif;font-size:0.82rem;font-weight:600;color:#3a2008;outline:none;cursor:pointer;min-width:120px;padding:2px 4px;border-radius:2px;}
-.chronicle-page .faction-name-select:focus{border-color:#8b6535;}
-.chronicle-page .faction-name-select option{font-family:sans-serif;font-size:0.85rem;color:#1a1008;background:#f0ddb0;}
-.chronicle-page .faction-sep{color:rgba(92,61,26,0.25);font-size:1rem;margin-top:1px;flex-shrink:0;}
-.chronicle-page .faction-note{flex:1;outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;font-weight:600;color:#0a0602;font-style:italic;min-height:1.4em;background:rgba(255,255,255,0.2);border:1px solid rgba(92,61,26,0.15);border-radius:2px;padding:3px 7px;resize:none;width:100%;}
-.chronicle-page .faction-note:focus{border-color:#8b6535;background:rgba(255,255,255,0.35);}
-.chronicle-page .faction-note::placeholder{opacity:0.35;color:#5c3d1a;}
-.chronicle-page .party-row{border:1px solid rgba(92,61,26,0.35);border-radius:3px;padding:10px 16px;margin-bottom:10px;background:rgba(255,255,255,0.1);}
-.chronicle-page .party-select{width:100%;background:rgba(255,255,255,0.3);border:1px solid rgba(92,61,26,0.25);font-family:'Cinzel',serif;font-size:0.65rem;font-weight:600;color:#3a2008;outline:none;cursor:pointer;letter-spacing:0.03em;padding:4px 5px;border-radius:2px;margin-bottom:8px;}
-.chronicle-page .party-select option{font-family:sans-serif;font-size:0.8rem;color:#1a1008;background:#f0ddb0;}
-.chronicle-page .party-note{outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;font-weight:600;color:#0a0602;font-style:italic;line-height:1.55;display:block;width:100%;background:rgba(255,255,255,0.2);border:1px solid rgba(92,61,26,0.15);border-radius:2px;padding:6px 10px;resize:vertical;min-height:3em;}
-.chronicle-page .party-note:focus{border-color:#8b6535;background:rgba(255,255,255,0.35);}
-.chronicle-page .party-note::placeholder{opacity:0.35;color:#5c3d1a;}
+.chronicle-page .section-body{border:1px solid rgba(92,61,26,0.4);border-radius:3px;padding:20px 22px;background:rgba(255,255,255,0.12);}
+
+/* Alliances & Acquaintances */
+.chronicle-page .ally-group{margin-bottom:18px;}
+.chronicle-page .ally-group:last-child{margin-bottom:0;}
+.chronicle-page .ally-group-label{display:flex;align-items:center;gap:8px;font-family:'Cinzel',serif;font-size:0.72rem;font-weight:700;letter-spacing:0.18em;color:#4a2e12;text-transform:uppercase;margin-bottom:10px;border-bottom:1px dotted rgba(92,61,26,0.2);padding-bottom:7px;}
+.chronicle-page .ally-group-icon{font-size:1rem;}
+.chronicle-page .ally-party-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:640px){.chronicle-page .ally-party-grid{grid-template-columns:1fr;}}
+.chronicle-page .ally-party-card{border:1px solid rgba(92,61,26,0.3);border-radius:4px;padding:12px 14px;background:rgba(255,255,255,0.14);}
+.chronicle-page .ally-party-select{width:100%;font-family:'Cinzel',serif;font-size:0.78rem;font-weight:600;color:#3a2008;background:rgba(255,255,255,0.3);border:1px solid rgba(92,61,26,0.2);outline:none;cursor:pointer;letter-spacing:0.03em;padding:4px 6px;border-radius:3px;margin-bottom:8px;}
+.chronicle-page .ally-party-select:focus{border-color:#8b6535;}
+.chronicle-page .ally-party-select option{font-family:sans-serif;font-size:0.85rem;color:#1a1008;background:#f0ddb0;}
+.chronicle-page .ally-party-note{outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;font-weight:600;color:#0a0602;font-style:italic;line-height:1.6;display:block;width:100%;background:rgba(255,255,255,0.18);border:1px solid rgba(92,61,26,0.15);border-radius:3px;padding:5px 10px;resize:vertical;min-height:2.2em;}
+.chronicle-page .ally-party-note:focus{border-color:#8b6535;background:rgba(255,255,255,0.3);}
+.chronicle-page .ally-party-note::placeholder{opacity:0.35;color:#5c3d1a;}
+.chronicle-page .ally-contacts{display:flex;flex-direction:column;gap:8px;}
+.chronicle-page .ally-contact-card{border:1px solid rgba(92,61,26,0.28);border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden;}
+.chronicle-page .ally-contact-header{display:flex;align-items:center;gap:6px;padding:6px 10px 0;border-bottom:1px dotted rgba(92,61,26,0.15);}
+.chronicle-page .ally-contact-name{flex:1;font-family:'Cinzel',serif;font-size:0.85rem;font-weight:600;color:#3a2008;background:rgba(255,255,255,0.15);border:1px solid transparent;outline:none;padding:3px 8px;border-radius:2px;min-width:0;}
+.chronicle-page .ally-contact-name:focus{border-color:#8b6535;background:rgba(255,255,255,0.3);}
+.chronicle-page .ally-contact-name::placeholder{opacity:0.35;font-style:italic;font-family:'Crimson Text',serif;color:#5c3d1a;}
+.chronicle-page .ally-contact-note{outline:none;font-family:'Crimson Text',serif;font-size:0.95rem;font-weight:600;color:#0a0602;font-style:italic;line-height:1.55;display:block;width:100%;background:transparent;border:none;padding:8px 10px;resize:vertical;min-height:1.6em;}
+.chronicle-page .ally-contact-note:focus{background:rgba(255,255,255,0.12);}
+.chronicle-page .ally-contact-note::placeholder{opacity:0.35;color:#5c3d1a;}
 .chronicle-page .output-panel{width:100%;max-width:800px;background:#111008;border:1px solid #2e1e08;border-radius:4px;overflow:hidden;}
 .chronicle-page .output-header{background:#1a1208;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2e1e08;}
 .chronicle-page .output-label{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.18em;color:#c9942a;text-transform:uppercase;}

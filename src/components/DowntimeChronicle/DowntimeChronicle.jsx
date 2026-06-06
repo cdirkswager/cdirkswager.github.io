@@ -335,23 +335,24 @@ export default function DowntimeChronicle() {
       o += '\n'
     }
 
-    const hasFactions = (data.factions || []).some(f => t(f.name) || t(f.note))
-    const hasParty = (data.party || []).some(p => t(p.name) || t(p.note))
+    const hasParty = (data.party || []).some(p => t(p.name))
+    const hasContacts = (data.factions || []).some(f => t(f.name) || t(f.note))
 
-    if (hasFactions || hasParty) {
-      o += `${'━'.repeat(38)}\n## ⚜ Factions & Notable People\n`
-      if (hasFactions) {
-        data.factions.forEach(f => {
-          if (t(f.name) || t(f.note)) {
-            o += t(f.note) ? `**${t(f.name) || '—'}** — *${t(f.note)}*\n` : `**${t(f.name)}**\n`
+    if (hasParty || hasContacts) {
+      o += `${'━'.repeat(38)}\n## ⚜ Alliances & Acquaintances\n`
+      if (hasParty) {
+        o += '\n**🛡️ The Party**\n'
+        data.party.forEach(p => {
+          if (t(p.name)) {
+            o += t(p.note) ? `**${t(p.name)}** — *${t(p.note)}*\n` : `**${t(p.name)}**\n`
           }
         })
       }
-      if (hasParty) {
-        o += '\n**The Party**\n'
-        data.party.forEach(p => {
-          if (t(p.name) || t(p.note)) {
-            o += t(p.note) ? `**${t(p.name)}** — *${t(p.note)}*\n` : `**${t(p.name)}**\n`
+      if (hasContacts) {
+        o += '\n**🏛️ Factions & Contacts**\n'
+        data.factions.forEach(f => {
+          if (t(f.name) || t(f.note)) {
+            o += t(f.note) ? `**${t(f.name) || '—'}** — *${t(f.note)}*\n` : `**${t(f.name)}**\n`
           }
         })
       }
@@ -627,20 +628,58 @@ export default function DowntimeChronicle() {
             </div>
           </div>
 
-          {/* FACTIONS */}
+          {/* ALLIANCES & ACQUAINTANCES */}
           <div className="section">
             <div className="section-head">
               <div className="section-head-line" />
-              <div className="section-title">⚜ Factions & Notable People</div>
+              <div className="section-title">⚜ Alliances & Acquaintances</div>
               <div className="section-head-line" />
             </div>
-            <div className="faction-box">
-              <div className="faction-subsection-label">Factions & Other Contacts</div>
-                  <div>
-                    {data.factions.map((f, fi) => (
-                      <div key={fi} className="faction-row">
+            <div className="section-body">
+
+              {/* Party Members */}
+              <div className="ally-group">
+                <div className="ally-group-label">
+                  <span className="ally-group-icon">🛡️</span>
+                  <span>The Party</span>
+                </div>
+                <div className="ally-party-grid">
+                  {data.party.map((p, pi) => (
+                    <div key={pi} className="ally-party-card">
+                      <select
+                        className="ally-party-select"
+                        value={p.name}
+                        onChange={e => handlePartyName(pi, e.target.value)}
+                      >
+                        <option value="">— Choose —</option>
+                        {PARTY_NAMES.map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <textarea
+                        className="ally-party-note"
+                        value={p.note}
+                        onChange={e => handlePartyNote(pi, e.target.value)}
+                        placeholder="How did things stand between you two over these four years?..."
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Factions & Contacts */}
+              <div className="ally-group">
+                <div className="ally-group-label">
+                  <span className="ally-group-icon">🏛️</span>
+                  <span>Factions & Contacts</span>
+                </div>
+                <div className="ally-contacts">
+                  {data.factions.map((f, fi) => (
+                    <div key={fi} className="ally-contact-card">
+                      <div className="ally-contact-header">
                         <input
-                          className="faction-name"
+                          className="ally-contact-name"
                           value={f.name}
                           onChange={e => updateData(d => ({
                             ...d,
@@ -648,43 +687,21 @@ export default function DowntimeChronicle() {
                           }))}
                           placeholder="Name or faction..."
                         />
-                        <span className="faction-sep">—</span>
-                        <input
-                          className="faction-note"
-                          value={f.note}
-                          onChange={e => handleFactionNote(fi, e.target.value)}
-                          placeholder="Relationship, standing, or why they matter..."
-                        />
                         <button className="rmv-btn" onClick={() => rmvFaction(fi)} title="Remove">✕</button>
                       </div>
-                    ))}
-                  </div>
-              <button className="add-btn" onClick={addFaction}>+ Add Faction or Person</button>
-
-              <div className="faction-subsection-label">The Party</div>
-              <div>
-                {data.party.map((p, pi) => (
-                  <div key={pi} className="party-row">
-                    <select
-                      className="party-select"
-                      value={p.name}
-                      onChange={e => handlePartyName(pi, e.target.value)}
-                    >
-                      <option value="">— Choose —</option>
-                      {PARTY_NAMES.map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                    <textarea
-                      className="party-note"
-                      value={p.note}
-                      onChange={e => handlePartyNote(pi, e.target.value)}
-                      placeholder="How did things stand between you two over these four years?..."
-                      rows={1}
-                    />
-                  </div>
-                ))}
+                      <textarea
+                        className="ally-contact-note"
+                        value={f.note}
+                        onChange={e => handleFactionNote(fi, e.target.value)}
+                        placeholder="Relationship, standing, or why they matter..."
+                        rows={1}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button className="add-btn" onClick={addFaction}>+ Add Faction or Contact</button>
               </div>
+
             </div>
           </div>
 

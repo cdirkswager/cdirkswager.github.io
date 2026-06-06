@@ -324,6 +324,7 @@ export async function savePlayer(player) {
     return w
   })
   if (player.layout === undefined) player.layout = 'single'
+  if (player.widgetBorder === undefined) player.widgetBorder = 'default'
   if (player.musicUrl === undefined) player.musicUrl = ''
   if (player.commentsEnabled === undefined) player.commentsEnabled = true
   if (player.avatarUrl === undefined) player.avatarUrl = ''
