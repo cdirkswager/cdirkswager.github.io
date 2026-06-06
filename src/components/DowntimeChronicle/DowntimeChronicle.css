@@ -32,18 +32,21 @@
 .chronicle-page .obj-list li{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px dotted rgba(92,61,26,0.22);}
 .chronicle-page .obj-list li:last-child{border-bottom:none;}
 .chronicle-page .obj-bullet{color:#8b1a1a;opacity:0.6;font-size:0.8rem;margin-top:3px;flex-shrink:0;}
-.chronicle-page .obj-text{flex:1;outline:none;font-family:'Crimson Text',serif;font-size:1rem;color:#1a1008;line-height:1.55;min-height:1.55em;background:transparent;border:none;resize:none;width:100%;}
-.chronicle-page .obj-text::placeholder{opacity:0.32;font-style:italic;color:#1a1008;}
-.chronicle-page .add-btn{background:none;border:none;font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;color:#7a5c3a;cursor:pointer;margin-top:8px;opacity:0.55;padding:2px 0;transition:opacity 0.2s;text-transform:uppercase;display:block;}
+.chronicle-page .obj-text{flex:1;outline:none;font-family:'Crimson Text',serif;font-size:1rem;font-weight:600;color:#0e0a04;line-height:1.55;min-height:1.55em;background:transparent;border:none;resize:none;width:100%;}
+.chronicle-page .obj-text::placeholder{opacity:0.32;font-style:italic;color:#0e0a04;}
+.chronicle-page .add-btn{background:none;border:none;font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;color:#7a5c3a;cursor:pointer;margin-top:8px;opacity:0.55;padding:2px 0;transition:opacity 0.2s;text-transform:uppercase;display:inline-block;}
 .chronicle-page .add-btn:hover{opacity:1;}
+.chronicle-page .rmv-btn{background:none;border:none;font-family:'Cinzel',serif;font-size:0.6rem;color:#8b1a1a;cursor:pointer;opacity:0.4;padding:2px 4px;transition:opacity 0.2s;flex-shrink:0;}
+.chronicle-page .rmv-btn:hover{opacity:1;}
+.chronicle-page .obj-row{display:flex;align-items:flex-start;gap:4px;}
 .chronicle-page .year-scars{margin-top:14px;border-top:1px dashed rgba(139,26,26,0.3);padding-top:12px;}
 .chronicle-page .year-scars-label{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;color:#8b1a1a;text-transform:uppercase;opacity:0.7;margin-bottom:8px;}
 .chronicle-page .scar-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:480px){.chronicle-page .scar-row{grid-template-columns:1fr;}}
 .chronicle-page .scar-mini{border:1px dashed rgba(139,26,26,0.35);border-radius:3px;padding:9px 11px;background:rgba(139,26,26,0.07);}
 .chronicle-page .scar-mini-label{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.16em;color:#8b1a1a;opacity:0.65;display:block;margin-bottom:5px;text-transform:uppercase;}
-.chronicle-page .scar-mini-text{outline:none;font-family:'Crimson Text',serif;font-size:0.93rem;color:#1a1008;font-style:italic;line-height:1.5;display:block;min-height:1.8em;width:100%;background:transparent;border:none;resize:none;}
-.chronicle-page .scar-mini-text::placeholder{opacity:0.3;color:#1a1008;}
+.chronicle-page .scar-mini-text{outline:none;font-family:'Crimson Text',serif;font-size:0.93rem;font-weight:600;color:#0e0a04;font-style:italic;line-height:1.5;display:block;min-height:1.8em;width:100%;background:transparent;border:none;resize:none;}
+.chronicle-page .scar-mini-text::placeholder{opacity:0.3;color:#0e0a04;}
 .chronicle-page .year-events{margin-top:14px;border-top:1px dashed rgba(92,61,26,0.28);padding-top:12px;}
 .chronicle-page .year-events-label{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;color:#5c3d1a;text-transform:uppercase;opacity:0.75;margin-bottom:8px;}
 .chronicle-page .event-entry{display:grid;grid-template-columns:120px 1fr;border:1px solid rgba(92,61,26,0.35);border-radius:3px;margin-bottom:5px;overflow:hidden;background:rgba(255,255,255,0.07);}
@@ -55,8 +58,8 @@
 .chronicle-page .event-desc-hint{font-family:'Crimson Text',serif;font-size:0.62rem;color:#7a5c3a;font-style:italic;margin-top:2px;line-height:1.2;display:none;}
 .chronicle-page .event-desc-hint.visible{display:block;}
 .chronicle-page .event-memory-field{padding:4px 6px;}
-.chronicle-page .event-memory-text{outline:none;font-family:'Crimson Text',serif;font-size:0.93rem;color:#1a1008;font-style:italic;line-height:1.45;display:block;min-height:1.8em;width:100%;background:transparent;border:none;resize:none;}
-.chronicle-page .event-memory-text::placeholder{opacity:0.28;color:#1a1008;}
+.chronicle-page .event-memory-text{outline:none;font-family:'Crimson Text',serif;font-size:0.93rem;font-weight:600;color:#0e0a04;font-style:italic;line-height:1.45;display:block;min-height:1.8em;width:100%;background:transparent;border:none;resize:none;}
+.chronicle-page .event-memory-text::placeholder{opacity:0.28;color:#0e0a04;}
 .chronicle-page .cards-grid{display:grid;gap:12px;}
 .chronicle-page .cards-grid.col2{grid-template-columns:1fr 1fr;}
 .chronicle-page .cards-grid.col3{grid-template-columns:1fr 1fr 1fr;}
@@ -67,8 +70,8 @@
 .chronicle-page .card-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:#7a5c3a;text-transform:uppercase;display:block;margin-bottom:7px;}
 .chronicle-page .card.accent-red .card-label{color:#8b1a1a;opacity:0.7;}
 .chronicle-page .card.accent-gold .card-label{color:#a07820;}
-.chronicle-page .card-text{outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;color:#1a1008;line-height:1.55;width:100%;display:block;min-height:2.5em;background:transparent;border:none;resize:none;}
-.chronicle-page .card-text::placeholder{opacity:0.3;font-style:italic;color:#1a1008;}
+.chronicle-page .card-text{outline:none;font-family:'Crimson Text',serif;font-size:0.97rem;font-weight:600;color:#0e0a04;line-height:1.55;width:100%;display:block;min-height:2.5em;background:transparent;border:none;resize:none;}
+.chronicle-page .card-text::placeholder{opacity:0.3;font-style:italic;color:#0e0a04;}
 .chronicle-page .rel-card{border:1px solid rgba(92,61,26,0.35);border-radius:3px;padding:14px 16px;background:rgba(255,255,255,0.1);}
 .chronicle-page .rel-type{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:#7a5c3a;text-transform:uppercase;display:block;margin-bottom:8px;}
 .chronicle-page .rel-name{font-family:'Cinzel',serif;font-size:0.88rem;color:#5c3d1a;outline:none;border-bottom:1px dashed rgba(92,61,26,0.22);padding-bottom:4px;margin-bottom:8px;display:block;width:100%;background:transparent;border-left:none;border-right:none;border-top:none;}
@@ -83,6 +86,8 @@
 .chronicle-page .faction-name{font-family:'Cinzel',serif;font-size:0.82rem;color:#5c3d1a;outline:none;min-width:110px;flex-shrink:0;background:transparent;border:none;}
 .chronicle-page .faction-name::placeholder{opacity:0.3;font-style:italic;font-family:'Crimson Text',serif;color:#5c3d1a;}
 .chronicle-page .faction-name-static{font-family:'Cinzel',serif;font-size:0.82rem;color:#5c3d1a;min-width:110px;flex-shrink:0;}
+.chronicle-page .faction-name-select{background:transparent;border:none;font-family:'Cinzel',serif;font-size:0.82rem;color:#5c3d1a;outline:none;cursor:pointer;min-width:100px;}
+.chronicle-page .faction-name-select option{font-family:sans-serif;font-size:0.85rem;color:#1a1008;background:#f0ddb0;}
 .chronicle-page .faction-sep{color:rgba(92,61,26,0.22);font-size:1rem;margin-top:1px;flex-shrink:0;}
 .chronicle-page .faction-note{flex:1;outline:none;font-family:'Crimson Text',serif;font-size:0.95rem;color:#1a1008;font-style:italic;min-height:1.4em;background:transparent;border:none;resize:none;width:100%;}
 .chronicle-page .faction-note::placeholder{opacity:0.3;color:#1a1008;}

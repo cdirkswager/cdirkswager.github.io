@@ -25,6 +25,7 @@ export default function DMTools() {
   const navigate = useNavigate()
   const { loginAs, impersonating } = useImpersonation()
   const [players, setPlayers] = useState([])
+  const [selectedChroniclePlayers, setSelectedChroniclePlayers] = useState([])
   const [npcs, setNpcs] = useState([])
   const [maps, setMaps] = useState([])
   const [pins, setPins] = useState([])
@@ -560,10 +561,29 @@ export default function DMTools() {
         <div className="card gold-border mb-2">
           <div className="flex-between mb-2">
             <h3 className="widget-title">📜 Downtime Chronicles</h3>
-            <div className="flex gap-1">
+            <div className="flex" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                multiple
+                value={selectedChroniclePlayers}
+                onChange={e => setSelectedChroniclePlayers([...e.target.options].filter(o => o.selected).map(o => o.value))}
+                style={{ minWidth: 140, maxHeight: 120, background: '#1a1510', color: '#e0d5c1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 3, padding: 4, fontSize: '0.78rem' }}
+              >
+                {getPlayers().filter(p => !p.id.startsWith('npc-')).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <button className="btn btn-sm" onClick={async () => {
+                if (selectedChroniclePlayers.length === 0) return
+                await openDowntimeChronicle(selectedChroniclePlayers, '')
+                setSelectedChroniclePlayers([])
+                refresh()
+              }} disabled={selectedChroniclePlayers.length === 0}>
+                📢 Open Selected ({selectedChroniclePlayers.length})
+              </button>
               <button className="btn btn-sm btn-primary" onClick={async () => {
                 const allPlayers = getPlayers().filter(p => !p.id.startsWith('npc-'))
                 await openDowntimeChronicle(allPlayers.map(p => p.id), '')
+                setSelectedChroniclePlayers([])
                 refresh()
               }}>
                 📢 Open for All Players

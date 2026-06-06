@@ -81,7 +81,7 @@ function emptyChronicleData() {
       friend: { name: '', desc: '' },
     },
     factions: [{ name: '', note: '' }, { name: '', note: '' }, { name: '', note: '' }],
-    party: PARTY_NAMES.map(name => ({ name, note: '' })),
+    party: [{ name: '', note: '' }],
     hobby: '',
     memories: ['', '', ''],
     threads: ['', ''],
@@ -172,6 +172,13 @@ export default function DowntimeChronicle() {
     return { ...d, years }
   })
 
+  const removeObj = (yi, oi) => updateData(d => {
+    const years = d.years.map((y, i) =>
+      i === yi ? { ...y, objectives: y.objectives.filter((_, j) => j !== oi) } : y
+    )
+    return { ...d, years }
+  })
+
   const handleEvent = (yi, ei, field, val) => updateData(d => {
     const years = d.years.map((y, i) =>
       i === yi ? {
@@ -207,6 +214,26 @@ export default function DowntimeChronicle() {
   const addFaction = () => updateData(d => ({
     ...d,
     factions: [...d.factions, { name: '', note: '' }],
+  }))
+
+  const rmvFaction = (fi) => updateData(d => ({
+    ...d,
+    factions: d.factions.filter((_, i) => i !== fi),
+  }))
+
+  const handlePartyName = (pi, val) => updateData(d => ({
+    ...d,
+    party: d.party.map((p, i) => i === pi ? { ...p, name: val } : p),
+  }))
+
+  const addPartyRow = () => updateData(d => ({
+    ...d,
+    party: [...d.party, { name: '', note: '' }],
+  }))
+
+  const rmvPartyRow = (pi) => updateData(d => ({
+    ...d,
+    party: d.party.filter((_, i) => i !== pi),
   }))
 
   const handlePartyNote = (pi, val) => updateData(d => ({
@@ -410,10 +437,12 @@ export default function DowntimeChronicle() {
 
       <div className="controls">
         <button className="ctrl-btn" onClick={generate}>📜 Generate Discord Post</button>
-        <button className={`ctrl-btn ${status !== 'submitted' ? 'primary' : ''}`}
-          onClick={handleSubmit} disabled={saving || status === 'submitted'}>
-          {saving ? 'Saving...' : status === 'submitted' ? '✅ Submitted' : '📤 Submit Chronicle'}
-        </button>
+        {isDm && (
+          <button className={`ctrl-btn ${status !== 'submitted' ? 'primary' : ''}`}
+            onClick={handleSubmit} disabled={saving || status === 'submitted'}>
+            {saving ? 'Saving...' : status === 'submitted' ? '✅ Submitted' : '📤 Submit Chronicle'}
+          </button>
+        )}
         <button className="ctrl-btn" onClick={handleSaveDraft} disabled={saving}>
           💾 Save Draft
         </button>
@@ -445,6 +474,23 @@ export default function DowntimeChronicle() {
               {YEARS.map((yr, yi) => (
                 <div key={yi} className="year-block">
                   <span className="year-tag">{yr.emoji} {yr.label}</span>
+
+                  {/* Objectives */}
+                  <ul className="obj-list">
+                    {(data.years[yi]?.objectives || []).map((obj, oi) => (
+                      <li key={oi} className="obj-row">
+                        <span className="obj-bullet">⚔</span>
+                        <input
+                          className="obj-text"
+                          value={obj}
+                          onChange={e => handleObj(yi, oi, e.target.value)}
+                          placeholder="Describe an objective, action, or activity..."
+                        />
+                        <button className="rmv-btn" onClick={() => removeObj(yi, oi)} title="Remove">✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className="add-btn" onClick={() => addObj(yi)}>+ Add Objective</button>
 
                   {/* Events */}
                   <div className="year-events">
@@ -479,22 +525,6 @@ export default function DowntimeChronicle() {
                       </div>
                     ))}
                   </div>
-
-                  {/* Objectives */}
-                  <ul className="obj-list">
-                    {(data.years[yi]?.objectives || []).map((obj, oi) => (
-                      <li key={oi}>
-                        <span className="obj-bullet">⚔</span>
-                        <input
-                          className="obj-text"
-                          value={obj}
-                          onChange={e => handleObj(yi, oi, e.target.value)}
-                          placeholder="Describe an objective, action, or activity..."
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                  <button className="add-btn" onClick={() => addObj(yi)}>+ Add Objective</button>
 
                   {/* Scars */}
                   <div className="year-scars">
@@ -559,35 +589,45 @@ export default function DowntimeChronicle() {
             </div>
             <div className="faction-box">
               <div className="faction-subsection-label">Factions &amp; Other Contacts</div>
-              <div>
-                {data.factions.map((f, fi) => (
-                  <div key={fi} className="faction-row">
-                    <input
-                      className="faction-name"
-                      value={f.name}
-                      onChange={e => updateData(d => ({
-                        ...d,
-                        factions: d.factions.map((ff, i) => i === fi ? { ...ff, name: e.target.value } : ff),
-                      }))}
-                      placeholder="Name or faction..."
-                    />
-                    <span className="faction-sep">—</span>
-                    <input
-                      className="faction-note"
-                      value={f.note}
-                      onChange={e => handleFactionNote(fi, e.target.value)}
-                      placeholder="Relationship, standing, or why they matter..."
-                    />
+                  <div>
+                    {data.factions.map((f, fi) => (
+                      <div key={fi} className="faction-row">
+                        <input
+                          className="faction-name"
+                          value={f.name}
+                          onChange={e => updateData(d => ({
+                            ...d,
+                            factions: d.factions.map((ff, i) => i === fi ? { ...ff, name: e.target.value } : ff),
+                          }))}
+                          placeholder="Name or faction..."
+                        />
+                        <span className="faction-sep">—</span>
+                        <input
+                          className="faction-note"
+                          value={f.note}
+                          onChange={e => handleFactionNote(fi, e.target.value)}
+                          placeholder="Relationship, standing, or why they matter..."
+                        />
+                        <button className="rmv-btn" onClick={() => rmvFaction(fi)} title="Remove">✕</button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
               <button className="add-btn" onClick={addFaction}>+ Add Faction or Person</button>
 
               <div className="faction-subsection-label">The Party</div>
               <div>
                 {data.party.map((p, pi) => (
                   <div key={pi} className="faction-row">
-                    <span className="faction-name-static">{p.name}</span>
+                    <select
+                      className="faction-name-select"
+                      value={p.name}
+                      onChange={e => handlePartyName(pi, e.target.value)}
+                    >
+                      <option value="">— Choose —</option>
+                      {PARTY_NAMES.map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
                     <span className="faction-sep">—</span>
                     <input
                       className="faction-note"
@@ -595,9 +635,11 @@ export default function DowntimeChronicle() {
                       onChange={e => handlePartyNote(pi, e.target.value)}
                       placeholder="How did things stand between you two over these four years?..."
                     />
+                    <button className="rmv-btn" onClick={() => rmvPartyRow(pi)} title="Remove">✕</button>
                   </div>
                 ))}
               </div>
+              <button className="add-btn" onClick={addPartyRow}>+ Add Party Member</button>
             </div>
           </div>
 
