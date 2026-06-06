@@ -61,6 +61,11 @@
   background: none;
   color: transparent;
   cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  text-shadow: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .dnd-layout .heal-toggle:hover { color: var(--dim); }
 .dnd-layout .heal-toggle.active { color: var(--ok); }
