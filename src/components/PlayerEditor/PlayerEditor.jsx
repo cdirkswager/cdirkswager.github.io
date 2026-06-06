@@ -295,31 +295,11 @@ export default function PlayerEditor() {
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label>Animated Background Overlay</label>
-                <select value={form.theme.bgAnimation || ''} onChange={e => setForm({ ...form, theme: { ...form.theme, bgAnimation: e.target.value } })}>
-                  <option value="">None</option>
-                  <option value="rain">🌧️ Rain</option>
-                  <option value="snow">❄️ Snow</option>
-                  <option value="stars">✨ Stars</option>
-                  <option value="sparkles">🌟 Sparkles</option>
-                  <option value="fog">🌫️ Fog</option>
-                  <option value="aurora">🌌 Aurora</option>
-                  <option value="embers">🔥 Embers</option>
-                  <option value="blood">🩸 Blood</option>
-                  <option value="skulls">💀 Skulls</option>
-                  <option value="clouds">☁️ Clouds</option>
-                  <option value="grass">🌿 Grass</option>
+                <select disabled className="text-muted">
+                  <option value="">🚧 Work in Progress</option>
                 </select>
-                {form.theme.bgAnimation && (
-                  <div className="bg-anim-preview-wrap">
-                    <div className={`bg-anim-preview bg-anim-${form.theme.bgAnimation}`}>
-                      <span className="bg-anim-preview-label">{
-                        {rain:'🌧️ Rain',snow:'❄️ Snow',stars:'✨ Stars',sparkles:'🌟 Sparkles',fog:'🌫️ Fog',aurora:'🌌 Aurora',embers:'🔥 Embers',blood:'🩸 Blood',skulls:'💀 Skulls',clouds:'☁️ Clouds',grass:'🌿 Grass'}[form.theme.bgAnimation]
-                      }</span>
-                    </div>
-                  </div>
-                )}
                 <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                  Adds a CSS-animated particle effect behind your content. Works alongside your background color/image.
+                  Coming soon — animated backgrounds will let you add particle effects behind your content.
                 </p>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>

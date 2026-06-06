@@ -147,6 +147,8 @@ export default function DowntimeChronicle() {
         scars: yr.scars?.length ? yr.scars : base.years[i]?.scars || ['', ''],
       }))
     }
+    if (!src?.party?.length) merged.party = base.party
+    if (!src?.factions?.length) merged.factions = base.factions
     return merged
   }
 
