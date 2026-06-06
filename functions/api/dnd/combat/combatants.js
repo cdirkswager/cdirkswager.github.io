@@ -23,7 +23,7 @@ export async function onRequest(context) {
           sql: insertSql,
           params: [
             newId(), b.combat_session_id, p.id, null, null, p.name, b.initiative ?? 10,
-            0, p.max_hp, p.max_hp, 0, p.ac, 1, 0, null, 0, 0, null, 0, 0, 0, "[]",
+            0, p.current_hp ?? p.max_hp, p.max_hp, 0, p.ac, 1, 0, null, 0, 0, null, 0, 0, 0, "[]",
           ],
         })
       } else if (b.source === "monster" && b.ref_id) {

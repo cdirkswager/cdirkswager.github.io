@@ -105,7 +105,7 @@ export function CombatantRow({ c, isCurrent, onChange, onRemove, onViewStatBlock
           <div className="flex flex-col items-center">
             <button
               onClick={() => setHealMode((v) => !v)}
-              className={`p-0 leading-none text-[9px] h-2.5 ${healMode ? "text-ok" : "text-transparent hover:text-dim"}`}
+              className={`p-0 leading-none text-[9px] h-2.5 ${healMode ? "text-ok border border-ok rounded-sm" : "text-dim"}`}
               title={healMode ? "Healing mode (click for damage)" : "Damage mode (click for healing)"}
             >
               ♥
