@@ -53,8 +53,8 @@
 
 .dnd-layout .gauge-fill { transition: width 0.5s cubic-bezier(.2,.7,.2,1), background-color 0.5s ease; }
 
-.dnd-layout .heal-toggle {
-  font-size: 5px;
+.dnd-layout button.heal-toggle {
+  font-size: 10px;
   line-height: 1;
   padding: 0;
   border: none;
@@ -67,5 +67,5 @@
   user-select: none;
   -webkit-user-select: none;
 }
-.dnd-layout .heal-toggle:hover { color: var(--dim); }
-.dnd-layout .heal-toggle.active { color: var(--ok); }
+.dnd-layout button.heal-toggle:hover { color: var(--dim); }
+.dnd-layout button.heal-toggle.active { color: var(--ok); }
