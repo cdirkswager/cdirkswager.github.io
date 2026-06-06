@@ -608,19 +608,19 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
       }
       data.downtimeChronicles.push(chronicle)
       created.push(chronicle)
+      // Notify only for newly opened chronicles
+      const p = data.players.find(pl => pl.id === playerId)
+      data.notifications.push({
+        id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),
+        playerId,
+        type: 'downtime',
+        title: '📜 Downtime Chronicle is open',
+        message: dmNotes || 'The DM has opened the four-year downtime chronicle for your character.',
+        link: `/player/${playerId}/downtime`,
+        read: false,
+        createdAt: Date.now(),
+      })
     }
-    // Create notification for this player
-    const p = data.players.find(pl => pl.id === playerId)
-    data.notifications.push({
-      id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),
-      playerId,
-      type: 'downtime',
-      title: '📜 Downtime Chronicle is open',
-      message: dmNotes || 'The DM has opened the four-year downtime chronicle for your character.',
-      link: `/player/${playerId}/downtime`,
-      read: false,
-      createdAt: Date.now(),
-    })
   }
   await saveData(data)
   return created

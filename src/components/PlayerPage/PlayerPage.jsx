@@ -414,15 +414,16 @@ export default function PlayerPage() {
                   <p className="player-class-display">
                     {player.race} {player.class} &middot; Level {player.level}
                   </p>
-                  {!isNPC && (
-                    <div style={{ position: 'relative', marginTop: 12 }}>
-                      <NotificationsPanel playerId={player.id} />
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           </div>
+
+          {!isNPC && (
+            <div className="container" style={{ position: 'relative', marginTop: 0, paddingTop: 8, paddingBottom: 0 }}>
+              <NotificationsPanel playerId={player.id} />
+            </div>
+          )}
 
         {useCustomCode ? (
           <div className="container player-source-container">
