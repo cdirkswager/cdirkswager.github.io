@@ -7,8 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "pages:dev": "wrangler pages dev dist --kv=HUNT_DATA",
-    "pages:deploy": "wrangler pages deploy dist"
+    "pages:dev": "wrangler pages dev dist --kv=HUNT_DATA --d1=HUNT_DB",
+    "pages:deploy": "wrangler pages deploy dist",
+    "db:migrate": "wrangler d1 migrations apply hunt-db",
+    "db:execute": "wrangler d1 execute hunt-db"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -24,8 +26,9 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
     "vite": "^6.0.3",
     "wrangler": "^4.96.0"
   }

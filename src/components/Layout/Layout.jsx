@@ -30,6 +30,7 @@ export default function Layout({ children }) {
   ]
   if (session?.role === 'dm') {
     navLinks.push({ path: '/dm', label: 'DM Tools', icon: '⚔️' })
+    navLinks.push({ path: '/dm/dnd/combat', label: 'DM Console', icon: '🎲' })
   }
   if (session?.role === 'player' && session?.playerId) {
     navLinks.push({ path: '/profile', label: 'My Profile', icon: '🎭' })

@@ -14,6 +14,12 @@ import { RequireDM } from './components/Auth/ProtectedRoute'
 import RequirePlayer from './components/Auth/RequirePlayer'
 import ProfileEditor from './components/ProfileEditor/ProfileEditor'
 import ErrorBoundary from './components/common/ErrorBoundary'
+import { DndLayout } from './components/dnd/DndLayout'
+import { CombatPage } from './components/dnd/pages/CombatPage'
+import { PlayersPage } from './components/dnd/pages/PlayersPage'
+import { MonstersPage } from './components/dnd/pages/MonstersPage'
+import { NpcsPage } from './components/dnd/pages/NpcsPage'
+import { EncountersPage } from './components/dnd/pages/EncountersPage'
 import './App.css'
 
 export default function App() {
@@ -36,6 +42,12 @@ export default function App() {
         <Route path="/dm/npc/:id" element={<RequireDM><PlayerEditor /></RequireDM>} />
         <Route path="/dm/questionnaire/new" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
         <Route path="/dm/questionnaire/:id" element={<RequireDM><QuestionnaireBuilder /></RequireDM>} />
+        <Route path="/dm/dnd/combat" element={<RequireDM><DndLayout><CombatPage /></DndLayout></RequireDM>} />
+        <Route path="/dm/dnd/players" element={<RequireDM><DndLayout><PlayersPage /></DndLayout></RequireDM>} />
+        <Route path="/dm/dnd/monsters" element={<RequireDM><DndLayout><MonstersPage /></DndLayout></RequireDM>} />
+        <Route path="/dm/dnd/npcs" element={<RequireDM><DndLayout><NpcsPage /></DndLayout></RequireDM>} />
+        <Route path="/dm/dnd/encounters" element={<RequireDM><DndLayout><EncountersPage /></DndLayout></RequireDM>} />
+        <Route path="/dm/dnd" element={<RequireDM><DndLayout><CombatPage /></DndLayout></RequireDM>} />
         </Routes>
       </ErrorBoundary>
     </Layout>

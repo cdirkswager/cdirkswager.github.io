@@ -5,3 +5,9 @@ pages_build_output_dir = "dist"
 [[kv_namespaces]]
 binding = "HUNT_DATA"
 id = "a2ffa3840e274be99544ddb97162922c"
+
+[[d1_databases]]
+binding = "HUNT_DB"
+database_name = "hunt-db"
+database_id = "8b1d4921-e52a-448d-9e55-0fc1bf9a6bbe"
+migrations_dir = "migrations"

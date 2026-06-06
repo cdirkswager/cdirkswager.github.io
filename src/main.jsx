@@ -7,6 +7,7 @@ import { initAuth } from './data/auth'
 import { ImpersonationProvider } from './context/ImpersonationContext'
 import 'animate.css'
 import './index.css'
+import './components/dnd/DndGlobals.css'
 
 async function init() {
   const data = await initStore()

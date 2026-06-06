@@ -275,6 +275,7 @@ export default function DMTools() {
             <button className="btn btn-sm" onClick={handleFullExport}>💾 Full Backup</button>
             <button className="btn btn-sm" onClick={() => setShowFullImport(true)}>📂 Restore Backup</button>
             <button className="btn btn-sm" onClick={() => setShowUsers(true)}>👥 Users</button>
+            <Link to="/dm/dnd/combat" className="btn btn-sm" style={{borderColor:'var(--accent-magic)', color:'var(--accent-magic)'}}>🎲 D&D Combat Tool</Link>
             <button className="btn btn-sm btn-danger" onClick={() => setConfirmReset(true)}>⚠️ Reset</button>
           </div>
         </div>
