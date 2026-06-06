@@ -161,7 +161,7 @@
   font-size: 0.95rem;
 }
 
-.player-body {
+.container.player-body {
   padding: 24px 0;
   margin-top: 8px;
   display: flex;
@@ -737,7 +737,7 @@ a.guestbook-author:hover {
     justify-content: flex-end;
   }
 
-  .player-source-container {
+.container.player-source-container {
     height: calc(100vh - 350px);
     min-height: 250px;
   }
