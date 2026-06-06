@@ -85,6 +85,8 @@ export function PartyGauge() {
               {players.map((p) => {
                 const expanded = expandedId === p.id
                 const res = p.resources || []
+                const others = res.filter(r => r.resource_type !== 'spell_slot')
+                const slots = res.filter(r => r.resource_type === 'spell_slot')
                 return (
                   <div key={p.id} className="mb-1 rounded border border-line bg-ink">
                     <button
@@ -100,16 +102,16 @@ export function PartyGauge() {
                         {res.length === 0 && (
                           <p className="py-2 text-center text-[10px] text-dim">No resources.</p>
                         )}
-                        {res.filter(r => r.resource_type !== 'spell_slot').map((r) => (
+                        {others.map((r) => (
                           <ResourceControl
                             key={r.id}
                             resource={r}
                             onChange={(field, value) => updateResource(p.id, r.id, field, value)}
                           />
                         ))}
-                        {res.filter(r => r.resource_type === 'spell_slot').length > 0 && (
-                          <SpellSlotGroup
-                            slots={res.filter(r => r.resource_type === 'spell_slot')}
+                        {slots.length > 0 && (
+                          <AggregateSpellSlots
+                            slots={slots}
                             playerId={p.id}
                             onChange={updateResource}
                           />
@@ -174,15 +176,18 @@ function ResourceControl({ resource: r, onChange }) {
       <div className="mb-1 flex items-center gap-2 rounded border border-line bg-panel px-2 py-1">
         <span className="w-24 truncate text-[11px] text-dim">{r.name}</span>
         <div className="flex gap-0.5">
-          {Array.from({ length: max }, (_, i) => (
-            <button
-              key={i}
-              onClick={() => onChange('current_value', i + 1)}
-              className={`h-4 w-4 rounded-full border text-[9px] leading-none transition-colors ${
-                i < cur ? 'border-accent bg-accent text-ink' : 'border-line text-dim hover:border-accent'
-              }`}
-            />
-          ))}
+          {Array.from({ length: max }, (_, i) => {
+            const clicked = i + 1
+            return (
+              <button
+                key={i}
+                onClick={() => onChange('current_value', clicked === cur ? 0 : clicked)}
+                className={`h-4 w-4 rounded-full border transition-colors ${
+                  i < cur ? 'border-accent bg-accent' : 'border-line hover:border-accent'
+                }`}
+              />
+            )
+          })}
         </div>
         <span className="mono text-[10px] text-dim">({cur}/{max})</span>
         {r.recovery_type === 'short_rest' && <span className="mono text-[9px] text-warn">SR</span>}
@@ -216,36 +221,83 @@ function ResourceControl({ resource: r, onChange }) {
   )
 }
 
-function SpellSlotGroup({ slots, playerId, onChange }) {
-  const levels = slots
-    .filter((s) => s.slot_level != null)
-    .sort((a, b) => a.slot_level - b.slot_level)
+function AggregateSpellSlots({ slots, playerId, onChange }) {
+  const sorted = [...slots].filter(s => s.slot_level != null).sort((a, b) => a.slot_level - b.slot_level)
+  if (sorted.length === 0) return null
 
-  if (levels.length === 0) return null
+  const totalMax = sorted.reduce((s, r) => s + r.max_value * r.slot_level, 0)
+  const totalCur = sorted.reduce((s, r) => s + (r.current_value ?? 0) * r.slot_level, 0)
+
+  const distribute = (newTotal) => {
+    const diff = newTotal - totalCur
+    let remaining = Math.abs(diff)
+    const dir = diff >= 0 ? 1 : -1
+    const order = dir > 0 ? [...sorted] : [...sorted].reverse()
+
+    const updates = []
+    for (const s of order) {
+      if (remaining <= 0) break
+      const pts = s.slot_level
+      if (dir > 0) {
+        const canAdd = (s.max_value - (s.current_value ?? 0)) * pts
+        const add = Math.min(canAdd, remaining)
+        const slotsAdd = Math.floor(add / pts)
+        if (slotsAdd > 0) {
+          updates.push({ id: s.id, current_value: (s.current_value ?? 0) + slotsAdd })
+          remaining -= slotsAdd * pts
+        }
+      } else {
+        const canRemove = (s.current_value ?? 0) * pts
+        const remove = Math.min(canRemove, remaining)
+        const slotsRemove = Math.ceil(remove / pts)
+        if (slotsRemove > 0) {
+          updates.push({ id: s.id, current_value: Math.max(0, (s.current_value ?? 0) - slotsRemove) })
+          remaining -= slotsRemove * pts
+        }
+      }
+    }
+    for (const u of updates) {
+      onChange(playerId, u.id, 'current_value', u.current_value)
+    }
+  }
+
+  const expend = (slotLevel) => {
+    const slot = [...sorted].reverse().find(s => s.slot_level === slotLevel && (s.current_value ?? 0) > 0)
+    if (slot) {
+      onChange(playerId, slot.id, 'current_value', (slot.current_value ?? 0) - 1)
+    }
+  }
 
   return (
     <div className="mb-1 rounded border border-line bg-panel p-1.5">
       <span className="text-[10px] font-medium uppercase tracking-wide text-accent">Spell Slots</span>
-      <div className="mt-1 space-y-1">
-        {levels.map((s) => {
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="range"
+          min="0"
+          max={totalMax}
+          step="1"
+          value={Math.min(totalCur, totalMax)}
+          onChange={(e) => distribute(parseInt(e.target.value) || 0)}
+          className="flex-1 accent-accent"
+        />
+        <span className="mono shrink-0 text-[10px] text-dim">{totalCur}/{totalMax}</span>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {sorted.map((s) => {
           const cur = s.current_value ?? 0
-          const max = s.max_value ?? 0
+          const lv = s.slot_level
           return (
-            <div key={s.id} className="flex items-center gap-2">
-              <span className="w-6 text-[10px] text-dim">Lv{s.slot_level}</span>
-              <div className="flex gap-0.5">
-                {Array.from({ length: max }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onChange(playerId, s.id, 'current_value', i + 1)}
-                    className={`h-3.5 w-3.5 rounded-full border text-[8px] leading-none transition-colors ${
-                      i < cur ? 'border-accent bg-accent' : 'border-line hover:border-accent'
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="mono text-[10px] text-dim">({cur}/{max})</span>
-            </div>
+            <button
+              key={s.id}
+              disabled={cur === 0}
+              onClick={() => expend(lv)}
+              className="flex items-center gap-1 rounded border border-line bg-ink px-1.5 py-0.5 text-[10px] text-dim hover:border-accent hover:text-fg disabled:opacity-30"
+            >
+              <span className="h-2 w-2 rounded-full" style={{ background: cur > 0 ? 'var(--accent)' : 'var(--line)' }} />
+              Lv{lv}
+              <span className="mono text-[9px]">({cur}/{s.max_value})</span>
+            </button>
           )
         })}
       </div>
