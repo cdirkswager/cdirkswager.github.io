@@ -36,6 +36,7 @@ export function PlayersPage() {
       await loadPlayers()
       setForm(emptyPlayer())
       setShowForm(false)
+      notifyResources()
     } catch (err) {
       setError(err.message)
     }
@@ -46,6 +47,7 @@ export function PlayersPage() {
       await api.del(`/api/dnd/players?id=${id}`)
       setPlayers((prev) => prev.filter((p) => p.id !== id))
       if (expandedId === id) setExpandedId(null)
+      notifyResources()
     } catch (err) {
       setError(err.message)
     }
@@ -65,6 +67,7 @@ export function PlayersPage() {
     try {
       await api.patch('/api/dnd/players', { id: p.id, is_active: next })
       setPlayers((prev) => prev.map((pl) => (pl.id === p.id ? { ...pl, is_active: next } : pl)))
+      notifyResources()
     } catch (err) {
       setError(err.message)
     }

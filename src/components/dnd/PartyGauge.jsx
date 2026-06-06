@@ -33,6 +33,7 @@ export function PartyGauge() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
   useEffect(() => {
     const hpHandler = (e) => {
       const { playerId, current_hp } = e.detail
@@ -40,18 +41,24 @@ export function PartyGauge() {
         prev.map((p) => (p.id === playerId ? { ...p, current_hp } : p))
       )
     }
+    const refreshHandler = () => fetchData()
     window.addEventListener('dnd-player-hp-changed', hpHandler)
-    return () => window.removeEventListener('dnd-player-hp-changed', hpHandler)
-  }, [])
+    window.addEventListener('dnd-resources-changed', refreshHandler)
+    return () => {
+      window.removeEventListener('dnd-player-hp-changed', hpHandler)
+      window.removeEventListener('dnd-resources-changed', refreshHandler)
+    }
+  }, [fetchData])
 
-  const hpEntries = players.map((p) => ({
+  const activePlayers = players.filter(p => p.is_active)
+  const hpEntries = activePlayers.map((p) => ({
     playerName: p.name, playerId: p.id,
     max_value: p.max_hp || 0,
     current_value: p.current_hp ?? p.max_hp ?? 0,
   }))
   const allResources = [
     ...hpEntries,
-    ...players.flatMap(
+    ...activePlayers.flatMap(
       (p) => (p.resources || []).map((r) => ({ ...r, playerName: p.name, playerId: p.id }))
     ),
   ]
@@ -59,12 +66,12 @@ export function PartyGauge() {
   const totalCur = allResources.reduce((s, r) => s + (r.current_value ?? 0), 0)
   const overallPct = totalMax > 0 ? Math.round((totalCur / totalMax) * 100) : 100
 
-  const lowHpPlayers = players.filter((p) => {
+  const lowHpPlayers = activePlayers.filter((p) => {
     const cur = p.current_hp ?? p.max_hp ?? 0; const max = p.max_hp || 1
     return (cur / max) <= 0.5
   })
-  const depletedCount = players.reduce((c, p) => c + (p.resources || []).filter((r) => (r.current_value ?? 0) === 0).length, 0)
-  const totalResCount = players.reduce((c, p) => c + (p.resources || []).length, 0)
+  const depletedCount = activePlayers.reduce((c, p) => c + (p.resources || []).filter((r) => (r.current_value ?? 0) === 0).length, 0)
+  const totalResCount = activePlayers.reduce((c, p) => c + (p.resources || []).length, 0)
   let readinessLabel, readinessColor
   if (overallPct >= 90) { readinessLabel = 'Full strength'; readinessColor = 'var(--ok)' }
   else if (overallPct >= 70) { readinessLabel = 'Lightly tapped'; readinessColor = 'var(--ok)' }

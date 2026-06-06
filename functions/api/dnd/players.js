@@ -79,6 +79,7 @@ export async function onRequest(context) {
     if (request.method === "DELETE") {
       const id = new URL(request.url).searchParams.get("id")
       if (!id) return Response.json({ error: "id required" }, { status: 400 })
+      await run(env, "DELETE FROM combatants WHERE player_id = ?", [id])
       await run(env, "DELETE FROM players WHERE id = ?", [id])
       return Response.json({ ok: true })
     }

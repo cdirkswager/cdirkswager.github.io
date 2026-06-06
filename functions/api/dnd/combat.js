@@ -159,7 +159,7 @@ export async function onRequest(context) {
 
       const players = await all(
         env,
-        "SELECT * FROM players WHERE campaign_id = ? ORDER BY display_order, name",
+        "SELECT * FROM players WHERE campaign_id = ? AND is_active = 1 ORDER BY display_order, name",
         [campaign.id]
       )
       const resources = await all(
