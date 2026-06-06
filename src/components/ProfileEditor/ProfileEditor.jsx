@@ -361,6 +361,15 @@ export default function ProfileEditor() {
                   <option value="clouds">☁️ Clouds</option>
                   <option value="grass">🌿 Grass</option>
                 </select>
+                {form.theme.bgAnimation && (
+                  <div className="bg-anim-preview-wrap">
+                    <div className={`bg-anim-preview bg-anim-${form.theme.bgAnimation}`}>
+                      <span className="bg-anim-preview-label">{
+                        {rain:'🌧️ Rain',snow:'❄️ Snow',stars:'✨ Stars',sparkles:'🌟 Sparkles',fog:'🌫️ Fog',aurora:'🌌 Aurora',embers:'🔥 Embers',blood:'🩸 Blood',skulls:'💀 Skulls',clouds:'☁️ Clouds',grass:'🌿 Grass'}[form.theme.bgAnimation]
+                      }</span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
                   Adds a CSS-animated particle effect behind your content. Works alongside your background color/image.
                 </p>
@@ -431,6 +440,19 @@ export default function ProfileEditor() {
                 <option value="celestial">⭐ Celestial Gold</option>
                 <option value="shadow">🌑 Shadowfell</option>
               </select>
+              <div className="widget-border-preview-wrap">
+                <div className={`widget-border-preview${form.widgetBorder !== 'default' ? ' widget-border-' + form.widgetBorder : ''}`}>
+                  <div className="widget-border-preview-header">
+                    <span className="widget-border-preview-icon">📊</span>
+                    <span className="widget-border-preview-name">Stats Preview</span>
+                  </div>
+                  <div className="widget-border-preview-stats">
+                    <div className="preview-stat-row"><span>STR</span><span className="preview-stat-val">16</span></div>
+                    <div className="preview-stat-row"><span>DEX</span><span className="preview-stat-val">14</span></div>
+                    <div className="preview-stat-row"><span>INT</span><span className="preview-stat-val">12</span></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -453,28 +475,91 @@ export default function ProfileEditor() {
             {form.widgets.length === 0 && (
               <p className="text-muted">No widgets yet. Add a stats block, description, or custom HTML!</p>
             )}
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={form.widgets.map(w => w.id)} strategy={verticalListSortingStrategy}>
-                <div className="widget-list">
-                  {form.widgets.map((w, i) => (
-                    <SortableWidget
-                      key={w.id}
-                      widget={w}
-                      index={i}
-                      isFirst={i === 0}
-                      isLast={i === form.widgets.length - 1}
-                      onEdit={openWidget}
-                      onRemove={removeWidget}
-                      onMoveUp={(idx) => moveWidget(idx, -1)}
-                      onMoveDown={(idx) => moveWidget(idx, 1)}
-                      animation={form.widgetAnimations?.[w.id]}
-                      onAnimationChange={setAnimation}
-                      isMobile={isMobile}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+            {form.layout === 'two-column' && form.widgets.length > 0 ? (
+              (() => {
+                const left = [], right = []
+                form.widgets.forEach((w, i) => {
+                  if (w.column === 'left') left.push(i)
+                  else if (w.column === 'right') right.push(i)
+                  else {
+                    if (left.length <= right.length) left.push(i)
+                    else right.push(i)
+                  }
+                })
+                const renderItem = (w, i) => (
+                  <div key={w.id} className="widget-item">
+                    <div className="widget-item-info">
+                      <span className="widget-item-type">{w.type}</span>
+                      <span className="widget-item-preview">
+                        {w.type === 'stats' ? '📊 Ability Scores' :
+                         w.type === 'description' ? '📜 Description' :
+                         w.type === 'bio' ? '📖 Biography' :
+                         w.type === 'image' ? '🖼️ Image' :
+                         w.type === 'music' ? '🎵 Music' :
+                         w.type === 'custom' ? (w.title || '📝 Custom') : '📦 Widget'}
+                      </span>
+                    </div>
+                    {w.column && w.column !== 'auto' && (
+                      <span className={`widget-item-column col-${w.column}`}>{w.column === 'left' ? '←L' : '→R'}</span>
+                    )}
+                    <div className="widget-item-anim">
+                      <select value={form.widgetAnimations?.[w.id] || ''} onChange={e => setAnimation(w.id, e.target.value)} aria-label="Animation style">
+                        <option value="">None</option>
+                        <option value="fadeIn">Fade In</option>
+                        <option value="fadeInUp">Fade In Up</option>
+                        <option value="fadeInDown">Fade In Down</option>
+                        <option value="slideInLeft">Slide In Left</option>
+                        <option value="slideInRight">Slide In Right</option>
+                        <option value="bounceIn">Bounce In</option>
+                        <option value="zoomIn">Zoom In</option>
+                        <option value="flipInX">Flip In</option>
+                      </select>
+                    </div>
+                    <div className="widget-item-actions">
+                      <button type="button" className="btn btn-sm" onClick={() => moveWidget(i, -1)} disabled={i === 0}>↑</button>
+                      <button type="button" className="btn btn-sm" onClick={() => moveWidget(i, 1)} disabled={i === form.widgets.length - 1}>↓</button>
+                      <button type="button" className="btn btn-sm" onClick={() => openWidget(i)}>✏️</button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeWidget(i)}>🗑️</button>
+                    </div>
+                  </div>
+                )
+                return (
+                  <div className="widget-list-two-col">
+                    <div className="widget-col">
+                      <div className="widget-col-header">← Left Column</div>
+                      {left.map(i => renderItem(form.widgets[i], i))}
+                    </div>
+                    <div className="widget-col">
+                      <div className="widget-col-header">→ Right Column</div>
+                      {right.map(i => renderItem(form.widgets[i], i))}
+                    </div>
+                  </div>
+                )
+              })()
+            ) : (
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={form.widgets.map(w => w.id)} strategy={verticalListSortingStrategy}>
+                  <div className="widget-list">
+                    {form.widgets.map((w, i) => (
+                      <SortableWidget
+                        key={w.id}
+                        widget={w}
+                        index={i}
+                        isFirst={i === 0}
+                        isLast={i === form.widgets.length - 1}
+                        onEdit={openWidget}
+                        onRemove={removeWidget}
+                        onMoveUp={(idx) => moveWidget(idx, -1)}
+                        onMoveDown={(idx) => moveWidget(idx, 1)}
+                        animation={form.widgetAnimations?.[w.id]}
+                        onAnimationChange={setAnimation}
+                        isMobile={isMobile}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
           </div>
 
           <div className="card gold-border mb-2">

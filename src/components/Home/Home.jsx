@@ -347,11 +347,6 @@ export default function Home() {
           </div>
         )}
 
-        <div className="text-center mt-3">
-          <Link to="/dm/players" className="btn btn-primary">
-            ✨ Add New Player (DM Only)
-          </Link>
-        </div>
       </section>
     </div>
   )

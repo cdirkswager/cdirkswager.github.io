@@ -11,7 +11,7 @@ import Questionnaire from './components/Questionnaire/Questionnaire'
 import QuestionnaireBuilder from './components/Questionnaire/QuestionnaireBuilder'
 import Login from './components/Auth/Login'
 import Register from './components/Auth/Register'
-import { RequireDM } from './components/Auth/ProtectedRoute'
+import { RequireDM, RequirePlayer as RequireLogin } from './components/Auth/ProtectedRoute'
 import RequirePlayer from './components/Auth/RequirePlayer'
 import ProfileEditor from './components/ProfileEditor/ProfileEditor'
 import ErrorBoundary from './components/common/ErrorBoundary'
@@ -32,7 +32,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
-          <Route path="/player/:id/downtime" element={<RequirePlayer><DowntimeChronicle /></RequirePlayer>} />
+          <Route path="/player/:id/downtime" element={<RequireLogin><DowntimeChronicle /></RequireLogin>} />
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

@@ -309,6 +309,15 @@ export default function PlayerEditor() {
                   <option value="clouds">☁️ Clouds</option>
                   <option value="grass">🌿 Grass</option>
                 </select>
+                {form.theme.bgAnimation && (
+                  <div className="bg-anim-preview-wrap">
+                    <div className={`bg-anim-preview bg-anim-${form.theme.bgAnimation}`}>
+                      <span className="bg-anim-preview-label">{
+                        {rain:'🌧️ Rain',snow:'❄️ Snow',stars:'✨ Stars',sparkles:'🌟 Sparkles',fog:'🌫️ Fog',aurora:'🌌 Aurora',embers:'🔥 Embers',blood:'🩸 Blood',skulls:'💀 Skulls',clouds:'☁️ Clouds',grass:'🌿 Grass'}[form.theme.bgAnimation]
+                      }</span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
                   Adds a CSS-animated particle effect behind your content. Works alongside your background color/image.
                 </p>
@@ -383,6 +392,19 @@ export default function PlayerEditor() {
                 <option value="celestial">⭐ Celestial Gold</option>
                 <option value="shadow">🌑 Shadowfell</option>
               </select>
+              <div className="widget-border-preview-wrap">
+                <div className={`widget-border-preview${form.widgetBorder !== 'default' ? ' widget-border-' + form.widgetBorder : ''}`}>
+                  <div className="widget-border-preview-header">
+                    <span className="widget-border-preview-icon">📊</span>
+                    <span className="widget-border-preview-name">Stats Preview</span>
+                  </div>
+                  <div className="widget-border-preview-stats">
+                    <div className="preview-stat-row"><span>STR</span><span className="preview-stat-val">16</span></div>
+                    <div className="preview-stat-row"><span>DEX</span><span className="preview-stat-val">14</span></div>
+                    <div className="preview-stat-row"><span>INT</span><span className="preview-stat-val">12</span></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -407,8 +429,8 @@ export default function PlayerEditor() {
             {form.widgets.length === 0 && (
               <p className="text-muted">No widgets yet. Add a stats block, description, or custom HTML!</p>
             )}
-            <div className="widget-list">
-              {form.widgets.map((w, i) => (
+            {(() => {
+              const renderWidgetItem = (w, i) => (
                 <div key={w.id || i} className="widget-item">
                   <div className="widget-item-info">
                     <span className="widget-item-type">{w.type}</span>
@@ -452,8 +474,38 @@ export default function PlayerEditor() {
                     <button type="button" className="btn btn-sm btn-danger" onClick={() => removeWidget(i)}>🗑️</button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+
+              if (form.layout === 'two-column' && form.widgets.length > 0) {
+                const left = [], right = []
+                form.widgets.forEach((w, i) => {
+                  if (w.column === 'left') left.push(i)
+                  else if (w.column === 'right') right.push(i)
+                  else {
+                    if (left.length <= right.length) left.push(i)
+                    else right.push(i)
+                  }
+                })
+                return (
+                  <div className="widget-list-two-col">
+                    <div className="widget-col">
+                      <div className="widget-col-header">← Left Column</div>
+                      {left.map(i => renderWidgetItem(form.widgets[i], i))}
+                    </div>
+                    <div className="widget-col">
+                      <div className="widget-col-header">→ Right Column</div>
+                      {right.map(i => renderWidgetItem(form.widgets[i], i))}
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="widget-list">
+                  {form.widgets.map((w, i) => renderWidgetItem(w, i))}
+                </div>
+              )
+            })()}
           </div>
 
           <div className="card gold-border mb-2">
