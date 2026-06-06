@@ -607,15 +607,14 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
         updatedAt: now,
         data: {
           name: '',
-          years: [
-            { objectives: [], events: [], scars: ['', ''] },
-            { objectives: [], events: [], scars: ['', ''] },
-            { objectives: [], events: [], scars: ['', ''] },
-            { objectives: [], events: [], scars: ['', ''] },
-          ],
+          years: Array.from({ length: 5 }, () => ({
+            objectives: ['', '', ''],
+            events: Array.from({ length: 5 }, () => ({ name: '', memory: '' })),
+            scars: ['', ''],
+          })),
           relationships: { romantic: { name: '', desc: '' }, work: { name: '', desc: '' }, friend: { name: '', desc: '' } },
-          factions: [],
-          party: [],
+          factions: [{ name: '', note: '' }, { name: '', note: '' }, { name: '', note: '' }],
+          party: Array.from({ length: 5 }, () => ({ name: '', note: '' })),
           hobby: '',
           memories: ['', '', ''],
           threads: ['', ''],

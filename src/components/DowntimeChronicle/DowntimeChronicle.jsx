@@ -436,6 +436,8 @@ export default function DowntimeChronicle() {
   }
 
   const status = chronicle?.status || 'pending'
+  const canEdit = isOwner || isDm
+  const isLocked = status === 'submitted' || status === 'closed' || !canEdit
 
   if (!player) {
     return (
@@ -470,23 +472,32 @@ export default function DowntimeChronicle() {
         </span>
       </div>
 
+      {isLocked && (
+        <div className="lock-banner">
+          {!canEdit
+            ? '👁️ You are viewing this chronicle in read-only mode.'
+            : `🔒 This chronicle has been ${status === 'closed' ? 'closed' : 'submitted'} and is read-only.`}
+        </div>
+      )}
+
       <div className="controls">
-        <button className="ctrl-btn" onClick={generate}>📜 Generate Discord Post</button>
+        <button className="ctrl-btn" onClick={generate} disabled={isLocked}>📜 Generate Discord Post</button>
         {isDm && (
           <button className={`ctrl-btn ${status !== 'submitted' ? 'primary' : ''}`}
-            onClick={handleSubmit} disabled={saving || status === 'submitted'}>
+            onClick={handleSubmit} disabled={saving || isLocked}>
             {saving ? 'Saving...' : status === 'submitted' ? '✅ Submitted' : '📤 Submit Chronicle'}
           </button>
         )}
-        <button className="ctrl-btn" onClick={handleSaveDraft} disabled={saving}>
+        <button className="ctrl-btn" onClick={handleSaveDraft} disabled={saving || isLocked}>
           💾 Save Draft
         </button>
-        <button className="ctrl-btn danger" onClick={handleClear}>✕ Clear All</button>
+        <button className="ctrl-btn danger" onClick={handleClear} disabled={isLocked}>✕ Clear All</button>
       </div>
 
       <div className="scroll">
         <div className="torn" />
         <div className="scroll-inner">
+          <fieldset disabled={isLocked} className="chronicle-fieldset">
           <div className="char-header">
             <input
               className="char-name"
@@ -768,7 +779,8 @@ export default function DowntimeChronicle() {
           </div>
 
           <div className="seal">⚜ ✦ ⚜</div>
-        </div>
+          </fieldset>
+          </div>
         <div className="torn bottom" />
       </div>
 

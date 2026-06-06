@@ -32,7 +32,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/player/:id" element={<PlayerPage />} />
-          <Route path="/player/:id/downtime" element={<DowntimeChronicle />} />
+          <Route path="/player/:id/downtime" element={<RequirePlayer><DowntimeChronicle /></RequirePlayer>} />
         <Route path="/questionnaire/:id" element={<Questionnaire />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

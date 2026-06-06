@@ -119,7 +119,16 @@
 .chronicle-page .copy-btn:hover{background:rgba(201,148,42,0.12);}
 .chronicle-page #discord-out{width:100%;background:transparent;border:none;color:#9ab0c0;font-family:'Courier New',monospace;font-size:0.76rem;padding:16px 18px;line-height:1.75;resize:vertical;min-height:180px;outline:none;}
 .chronicle-page .seal{text-align:center;margin-top:34px;color:#5c3d1a;opacity:0.35;font-size:1.5rem;letter-spacing:0.35em;user-select:none;}
-.chronicle-page .chronicle-status{text-align:center;margin-bottom:16px;}
+.chronicle-page .chronicle-status{text-align:center;margin-bottom:12px;}
+.chronicle-page .lock-banner{text-align:center;padding:8px 16px;background:rgba(139,26,26,0.12);border:1px solid rgba(139,26,26,0.3);border-radius:3px;color:#b04848;font-family:'Cinzel',serif;font-size:0.78rem;letter-spacing:0.08em;margin-bottom:10px;}
+.chronicle-page .chronicle-fieldset{border:none;padding:0;margin:0;}
+.chronicle-page .chronicle-fieldset:disabled .ctrl-btn,
+.chronicle-page .chronicle-fieldset:disabled .add-btn{opacity:0.45;cursor:not-allowed;}
+.chronicle-page .chronicle-fieldset:disabled input,
+.chronicle-page .chronicle-fieldset:disabled textarea,
+.chronicle-page .chronicle-fieldset:disabled select{opacity:0.55;cursor:not-allowed;}
+.chronicle-page .chronicle-fieldset:disabled input:focus,
+.chronicle-page .chronicle-fieldset:disabled textarea:focus{border-color:rgba(139,26,26,0.3);background:rgba(255,255,255,0.08);}
 .chronicle-page .status-badge{display:inline-block;padding:4px 16px;border-radius:3px;font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;}
 .chronicle-page .status-badge.pending{background:rgba(201,148,42,0.15);border:1px solid rgba(201,148,42,0.4);color:#a07820;}
 .chronicle-page .status-badge.submitted{background:rgba(100,180,100,0.15);border:1px solid rgba(100,180,100,0.4);color:#5aa85a;}
