@@ -23,7 +23,7 @@
 .chronicle-page .section{margin-top:30px;}
 .chronicle-page .section-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .chronicle-page .section-head-line{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(92,61,26,0.35),transparent);}
-.chronicle-page .section-title{font-family:'Cinzel',serif;font-size:0.78rem;font-weight:600;letter-spacing:0.22em;color:#4a2e12;text-transform:uppercase;white-space:nowrap;}
+.chronicle-page .section-title{font-family:'Cinzel',serif;font-size:0.78rem;font-weight:600;letter-spacing:0.22em;color:#4a2e12;text-transform:uppercase;}
 .chronicle-page .section-title.red{color:#6b0e0e;opacity:0.9;}
 .chronicle-page .years{display:flex;flex-direction:column;gap:30px;}
 .chronicle-page .year-block{border:2px solid rgba(92,61,26,0.45);border-radius:4px;padding:20px 22px 18px;position:relative;background:rgba(255,255,255,0.18);}

@@ -631,11 +631,11 @@ export default function DowntimeChronicle() {
           <div className="section">
             <div className="section-head">
               <div className="section-head-line" />
-              <div className="section-title">⚜ Factions &amp; Notable People</div>
+              <div className="section-title">⚜ Factions & Notable People</div>
               <div className="section-head-line" />
             </div>
             <div className="faction-box">
-              <div className="faction-subsection-label">Factions &amp; Other Contacts</div>
+              <div className="faction-subsection-label">Factions & Other Contacts</div>
                   <div>
                     {data.factions.map((f, fi) => (
                       <div key={fi} className="faction-row">
@@ -680,7 +680,7 @@ export default function DowntimeChronicle() {
                       value={p.note}
                       onChange={e => handlePartyNote(pi, e.target.value)}
                       placeholder="How did things stand between you two over these four years?..."
-                      rows={3}
+                      rows={1}
                     />
                   </div>
                 ))}
