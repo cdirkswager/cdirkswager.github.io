@@ -19,7 +19,9 @@ export function PartyGauge() {
         api.get('/api/dnd/combat'),
       ])
       if (pData.status === 'fulfilled') setPlayers(pData.value.players || [])
-      if (cData.status === 'fulfilled' && cData.value.session) setCombatData(cData.value)
+      if (cData.status === 'fulfilled' && cData.value.session) {
+        setCombatData(cData.value)
+      }
     } catch {}
   }, [])
 
@@ -66,6 +68,13 @@ export function PartyGauge() {
       prev.map((p) => (p.id === playerId ? { ...p, current_hp: clamped } : p))
     )
     await api.patch('/api/dnd/players', { id: playerId, current_hp: clamped })
+    const liveCombatants = combatData?.combatants
+    if (liveCombatants) {
+      const match = liveCombatants.find((c) => c.player_id === playerId)
+      if (match) {
+        await api.patch(`/api/dnd/combat/combatants`, { id: match.id, hp_current: clamped })
+      }
+    }
   }
 
   const restAll = async (type) => {
@@ -125,8 +134,12 @@ export function PartyGauge() {
                       <span className="flex-1 truncate text-sm font-medium text-player">{p.name}</span>
                       {p.is_active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-player" />}
 
-                      <div className="relative h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-ink sm:w-28" onClick={(e) => e.stopPropagation()}>
-                        <div className="gauge-fill h-full rounded-full pointer-events-none" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+                      <div className="relative w-20 shrink-0 sm:w-28" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex h-8 items-center">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink">
+                            <div className="gauge-fill h-full rounded-full pointer-events-none" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+                          </div>
+                        </div>
                         <input
                           type="range"
                           min="0"

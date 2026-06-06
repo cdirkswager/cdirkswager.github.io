@@ -98,7 +98,15 @@ export function CombatPage() {
   const updateCombatant = async (combatantId, updates) => {
     if (!session?.id) return
     await api.patch(`/api/dnd/combat/combatants`, { id: combatantId, ...updates })
-    setCombatants((prev) => prev.map((c) => (c.id === combatantId ? { ...c, ...updates } : c)))
+    setCombatants((prev) =>
+      prev.map((c) => {
+        if (c.id !== combatantId) return c
+        if (c.is_player && c.player_id && updates.hp_current !== undefined) {
+          api.patch('/api/dnd/players', { id: c.player_id, current_hp: updates.hp_current })
+        }
+        return { ...c, ...updates }
+      })
+    )
   }
 
   const refreshReport = async () => {
