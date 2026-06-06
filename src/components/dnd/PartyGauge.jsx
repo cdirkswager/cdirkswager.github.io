@@ -86,22 +86,6 @@ export function PartyGauge() {
     window.dispatchEvent(new Event('dnd-combatants-changed'))
   }
 
-  const updatePlayerHp = async (playerId, newHp) => {
-    const clamped = Math.max(0, newHp)
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === playerId ? { ...p, current_hp: clamped } : p))
-    )
-    await api.patch('/api/dnd/players', { id: playerId, current_hp: clamped })
-    const liveCombatants = combatData?.combatants
-    if (liveCombatants) {
-      const match = liveCombatants.find((c) => c.player_id === playerId)
-      if (match) {
-        await api.patch(`/api/dnd/combat/combatants`, { id: match.id, hp_current: clamped })
-      }
-    }
-    window.dispatchEvent(new Event('dnd-combatants-changed'))
-  }
-
   const restAll = async (type) => {
     setResting(true)
     const targets = players.flatMap((p) =>
@@ -182,21 +166,12 @@ export function PartyGauge() {
                       <span className="flex-1 truncate text-sm font-medium text-player">{p.name}</span>
                       {p.is_active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-player" />}
 
-                      <div className="relative w-20 shrink-0 sm:w-28" onClick={(e) => e.stopPropagation()}>
+                      <div className="w-20 shrink-0 sm:w-28">
                         <div className="flex h-8 items-center">
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink">
-                            <div className="gauge-fill h-full rounded-full pointer-events-none" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
+                            <div className="gauge-fill h-full rounded-full" style={{ width: `${Math.max(0, hpPct)}%`, background: hpColor }} />
                           </div>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max={hpMax}
-                          step="1"
-                          value={hpCur}
-                          onChange={(e) => updatePlayerHp(p.id, Math.min(hpMax, parseInt(e.target.value) || 0))}
-                          className="absolute inset-0 cursor-col-resize opacity-0"
-                        />
                       </div>
                       <span className="mono shrink-0 text-xs text-dim">{hpCur}/{hpMax}</span>
 
