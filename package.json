@@ -10,7 +10,9 @@
     "pages:dev": "wrangler pages dev dist --kv=HUNT_DATA --d1=HUNT_DB",
     "pages:deploy": "wrangler pages deploy dist",
     "db:migrate": "wrangler d1 migrations apply hunt-db",
-    "db:execute": "wrangler d1 execute hunt-db"
+    "db:execute": "wrangler d1 execute hunt-db",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -23,13 +25,17 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.5.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "vite": "^6.0.3",
+    "vitest": "^4.1.8",
     "wrangler": "^4.96.0"
   }
 }

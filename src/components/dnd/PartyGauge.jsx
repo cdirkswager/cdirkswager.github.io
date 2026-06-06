@@ -5,7 +5,7 @@ const COLOR = {
   ok: "var(--ok)", warn: "var(--warn)", risk: "var(--risk)", crit: "var(--crit)",
 }
 
-function riskFromOverall(pct) {
+export function riskFromOverall(pct) {
   if (pct > 75) return { label: "Well Rested", color: "ok" }
   if (pct > 50) return { label: "Engaged", color: "warn" }
   if (pct > 25) return { label: "Tested", color: "risk" }
@@ -87,7 +87,9 @@ export function PartyGauge() {
     setPlayers((prev) =>
       prev.map((p) => (p.id === playerId ? { ...p, current_hp: clamped } : p))
     )
-    await api.patch('/api/dnd/players', { id: playerId, current_hp: clamped })
+    try {
+      await api.patch('/api/dnd/players', { id: playerId, current_hp: clamped })
+    } catch { }
     window.dispatchEvent(new CustomEvent('dnd-player-hp-changed', {
       detail: { playerId, current_hp: clamped }
     }))
