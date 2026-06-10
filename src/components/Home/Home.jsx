@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { getPlayers } from '../../data/store'
 import { useEffect, useState, useRef } from 'react'
+import SpriteCardGrid from '../SpriteFollower/SpriteCardGrid'
+import SpriteFollower from '../SpriteFollower/SpriteFollower'
 import './Home.css'
 
 function initGenieIdle(root = document) {
@@ -132,6 +134,34 @@ export default function Home() {
   const stageRef = useRef(null)
   const ctlRef = useRef(null)
   const cooldownRef = useRef(0)
+
+  const [activeSprite, setActiveSprite] = useState(null)
+  const [spriteOrigin, setSpriteOrigin] = useState(null)
+  const [returnTarget, setReturnTarget] = useState(null)
+
+  const handleSpriteActivate = (id) => {
+    const card = document.getElementById(`sprite-card-${id}`)
+    if (!card) return
+    const rect = card.getBoundingClientRect()
+    setActiveSprite(id)
+    setSpriteOrigin(rect)
+  }
+
+  const handleSpriteDeactivate = (id) => {
+    const card = document.getElementById(`sprite-card-${id}`)
+    if (!card) return
+    const rect = card.getBoundingClientRect()
+    setReturnTarget({
+      x: rect.left + rect.width / 2 + window.scrollX,
+      y: rect.top + rect.height / 2 + window.scrollY,
+    })
+  }
+
+  const handleSpriteReturned = () => {
+    setActiveSprite(null)
+    setSpriteOrigin(null)
+    setReturnTarget(null)
+  }
 
   useEffect(() => {
     setPlayers(getPlayers())
@@ -345,6 +375,22 @@ export default function Home() {
               </Link>
             ))}
           </div>
+        )}
+
+        <SpriteCardGrid
+          activeSprite={activeSprite}
+          onActivate={handleSpriteActivate}
+          onDeactivate={handleSpriteDeactivate}
+        />
+
+        {activeSprite && (
+          <SpriteFollower
+            key={activeSprite}
+            active={true}
+            originRect={spriteOrigin}
+            returnTarget={returnTarget}
+            onReturned={handleSpriteReturned}
+          />
         )}
 
       </section>
