@@ -11,3 +11,7 @@ binding = "HUNT_DB"
 database_name = "hunt-db"
 database_id = "8b1d4921-e52a-448d-9e55-0fc1bf9a6bbe"
 migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "HUNT_STORAGE"
+bucket_name = "hunt-storage"

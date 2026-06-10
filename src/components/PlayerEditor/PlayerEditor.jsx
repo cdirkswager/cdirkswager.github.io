@@ -557,6 +557,7 @@ export default function PlayerEditor() {
           onSave={saveWidget}
           onClose={() => { setShowWidgetModal(false); setEditingWidget(null) }}
           isTwoColumn={form.layout === 'two-column'}
+          playerId={selectedId !== 'new' ? selectedId : null}
         />
       )}
 

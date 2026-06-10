@@ -35,4 +35,22 @@ export function del(path, headers) {
   return api(path, { method: 'DELETE', headers })
 }
 
+export async function uploadImage(file, playerId) {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (playerId) formData.append('playerId', playerId)
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+    const data = await res.json()
+    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` }
+    return data
+  } catch (e) {
+    return { ok: false, error: e.message || 'Upload failed' }
+  }
+}
+
 export default api

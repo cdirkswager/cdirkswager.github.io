@@ -1,9 +1,91 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Modal from './Modal'
+import { uploadImage } from '../../data/api'
 
 const defaultWidget = { type: 'description', title: '', content: '' }
 
-export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
+function CarouselEditor({ content, onChange, playerId }) {
+  const [uploading, setUploading] = useState({})
+  const fileRefs = useRef([])
+
+  const handleUpload = async (i) => {
+    const input = fileRefs.current[i]
+    if (!input?.files?.[0]) return
+    const file = input.files[0]
+    setUploading(prev => ({ ...prev, [i]: true }))
+    const result = await uploadImage(file, playerId)
+    setUploading(prev => ({ ...prev, [i]: false }))
+    if (result.ok) {
+      const next = [...content]
+      next[i] = { ...next[i], url: result.url }
+      onChange(next)
+    }
+    input.value = ''
+  }
+
+  return (
+    <div className="mb-2">
+      <label>Images</label>
+      {(content || []).map((img, i) => (
+        <div key={i} className="carousel-image-entry" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 8 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input
+                value={img.url}
+                onChange={e => {
+                  const next = [...content]
+                  next[i] = { ...next[i], url: e.target.value }
+                  onChange(next)
+                }}
+                placeholder="Image URL or upload one"
+                style={{ flex: 1 }}
+              />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+                ref={el => fileRefs.current[i] = el}
+                style={{ display: 'none' }}
+                onChange={() => handleUpload(i)}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => fileRefs.current[i]?.click()}
+                disabled={uploading[i]}
+              >
+                {uploading[i] ? '⏳' : '📁'}
+              </button>
+            </div>
+            {img.url && img.url.startsWith('/api/images/') && (
+              <div style={{ marginTop: 2 }}>
+                <img src={img.url} alt="" style={{ maxHeight: 60, borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)' }} />
+              </div>
+            )}
+            <input
+              value={img.caption || ''}
+              onChange={e => {
+                const next = [...content]
+                next[i] = { ...next[i], caption: e.target.value }
+                onChange(next)
+              }}
+              placeholder="Caption (optional)"
+              style={{ fontSize: '0.85rem' }}
+            />
+          </div>
+          <button type="button" className="btn btn-sm btn-danger" onClick={() => {
+            const next = content.filter((_, j) => j !== i)
+            onChange(next.length ? next : [{ url: '', caption: '' }])
+          }} style={{ marginTop: 2 }}>🗑️</button>
+        </div>
+      ))}
+      <button type="button" className="btn btn-sm" onClick={() => onChange([...(content || []), { url: '', caption: '' }])}>
+        ➕ Add Image
+      </button>
+    </div>
+  )
+}
+
+export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn, playerId }) {
   const [form, setForm] = useState(widget ? { ...widget } : { ...defaultWidget })
 
   const handleTypeChange = (t) => {
@@ -110,41 +192,7 @@ export default function WidgetEditor({ widget, onSave, onClose, isTwoColumn }) {
         )}
 
         {form.type === 'carousel' && (
-          <div className="mb-2">
-            <label>Images</label>
-            {(form.content || []).map((img, i) => (
-              <div key={i} className="carousel-image-entry" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 8 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <input
-                    value={img.url}
-                    onChange={e => {
-                      const next = [...form.content]
-                      next[i] = { ...next[i], url: e.target.value }
-                      setForm({ ...form, content: next })
-                    }}
-                    placeholder="https://example.com/image.jpg"
-                  />
-                  <input
-                    value={img.caption || ''}
-                    onChange={e => {
-                      const next = [...form.content]
-                      next[i] = { ...next[i], caption: e.target.value }
-                      setForm({ ...form, content: next })
-                    }}
-                    placeholder="Caption (optional)"
-                    style={{ fontSize: '0.85rem' }}
-                  />
-                </div>
-                <button type="button" className="btn btn-sm btn-danger" onClick={() => {
-                  const next = form.content.filter((_, j) => j !== i)
-                  setForm({ ...form, content: next.length ? next : [{ url: '', caption: '' }] })
-                }} style={{ marginTop: 2 }}>🗑️</button>
-              </div>
-            ))}
-            <button type="button" className="btn btn-sm" onClick={() => setForm({ ...form, content: [...(form.content || []), { url: '', caption: '' }] })}>
-              ➕ Add Image
-            </button>
-          </div>
+          <CarouselEditor content={form.content} onChange={content => setForm({ ...form, content })} playerId={playerId} />
         )}
 
         {form.type === 'custom' && (
