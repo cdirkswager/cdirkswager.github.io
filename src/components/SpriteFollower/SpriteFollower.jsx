@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import './SpriteFollower.css'
 
 const DIR_MAP = {
-  N:  { src: '/Sprite/Fiix_North.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_North.gif', mirror: false },
-  NE: { src: '/Sprite/Fiix_NorthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_NorthWest.gif', mirror: true },
-  E:  { src: '/Sprite/Fiix_East.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_East.gif', mirror: false },
-  SE: { src: '/Sprite/Fiix_SouthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_SouthEast.gif', mirror: false },
-  S:  { src: '/Sprite/Fiix_South.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_South.gif', mirror: false },
-  SW: { src: '/Sprite/Fiix_SouthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_SouthEast.gif', mirror: true },
-  W:  { src: '/Sprite/Fiix_East.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_East.gif', mirror: true },
-  NW: { src: '/Sprite/Fiix_NorthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_NorthWest.gif', mirror: true },
+  N:  { src: '/Sprite/Fiix_North.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_North.gif', mirrorSrc: false, mirrorAnim: false },
+  NE: { src: '/Sprite/Fiix_NorthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_NorthWest.gif', mirrorSrc: false, mirrorAnim: true },
+  E:  { src: '/Sprite/Fiix_East.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_East.gif', mirrorSrc: false, mirrorAnim: false },
+  SE: { src: '/Sprite/Fiix_SouthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_SouthEast.gif', mirrorSrc: false, mirrorAnim: false },
+  S:  { src: '/Sprite/Fiix_South.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_South.gif', mirrorSrc: false, mirrorAnim: false },
+  SW: { src: '/Sprite/Fiix_SouthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_SouthEast.gif', mirrorSrc: true, mirrorAnim: true },
+  W:  { src: '/Sprite/Fiix_East.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_East.gif', mirrorSrc: true, mirrorAnim: true },
+  NW: { src: '/Sprite/Fiix_NorthEast.png', anim: '/Sprite/Animations/Fiix/Fiix_RunAnim_NorthWest.gif', mirrorSrc: true, mirrorAnim: false },
 }
 
 function getDir(dx, dy) {
@@ -163,6 +163,7 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
 
   const dirInfo = DIR_MAP[dir]
   const src = moving ? dirInfo.anim : dirInfo.src
+  const mirror = moving ? dirInfo.mirrorAnim : dirInfo.mirrorSrc
 
   return (
     <img
@@ -171,7 +172,7 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
       style={{
         left: 0,
         top: 0,
-        transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) ${dirInfo.mirror ? 'scaleX(-1)' : ''}`,
+        transform: `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%) ${mirror ? 'scaleX(-1)' : ''}`,
       }}
       alt="Fiix"
     />
