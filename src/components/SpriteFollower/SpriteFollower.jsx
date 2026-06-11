@@ -28,6 +28,53 @@ const FOLLOW_DIST = 80
 const MOVE_SPEED = 3
 const COOLDOWN_MS = 1500
 const RETURN_THRESHOLD = 10
+const OBSTACLE_PADDING = 8
+
+const OBSTACLE_SELECTOR = '.card, section, .panel, header, footer, nav, aside, [class*="container"], [class*="widget"], [class*="grid"], [class*="hero"]'
+
+let obstacleCache = []
+let lastObstacleUpdate = 0
+
+function getObstacles(startX, startY) {
+  const now = Date.now()
+  if (now - lastObstacleUpdate > 300) {
+    const els = document.querySelectorAll(OBSTACLE_SELECTOR)
+    obstacleCache = []
+    els.forEach(el => {
+      const r = el.getBoundingClientRect()
+      const left = r.left + window.scrollX
+      const right = r.right + window.scrollX
+      const top = r.top + window.scrollY
+      const bottom = r.bottom + window.scrollY
+      if (left <= startX && right >= startX && top <= startY && bottom >= startY) return
+      const w = right - left
+      const h = bottom - top
+      if (w < 20 || h < 20) return
+      obstacleCache.push({ left, right, top, bottom })
+    })
+    lastObstacleUpdate = now
+  }
+  return obstacleCache
+}
+
+function avoidObstacles(x, y, obstacles) {
+  for (const o of obstacles) {
+    const insideX = x >= o.left - OBSTACLE_PADDING && x <= o.right + OBSTACLE_PADDING
+    const insideY = y >= o.top - OBSTACLE_PADDING && y <= o.bottom + OBSTACLE_PADDING
+    if (insideX && insideY) {
+      const dl = Math.abs(x - o.left)
+      const dr = Math.abs(x - o.right)
+      const dt = Math.abs(y - o.top)
+      const db = Math.abs(y - o.bottom)
+      const min = Math.min(dl, dr, dt, db)
+      if (min === dl) x = o.left - OBSTACLE_PADDING
+      else if (min === dr) x = o.right + OBSTACLE_PADDING
+      else if (min === dt) y = o.top - OBSTACLE_PADDING
+      else y = o.bottom + OBSTACLE_PADDING
+    }
+  }
+  return { x, y }
+}
 
 export default function SpriteFollower({ active, originRect, returnTarget, onReturned }) {
   const [pos, setPos] = useState({ x: 0, y: 0 })
@@ -86,8 +133,9 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
 
         const vx = (dx / dist) * MOVE_SPEED
         const vy = (dy / dist) * MOVE_SPEED
-        p.x += vx
-        p.y += vy
+        const avoided = avoidObstacles(p.x + vx, p.y + vy, getObstacles(cx, cy))
+        p.x = avoided.x
+        p.y = avoided.y
 
         const d = getDir(dx, dy)
         setPos({ x: p.x, y: p.y })
@@ -127,8 +175,9 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
 
       const vx = (dx / dist) * MOVE_SPEED
       const vy = (dy / dist) * MOVE_SPEED
-      p.x += vx
-      p.y += vy
+      const avoided = avoidObstacles(p.x + vx, p.y + vy, getObstacles(cx, cy))
+      p.x = avoided.x
+      p.y = avoided.y
 
       const d = getDir(dx, dy)
       setPos({ x: p.x, y: p.y })

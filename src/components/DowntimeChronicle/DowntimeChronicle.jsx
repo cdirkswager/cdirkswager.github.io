@@ -494,6 +494,7 @@ export default function DowntimeChronicle() {
           💾 Save Draft
         </button>
         <button className="ctrl-btn danger" onClick={handleClear} disabled={isLocked}>✕ Clear All</button>
+        <button className="ctrl-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>⬆ Back to Top</button>
       </div>
 
       <div className="scroll">
