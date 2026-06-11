@@ -33,8 +33,9 @@ function hasContent(data) {
     (data.responses && data.responses.length > 0) ||
     (data.downtimeChronicles && data.downtimeChronicles.length > 0) ||
     (data.notifications && data.notifications.length > 0) ||
-    (data.comments && Object.keys(data.comments).length > 0) ||
-    (data.calendar && data.calendar.events && data.calendar.events.length > 0)
+    (data.comments && Object.keys(data.comments).length > 0)
+    // intentionally exclude calendar.events — build-time seed data should never
+    // trick the guard into treating empty payloads as having real content
   )
 }
 
@@ -110,7 +111,12 @@ async function loadFromServer() {
 
 export async function initStore() {
   await loadFromServer()
-  initCalendar()
+  // Only seed calendar if the cache has genuine user content — prevents
+  // seed events from being injected into an empty cache after a failed load,
+  // which would otherwise defeat the hasContent guard and allow empty-data saves
+  if (hasContent(dataCache)) {
+    initCalendar()
+  }
   return dataCache
 }
 

@@ -347,6 +347,38 @@ if (assignPlayerMatch && method === 'PUT') {
       if (!authorized) return json({ ok: false, error: 'Unauthorized' }, 401)
       // If body is in legacy format { campaign, users, requests }, unwrap it
       const toSave = (body.campaign && !body.players) ? body.campaign : body
+
+      // Server-side content guard: reject empty payloads when KV already has data
+      const hasRealContent =
+        (toSave.players && toSave.players.length > 0) ||
+        (toSave.npcs && toSave.npcs.length > 0) ||
+        (toSave.maps && toSave.maps.length > 0) ||
+        (toSave.mapPins && toSave.mapPins.length > 0) ||
+        (toSave.questionnaires && toSave.questionnaires.length > 0) ||
+        (toSave.responses && toSave.responses.length > 0) ||
+        (toSave.downtimeChronicles && toSave.downtimeChronicles.length > 0) ||
+        (toSave.notifications && toSave.notifications.length > 0) ||
+        (toSave.comments && Object.keys(toSave.comments).length > 0)
+
+      if (!hasRealContent) {
+        const existing = await getFromKv(env, 'campaign-data', null)
+        const hasExisting =
+          existing && (
+            (existing.players && existing.players.length > 0) ||
+            (existing.npcs && existing.npcs.length > 0) ||
+            (existing.maps && existing.maps.length > 0) ||
+            (existing.mapPins && existing.mapPins.length > 0) ||
+            (existing.questionnaires && existing.questionnaires.length > 0) ||
+            (existing.responses && existing.responses.length > 0) ||
+            (existing.downtimeChronicles && existing.downtimeChronicles.length > 0) ||
+            (existing.notifications && existing.notifications.length > 0) ||
+            (existing.comments && Object.keys(existing.comments).length > 0)
+          )
+        if (hasExisting) {
+          return json({ ok: false, error: 'Refusing to overwrite existing campaign data with empty payload' }, 409)
+        }
+      }
+
       await saveToKv(env, 'campaign-data', toSave)
       return json({ ok: true })
     }
