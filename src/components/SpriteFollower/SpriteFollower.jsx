@@ -49,7 +49,7 @@ const RETURN_THRESHOLD = 10
 
 // Greeting ("sit when two sprites meet") — set false for pure collision boundaries.
 const ENABLE_GREETING = true
-const COLLIDE_DIST = SPRITE_SIZE * 0.6      // greeting trigger (must be < MIN_SEP)
+const COLLIDE_DIST = SPRITE_SIZE * 0.9      // greeting trigger (must be > MIN_SEP)
 const SIT_DURATION = 3500
 const GREET_COOLDOWN = SIT_DURATION + 4000
 
