@@ -57,29 +57,39 @@ function getObstacles(startX, startY) {
   return obstacleCache
 }
 
-function avoidObstacles(x, y, obstacles, targetX, targetY) {
+function steerAround(x, y, vx, vy, obstacles, targetX, targetY) {
   for (const o of obstacles) {
-    const nearX = x >= o.left - OBSTACLE_PADDING && x <= o.right + OBSTACLE_PADDING
-    const nearY = y >= o.top - OBSTACLE_PADDING && y <= o.bottom + OBSTACLE_PADDING
+    const nextX = x + vx
+    const nextY = y + vy
+    const nearX = nextX >= o.left - OBSTACLE_PADDING && nextX <= o.right + OBSTACLE_PADDING
+    const nearY = nextY >= o.top - OBSTACLE_PADDING && nextY <= o.bottom + OBSTACLE_PADDING
     if (!nearX || !nearY) continue
 
-    const distLeft = Math.abs(targetX - o.left)
-    const distRight = Math.abs(targetX - o.right)
-    const distTop = Math.abs(targetY - o.top)
-    const distBottom = Math.abs(targetY - o.bottom)
-    const min = Math.min(distLeft, distRight, distTop, distBottom)
+    const corners = [
+      { x: o.left - OBSTACLE_PADDING, y: o.top - OBSTACLE_PADDING },
+      { x: o.right + OBSTACLE_PADDING, y: o.top - OBSTACLE_PADDING },
+      { x: o.left - OBSTACLE_PADDING, y: o.bottom + OBSTACLE_PADDING },
+      { x: o.right + OBSTACLE_PADDING, y: o.bottom + OBSTACLE_PADDING },
+    ]
 
-    if (min === distLeft || min === distRight) {
-      if (min === distLeft) x = o.left - OBSTACLE_PADDING
-      else x = o.right + OBSTACLE_PADDING
-      y += Math.sign(targetY - y) * MOVE_SPEED * 1.2
-    } else {
-      if (min === distTop) y = o.top - OBSTACLE_PADDING
-      else y = o.bottom + OBSTACLE_PADDING
-      x += Math.sign(targetX - x) * MOVE_SPEED * 1.2
+    let best = null
+    let bestDist = Infinity
+    for (const c of corners) {
+      const d = Math.hypot(targetX - c.x, targetY - c.y)
+      if (d < bestDist) { bestDist = d; best = c }
+    }
+
+    if (best) {
+      const cdx = best.x - x
+      const cdy = best.y - y
+      const cd = Math.hypot(cdx, cdy)
+      if (cd > 1) {
+        vx = (cdx / cd) * MOVE_SPEED
+        vy = (cdy / cd) * MOVE_SPEED
+      }
     }
   }
-  return { x, y }
+  return { vx, vy }
 }
 
 export default function SpriteFollower({ active, originRect, returnTarget, onReturned }) {
@@ -137,13 +147,13 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
           return
         }
 
-        const vx = (dx / dist) * MOVE_SPEED
-        const vy = (dy / dist) * MOVE_SPEED
-        const avoided = avoidObstacles(p.x + vx, p.y + vy, getObstacles(cx, cy), rt.x, rt.y)
-        p.x = avoided.x
-        p.y = avoided.y
+        let vx = (dx / dist) * MOVE_SPEED
+        let vy = (dy / dist) * MOVE_SPEED
+        const steer = steerAround(p.x, p.y, vx, vy, getObstacles(cx, cy), rt.x, rt.y)
+        p.x += steer.vx
+        p.y += steer.vy
 
-        const d = getDir(dx, dy)
+        const d = getDir(steer.vx, steer.vy)
         setPos({ x: p.x, y: p.y })
         setDir(d)
         setMoving(true)
@@ -179,13 +189,13 @@ export default function SpriteFollower({ active, originRect, returnTarget, onRet
         return
       }
 
-      const vx = (dx / dist) * MOVE_SPEED
-      const vy = (dy / dist) * MOVE_SPEED
-      const avoided = avoidObstacles(p.x + vx, p.y + vy, getObstacles(cx, cy), c.x, c.y)
-      p.x = avoided.x
-      p.y = avoided.y
+      let vx = (dx / dist) * MOVE_SPEED
+      let vy = (dy / dist) * MOVE_SPEED
+      const steer = steerAround(p.x, p.y, vx, vy, getObstacles(cx, cy), c.x, c.y)
+      p.x += steer.vx
+      p.y += steer.vy
 
-      const d = getDir(dx, dy)
+      const d = getDir(steer.vx, steer.vy)
       setPos({ x: p.x, y: p.y })
       setDir(d)
       setMoving(true)
