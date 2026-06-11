@@ -22,6 +22,13 @@ const defaultData = {
 
 let dataCache = null
 
+async function fallbackSave() {
+  if (dataCache) {
+    const res = await api('/data', { method: 'POST', body: dataCache })
+    if (!res.ok) console.warn('fallback save failed:', res.error)
+  }
+}
+
 function hasContent(data) {
   if (!data) return false
   return (
@@ -379,14 +386,18 @@ export async function savePlayer(player) {
     player.createdAt = Date.now()
     data.players.push(player)
   }
-  await saveData(data)
+  const res = idx >= 0
+    ? await api('/players/' + player.id, { method: 'PUT', body: player })
+    : await api('/players', { method: 'POST', body: player })
+  if (!res.ok) await fallbackSave()
   return player
 }
 
 export async function deletePlayer(id) {
   const data = getStore()
   data.players = data.players.filter(p => p.id !== id)
-  await saveData(data)
+  const res = await api('/players/' + id, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getNPCs() {
@@ -437,7 +448,10 @@ export async function saveNPC(npc) {
     npc.createdAt = Date.now()
     data.npcs.push(npc)
   }
-  await saveData(data)
+  const res = idx >= 0
+    ? await api('/npcs/' + npc.id, { method: 'PUT', body: npc })
+    : await api('/npcs', { method: 'POST', body: npc })
+  if (!res.ok) await fallbackSave()
   return npc
 }
 
@@ -445,7 +459,8 @@ export async function deleteNPC(id) {
   const data = getStore()
   if (data.npcs) data.npcs = data.npcs.filter(n => n.id !== id)
   if (data.comments) delete data.comments[id]
-  await saveData(data)
+  const res = await api('/npcs/' + id, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getMaps() {
@@ -503,6 +518,7 @@ export async function deleteYear(year) {
 
 export async function saveMap(map) {
   const data = getStore()
+  const isUpdate = !!map.id
   if (map.id) {
     const idx = data.maps.findIndex(m => m.id === map.id)
     if (idx >= 0) data.maps[idx] = map
@@ -512,7 +528,10 @@ export async function saveMap(map) {
     if (map.season === undefined) map.season = data.maps.filter(m => m.year === map.year).length
     data.maps.push(map)
   }
-  await saveData(data)
+  const res = isUpdate
+    ? await api('/maps/' + map.id, { method: 'PUT', body: map })
+    : await api('/maps', { method: 'POST', body: map })
+  if (!res.ok) await fallbackSave()
   return map
 }
 
@@ -520,7 +539,8 @@ export async function deleteMap(id) {
   const data = getStore()
   data.maps = data.maps.filter(m => m.id !== id)
   data.mapPins = data.mapPins.filter(p => p.mapId !== id)
-  await saveData(data)
+  const res = await api('/maps/' + id, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getMapPins(mapId) {
@@ -531,6 +551,7 @@ export function getMapPins(mapId) {
 
 export async function saveMapPin(pin) {
   const data = getStore()
+  const isUpdate = !!pin.id
   if (pin.id) {
     const idx = data.mapPins.findIndex(p => p.id === pin.id)
     if (idx >= 0) data.mapPins[idx] = pin
@@ -539,14 +560,18 @@ export async function saveMapPin(pin) {
     pin.timestamp = Date.now()
     data.mapPins.push(pin)
   }
-  await saveData(data)
+  const res = isUpdate
+    ? await api('/pins/' + pin.id, { method: 'PUT', body: pin })
+    : await api('/pins', { method: 'POST', body: pin })
+  if (!res.ok) await fallbackSave()
   return pin
 }
 
 export async function deleteMapPin(id) {
   const data = getStore()
   data.mapPins = data.mapPins.filter(p => p.id !== id)
-  await saveData(data)
+  const res = await api('/pins/' + id, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getQuestionnaires() {
@@ -559,6 +584,7 @@ export function getQuestionnaire(id) {
 
 export async function saveQuestionnaire(q) {
   const data = getStore()
+  const isUpdate = !!q.id
   if (q.id) {
     const idx = data.questionnaires.findIndex(x => x.id === q.id)
     if (idx >= 0) data.questionnaires[idx] = q
@@ -567,14 +593,18 @@ export async function saveQuestionnaire(q) {
     q.createdAt = Date.now()
     data.questionnaires.push(q)
   }
-  await saveData(data)
+  const res = isUpdate
+    ? await api('/questionnaires/' + q.id, { method: 'PUT', body: q })
+    : await api('/questionnaires', { method: 'POST', body: q })
+  if (!res.ok) await fallbackSave()
   return q
 }
 
 export async function deleteQuestionnaire(id) {
   const data = getStore()
   data.questionnaires = data.questionnaires.filter(q => q.id !== id)
-  await saveData(data)
+  const res = await api('/questionnaires/' + id, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 /* ── DOWNTIME CHRONICLES ── */
@@ -599,7 +629,8 @@ export async function saveDowntimeChronicle(chronicle) {
     chronicle.id = 'dc-' + Date.now()
     data.downtimeChronicles.push(chronicle)
   }
-  await saveData(data)
+  const res = await api('/downtime-chronicles/' + chronicle.id, { method: 'PUT', body: chronicle })
+  if (!res.ok) await fallbackSave()
   return chronicle
 }
 
@@ -617,7 +648,6 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
       existing.dmNotes = dmNotes
       existing.updatedAt = now
       created.push(existing)
-      // Notify on reopen
       if (wasClosed) {
         data.notifications.push({
           id: 'n-' + now + '-' + Math.random().toString(36).slice(2, 6),
@@ -669,7 +699,8 @@ export async function openDowntimeChronicle(playerIds, dmNotes = '') {
       })
     }
   }
-  await saveData(data)
+  const res = await api('/downtime-chronicles/batch', { method: 'POST', body: { playerIds, dmNotes } })
+  if (!res.ok) await fallbackSave()
   return created
 }
 
@@ -680,7 +711,8 @@ export async function closeDowntimeChronicle(playerId) {
   if (idx >= 0) {
     data.downtimeChronicles[idx].status = 'closed'
     data.downtimeChronicles[idx].updatedAt = Date.now()
-    await saveData(data)
+    const res = await api('/downtime-chronicles/' + data.downtimeChronicles[idx].id + '/close', { method: 'PUT' })
+    if (!res.ok) await fallbackSave()
     return data.downtimeChronicles[idx]
   }
   return null
@@ -691,7 +723,8 @@ export async function saveResponse(response) {
   response.id = 'r-' + Date.now()
   response.submittedAt = Date.now()
   data.responses.push(response)
-  await saveData(data)
+  const res = await api('/responses', { method: 'POST', body: response })
+  if (!res.ok) await fallbackSave()
   return response
 }
 
@@ -726,7 +759,8 @@ export async function createNotification(notif) {
     createdAt: Date.now(),
   }
   data.notifications.push(n)
-  await saveData(data)
+  const res = await api('/notifications', { method: 'POST', body: n })
+  if (!res.ok) await fallbackSave()
   return n
 }
 
@@ -736,7 +770,8 @@ export async function markNotificationRead(notifId) {
   if (n) {
     n.read = true
     n.readAt = Date.now()
-    await saveData(data)
+    const res = await api('/notifications/' + notifId, { method: 'PUT', body: n })
+    if (!res.ok) await fallbackSave()
   }
   return n
 }
@@ -751,19 +786,24 @@ export async function markAllNotificationsRead(playerId) {
       changed = true
     }
   })
-  if (changed) await saveData(data)
+  if (changed) {
+    const res = await api('/notifications/read-all', { method: 'PUT' })
+    if (!res.ok) await fallbackSave()
+  }
 }
 
 export async function deleteNotification(notifId) {
   const data = getStore()
   data.notifications = (data.notifications || []).filter(n => n.id !== notifId)
-  await saveData(data)
+  const res = await api('/notifications/' + notifId, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export async function clearAllNotifications() {
   const data = getStore()
   data.notifications = []
-  await saveData(data)
+  const res = await api('/notifications', { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getComments(playerId) {
@@ -784,7 +824,8 @@ export async function addComment(playerId, author, text, authorId) {
   }
   if (authorId) comment.authorId = authorId
   data.comments[playerId].push(comment)
-  await saveData(data)
+  const res = await api('/comments', { method: 'POST', body: comment })
+  if (!res.ok) await fallbackSave()
 
   // Notify the page owner if someone else commented
   if (authorId && authorId !== playerId && playerId) {
@@ -808,7 +849,8 @@ export async function deleteComment(commentId, playerId) {
   const data = getStore()
   if (!data.comments?.[playerId]) return
   data.comments[playerId] = data.comments[playerId].filter(c => c.id !== commentId)
-  await saveData(data)
+  const res = await api('/comments/' + commentId, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getAllComments() {
@@ -852,7 +894,8 @@ export async function setCalendarState(state) {
   const data = getStore()
   if (!data.calendar) data.calendar = { ...defaultData.calendar }
   data.calendar.state = { ...data.calendar.state, ...state }
-  await saveData(data)
+  const res = await api('/calendar/state', { method: 'PUT', body: data.calendar.state })
+  if (!res.ok) await fallbackSave()
 }
 
 export async function advanceCalendarDay(direction = 1) {
@@ -866,7 +909,8 @@ export async function advanceCalendarDay(direction = 1) {
   else if (day < 1) { day = 30; month--
     if (month < 0) { month = 11; year-- } }
   data.calendar.state = { year, month, day }
-  await saveData(data)
+  const res = await api('/calendar/state', { method: 'PUT', body: data.calendar.state })
+  if (!res.ok) await fallbackSave()
   return data.calendar.state
 }
 
@@ -883,9 +927,10 @@ export async function addCalendarComment(month, day, author, text, year) {
   if (!data.calendar.comments) data.calendar.comments = {}
   const key = year !== undefined ? `${year}-${month}-${day}` : `${month}-${day}`
   if (!data.calendar.comments[key]) data.calendar.comments[key] = []
-  const comment = { id: 'cc-' + Date.now(), author, text, timestamp: Date.now(), month, day, year }
+  const comment = { id: 'cc-' + Date.now(), author, text, timestamp: Date.now(), month, day, year, dateKey: key }
   data.calendar.comments[key].push(comment)
-  await saveData(data)
+  const res = await api('/calendar/comments', { method: 'POST', body: comment })
+  if (!res.ok) await fallbackSave()
   return comment
 }
 
@@ -895,7 +940,8 @@ export async function deleteCalendarComment(commentId, month, day, year) {
   const key = year !== undefined ? `${year}-${month}-${day}` : `${month}-${day}`
   if (!data.calendar.comments[key]) return
   data.calendar.comments[key] = data.calendar.comments[key].filter(c => c.id !== commentId)
-  await saveData(data)
+  const res = await api('/calendar/comments/' + commentId, { method: 'DELETE' })
+  if (!res.ok) await fallbackSave()
 }
 
 export function getAllCalendarComments() {
