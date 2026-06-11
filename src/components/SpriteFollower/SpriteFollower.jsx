@@ -28,7 +28,7 @@ const FOLLOW_DIST = 80
 const MOVE_SPEED = 3
 const COOLDOWN_MS = 1500
 const RETURN_THRESHOLD = 10
-const OBSTACLE_PADDING = 8
+const OBSTACLE_PADDING = 42
 
 const OBSTACLE_SELECTOR = '.card, section, .panel, header, footer, nav, aside, [class*="container"], [class*="widget"], [class*="grid"], [class*="hero"]'
 
@@ -59,11 +59,11 @@ function getObstacles(startX, startY) {
 
 function steerAround(x, y, vx, vy, obstacles, targetX, targetY) {
   for (const o of obstacles) {
-    const nextX = x + vx
-    const nextY = y + vy
-    const nearX = nextX >= o.left - OBSTACLE_PADDING && nextX <= o.right + OBSTACLE_PADDING
-    const nearY = nextY >= o.top - OBSTACLE_PADDING && nextY <= o.bottom + OBSTACLE_PADDING
-    if (!nearX || !nearY) continue
+    const hNear = (x + vx >= o.left - OBSTACLE_PADDING && x + vx <= o.right + OBSTACLE_PADDING)
+               || (x >= o.left - OBSTACLE_PADDING && x <= o.right + OBSTACLE_PADDING)
+    const vNear = (y + vy >= o.top - OBSTACLE_PADDING && y + vy <= o.bottom + OBSTACLE_PADDING)
+               || (y >= o.top - OBSTACLE_PADDING && y <= o.bottom + OBSTACLE_PADDING)
+    if (!hNear || !vNear) continue
 
     const corners = [
       { x: o.left - OBSTACLE_PADDING, y: o.top - OBSTACLE_PADDING },
@@ -75,8 +75,9 @@ function steerAround(x, y, vx, vy, obstacles, targetX, targetY) {
     let best = null
     let bestDist = Infinity
     for (const c of corners) {
-      const d = Math.hypot(targetX - c.x, targetY - c.y)
-      if (d < bestDist) { bestDist = d; best = c }
+      const toTarget = Math.hypot(targetX - c.x, targetY - c.y)
+      const toSprite = Math.hypot(x - c.x, y - c.y)
+      if (toTarget + toSprite < bestDist) { bestDist = toTarget + toSprite; best = c }
     }
 
     if (best) {
