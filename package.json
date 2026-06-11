@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "pages:dev": "wrangler pages dev dist --kv=HUNT_DATA --d1=HUNT_DB",
+    "deploy": "npm run build && npm run db:migrate && wrangler pages deploy dist",
     "pages:deploy": "wrangler pages deploy dist",
     "db:migrate": "wrangler d1 migrations apply hunt-db",
     "db:execute": "wrangler d1 execute hunt-db",

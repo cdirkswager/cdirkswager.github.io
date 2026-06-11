@@ -22,6 +22,22 @@ const defaultData = {
 
 let dataCache = null
 
+function hasContent(data) {
+  if (!data) return false
+  return (
+    (data.players && data.players.length > 0) ||
+    (data.npcs && data.npcs.length > 0) ||
+    (data.maps && data.maps.length > 0) ||
+    (data.mapPins && data.mapPins.length > 0) ||
+    (data.questionnaires && data.questionnaires.length > 0) ||
+    (data.responses && data.responses.length > 0) ||
+    (data.downtimeChronicles && data.downtimeChronicles.length > 0) ||
+    (data.notifications && data.notifications.length > 0) ||
+    (data.comments && Object.keys(data.comments).length > 0) ||
+    (data.calendar && data.calendar.events && data.calendar.events.length > 0)
+  )
+}
+
 function migrateData(data) {
   if (!data) return data
   if (!data.npcs) data.npcs = []
@@ -64,8 +80,12 @@ function getStore() {
   return dataCache
 }
 
-async function saveData(data) {
+async function saveData(data, force = false) {
   dataCache = migrateData(data)
+  if (!force && !hasContent(dataCache)) {
+    console.warn('saveData: skipping save of empty/default data to preserve server state')
+    return
+  }
   const res = await api('/data', { method: 'POST', body: dataCache })
   if (!res.ok) console.warn('Failed to save to server:', res.error)
 }
@@ -73,9 +93,17 @@ async function saveData(data) {
 async function loadFromServer() {
   const res = await api('/data')
   if (res && res.players) {
-    dataCache = migrateData(res)
+    if (hasContent(res) || !dataCache || !hasContent(dataCache)) {
+      dataCache = migrateData(res)
+    } else {
+      console.warn('loadFromServer: server returned empty data, preserving existing cache')
+    }
   } else {
-    dataCache = migrateData({ ...defaultData })
+    if (!dataCache || !hasContent(dataCache)) {
+      dataCache = migrateData({ ...defaultData })
+    } else {
+      console.warn('loadFromServer: request failed, preserving existing cache')
+    }
   }
   return dataCache
 }
@@ -793,7 +821,7 @@ export function getAllComments() {
 export function initCalendar() {
   const data = getStore()
   if (!data.calendar) data.calendar = { ...defaultData.calendar }
-  if (calendarSeed?.events) {
+  if (calendarSeed?.events && (!data.calendar.events || data.calendar.events.length === 0)) {
     data.calendar.events = calendarSeed.events
   }
   return data.calendar
@@ -883,7 +911,7 @@ export async function importData(jsonStr) {
   try {
     const data = JSON.parse(jsonStr)
     if (data.players && data.mapPins) {
-      await saveData(data)
+      await saveData(data, true)
       return true
     }
   } catch (e) { /* ignore */ }
@@ -892,7 +920,7 @@ export async function importData(jsonStr) {
 
 export async function resetData() {
   dataCache = { ...defaultData }
-  await saveData(dataCache)
+  await saveData(dataCache, true)
 }
 
 export async function exportFullData() {
@@ -905,7 +933,7 @@ export async function importFullData(jsonStr) {
   try {
     const data = JSON.parse(jsonStr)
     if (data.campaign && data.users && data.requests) {
-      await saveData(data.campaign)
+      await saveData(data.campaign, true)
       return { ok: true, users: data.users, requests: data.requests }
     }
   } catch (e) { /* ignore */ }
