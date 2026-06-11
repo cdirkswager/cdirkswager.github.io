@@ -484,7 +484,7 @@ export default function DowntimeChronicle() {
 
       <div className="controls">
         <button className="ctrl-btn" onClick={generate} disabled={isLocked}>📜 Generate Discord Post</button>
-        {isDm && (
+        {(isOwner || isDm) && (
           <button className={`ctrl-btn ${status !== 'submitted' ? 'primary' : ''}`}
             onClick={handleSubmit} disabled={saving || isLocked}>
             {saving ? 'Saving...' : status === 'submitted' ? '✅ Submitted' : '📤 Submit Chronicle'}

@@ -252,6 +252,12 @@ export async function onRequest(context) {
     // GET /api/auth/session
     if (path === '/auth/session' && method === 'GET') {
       if (!session) return json({ ok: false, error: 'No session' }, 401)
+      const users = await getFromKv(env, 'users', [])
+      const user = users.find(u => u.id === session.userId)
+      if (user && user.playerId !== session.playerId) {
+        session.playerId = user.playerId
+        await env.HUNT_DATA.put('session:' + sessionToken, JSON.stringify(session), { expirationTtl: 86400 })
+      }
       return json({ ok: true, session })
     }
 
