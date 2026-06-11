@@ -135,32 +135,54 @@ export default function Home() {
   const ctlRef = useRef(null)
   const cooldownRef = useRef(0)
 
-  const [activeSprite, setActiveSprite] = useState(null)
-  const [spriteOrigin, setSpriteOrigin] = useState(null)
-  const [returnTarget, setReturnTarget] = useState(null)
+  const [activeSprites, setActiveSprites] = useState({})
+  const [returnTargets, setReturnTargets] = useState({})
+  const spritePositionsRef = useRef({})
 
   const handleSpriteActivate = (id) => {
     const card = document.getElementById(`sprite-card-${id}`)
     if (!card) return
     const rect = card.getBoundingClientRect()
-    setActiveSprite(id)
-    setSpriteOrigin(rect)
-  }
-
-  const handleSpriteDeactivate = (id) => {
-    const card = document.getElementById(`sprite-card-${id}`)
-    if (!card) return
-    const rect = card.getBoundingClientRect()
-    setReturnTarget({
-      x: rect.left + rect.width / 2 + window.scrollX,
-      y: rect.top + rect.height / 2 + window.scrollY,
+    setActiveSprites(prev => ({ ...prev, [id]: rect }))
+    setReturnTargets(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
     })
   }
 
-  const handleSpriteReturned = () => {
-    setActiveSprite(null)
-    setSpriteOrigin(null)
-    setReturnTarget(null)
+  const handleSpriteDeactivate = (id, instant) => {
+    if (instant) {
+      setActiveSprites(prev => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      return
+    }
+    const card = document.getElementById(`sprite-card-${id}`)
+    if (!card) return
+    const rect = card.getBoundingClientRect()
+    setReturnTargets(prev => ({
+      ...prev,
+      [id]: {
+        x: rect.left + rect.width / 2 + window.scrollX,
+        y: rect.top + rect.height / 2 + window.scrollY,
+      }
+    }))
+  }
+
+  const handleSpriteReturned = (id) => {
+    setActiveSprites(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    setReturnTargets(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
   }
 
   useEffect(() => {
@@ -378,20 +400,22 @@ export default function Home() {
         )}
 
         <SpriteCardGrid
-          activeSprite={activeSprite}
+          activeSprites={activeSprites}
           onActivate={handleSpriteActivate}
           onDeactivate={handleSpriteDeactivate}
         />
 
-        {activeSprite && (
+        {Object.keys(activeSprites).map((id) => (
           <SpriteFollower
-            key={activeSprite}
+            key={id}
+            spriteId={id}
             active={true}
-            originRect={spriteOrigin}
-            returnTarget={returnTarget}
+            originRect={activeSprites[id]}
+            returnTarget={returnTargets[id] || null}
             onReturned={handleSpriteReturned}
+            spritePositionsRef={spritePositionsRef}
           />
-        )}
+        ))}
 
       </section>
     </div>
