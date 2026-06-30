@@ -13,6 +13,7 @@ import Login from './components/Auth/Login'
 import Register from './components/Auth/Register'
 import { RequireDM, RequirePlayer as RequireLogin } from './components/Auth/ProtectedRoute'
 import RequirePlayer from './components/Auth/RequirePlayer'
+import VttGuard from './components/Auth/VttGuard'
 import ProfileEditor from './components/ProfileEditor/ProfileEditor'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import { DndLayout } from './components/dnd/DndLayout'
@@ -51,7 +52,7 @@ export default function App() {
         <Route path="/dm/dnd/npcs" element={<RequireDM><DndLayout><NpcsPage /></DndLayout></RequireDM>} />
         <Route path="/dm/dnd/encounters" element={<RequireDM><DndLayout><EncountersPage /></DndLayout></RequireDM>} />
         <Route path="/dm/dnd" element={<RequireDM><DndLayout><CombatPage /></DndLayout></RequireDM>} />
-        <Route path="/vtt" element={<RequirePlayer><VttPage /></RequirePlayer>} />
+        <Route path="/vtt" element={<VttGuard><VttPage /></VttGuard>} />
         </Routes>
       </ErrorBoundary>
     </Layout>
