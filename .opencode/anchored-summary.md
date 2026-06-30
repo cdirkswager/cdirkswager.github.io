@@ -2,7 +2,7 @@
 - Build a complete VTT system by implementing deployments, canvas features, and addressing spec gaps iteratively.
 
 ## Constraints & Preferences
-- Cloudflare Pages project `hunt-website` is separate from GitHub Pages site `cdirkswager.github.io`; production alias URL is `https://production.hunt-website.pages.dev`
+- Cloudflare Pages project `hunt-website` is separate from GitHub Pages site `cdirkswager.github.io`; the active site URL is `https://hunt-website.pages.dev`
 - Auth key management: use PEM secrets (`VTT_PRIVATE_KEY`, `VTT_PUBLIC_KEY`) as CF secrets rather than auto-generated KV keys, for deterministic keys across environments
 - Existing site features (calendar, combat tracker, etc.) are NOT VTT features — VTT is a separate local game server using the site for auth only
 - VTT data model: separate SQLite/JSON-file store (not existing D1)
@@ -11,9 +11,9 @@
 
 ## Progress
 ### Done
-- Stage 1 — Cloud Auth Deployment: keypair generated (`secrets/vtt-private.pem`, `secrets/vtt-public.pem`); secrets set via `wrangler pages secret put VTT_PRIVATE_KEY` and `VTT_PUBLIC_KEY` on project `hunt-website`; site deployed to production alias `https://production.hunt-website.pages.dev`; `GET /api/auth/vtt-jwks` returns valid JWKS; `POST /api/auth/vtt-token` returns 401 without session (correct)
+- Stage 1 — Cloud Auth Deployment: keypair generated (`secrets/vtt-private.pem`, `secrets/vtt-public.pem`); secrets set via `wrangler pages secret put VTT_PRIVATE_KEY` and `VTT_PUBLIC_KEY` on project `hunt-website`; site deployed at `https://hunt-website.pages.dev`; `GET /api/auth/vtt-jwks` returns valid JWKS; `POST /api/auth/vtt-token` returns 401 without session (correct)
 - Stage 1 — `vtt-utils.js` updated: reads PEM secrets from `env.VTT_PRIVATE_KEY` / `env.VTT_PUBLIC_KEY` first (via `crypto.subtle.importKey` with `pkcs8`/`spki`), falls back to KV auto-generation
-- Stage 1 — Local Server Config: public key PEM auto-detected at `mods/local-server/vtt-public.pem`; default `siteBaseUrl` updated to `https://production.hunt-website.pages.dev`
+- Stage 1 — Local Server Config: public key PEM auto-detected at `mods/local-server/vtt-public.pem`; default `siteBaseUrl` updated to `https://hunt-website.pages.dev`
 - Stage 3.2 — Walls & Doors (complete): `Wall.js` data model (5 types: solid, door, secret, see-through, terrain) with distance/intersection helpers; `WallLayer.js` PixiJS rendering (color-coded lines, door open/closed graphics, dashed secrets, hit testing); wall-draw tool + wall-select tool with keyboard shortcuts (P/T/W/S/Del) and grid snapping; demo walls forming a room with door, secret, see-through, and terrain
 - Stage 3.3 — Lighting & Vision (all v4 spec gaps closed 2026-06-30):
   - `WallSpatialIndex` — uniform grid (200px cells), incremental rebuild, range-queried per token

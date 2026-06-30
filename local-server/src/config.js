@@ -9,7 +9,7 @@ const DEFAULTS = {
   port: 3001,
   dataDir: './data',
   publicKeyPath: existsSync(autoKeyPath) ? autoKeyPath : null,
-  siteBaseUrl: 'https://production.hunt-website.pages.dev',
+  siteBaseUrl: 'https://hunt-website.pages.dev',
 }
 
 export function loadConfig() {

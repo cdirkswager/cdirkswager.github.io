@@ -31,9 +31,11 @@ export function createAuthVerifier(config) {
   }
 
   async function init() {
-    if (!loadPublicKey()) {
-      console.log('[auth] No local public key file, fetching from site...')
-      await fetchPublicKeyFromSite()
+    console.log('[auth] Fetching public key from site...')
+    const fetched = await fetchPublicKeyFromSite()
+    if (!fetched) {
+      console.log('[auth] Could not fetch from site, falling back to local key file...')
+      loadPublicKey()
     }
   }
 
