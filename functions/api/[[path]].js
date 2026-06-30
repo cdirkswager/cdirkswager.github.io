@@ -919,6 +919,42 @@ if (assignPlayerMatch && method === 'PUT') {
       return json({ ok: true })
     }
 
+    // ─── GAME DISCOVERY ──────────────────────────────────────────
+
+    // POST /api/game/register — register a local game server for discovery
+    if (path === '/game/register' && method === 'POST') {
+      if (!session) return json({ ok: false, error: 'Unauthorized' }, 401)
+      const { serverUrl } = body
+      if (!serverUrl) return json({ ok: false, error: 'serverUrl required' }, 400)
+
+      // Generate a collision-free join code
+      const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      let code, existing
+      do {
+        code = ''
+        for (let i = 0; i < 6; i++) code += CHARS[Math.floor(Math.random() * CHARS.length)]
+        existing = await env.HUNT_DATA.get('join:' + code)
+      } while (existing)
+
+      await env.HUNT_DATA.put('join:' + code, JSON.stringify({
+        serverUrl,
+        createdBy: session.userId,
+        createdAt: Date.now(),
+      }), { expirationTtl: 7200 })
+
+      return json({ ok: true, code, serverUrl, expiresIn: 7200 })
+    }
+
+    // GET /api/game/lookup/:code — look up a game server by join code
+    const lookupMatch = path.match(/^\/game\/lookup\/([A-Z0-9]+)$/)
+    if (lookupMatch && method === 'GET') {
+      if (!session) return json({ ok: false, error: 'Unauthorized' }, 401)
+      const code = lookupMatch[1]
+      const entry = await env.HUNT_DATA.get('join:' + code, { type: 'json' })
+      if (!entry) return json({ ok: false, error: 'Code not found or expired' }, 404)
+      return json({ ok: true, serverUrl: entry.serverUrl, createdAt: entry.createdAt })
+    }
+
     return json({ ok: false, error: 'Not found' }, 404)
   } catch (e) {
     return json({ ok: false, error: e.message || 'Internal error' }, 500)

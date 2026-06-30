@@ -34,6 +34,9 @@ export default function Layout({ children }) {
   if (session?.role === 'player' && session?.playerId) {
     navLinks.push({ path: '/profile', label: 'My Profile', icon: '🎭' })
   }
+  if (session) {
+    navLinks.push({ path: '/vtt', label: 'VTT Canvas', icon: '🗡️' })
+  }
 
   return (
     <div className={`layout${impersonating ? ' layout-impersonating' : ''}`}>

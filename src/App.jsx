@@ -21,6 +21,7 @@ import { PlayersPage } from './components/dnd/pages/PlayersPage'
 import { MonstersPage } from './components/dnd/pages/MonstersPage'
 import { NpcsPage } from './components/dnd/pages/NpcsPage'
 import { EncountersPage } from './components/dnd/pages/EncountersPage'
+import VttPage from './components/Vtt/VttPage'
 import './App.css'
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/dm/dnd/npcs" element={<RequireDM><DndLayout><NpcsPage /></DndLayout></RequireDM>} />
         <Route path="/dm/dnd/encounters" element={<RequireDM><DndLayout><EncountersPage /></DndLayout></RequireDM>} />
         <Route path="/dm/dnd" element={<RequireDM><DndLayout><CombatPage /></DndLayout></RequireDM>} />
+        <Route path="/vtt" element={<RequirePlayer><VttPage /></RequirePlayer>} />
         </Routes>
       </ErrorBoundary>
     </Layout>

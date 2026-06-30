@@ -1,0 +1,69 @@
+[
+  {
+    "id": "99ef9481-373a-41c2-8df5-dcb531430214",
+    "type": "template",
+    "shape": "circle",
+    "x": 100,
+    "y": 200,
+    "radius": 50,
+    "owner": "alice-1",
+    "label": "Fireball",
+    "createdBy": "alice-1",
+    "updatedAt": 1782838013452,
+    "createdAt": 1782838013452
+  },
+  {
+    "id": "0c2541a4-358d-4d33-bb8b-f562f4bb4ad3",
+    "type": "template",
+    "shape": "cone",
+    "x": 200,
+    "y": 300,
+    "direction": 0,
+    "angle": 60,
+    "range": 100,
+    "owner": "gm-1",
+    "createdBy": "dm-1",
+    "updatedAt": 1782838016462,
+    "createdAt": 1782838016462
+  },
+  {
+    "id": "397f2c52-4a38-4df6-a2f3-764d66c981bb",
+    "type": "template",
+    "shape": "circle",
+    "x": 10,
+    "y": 20,
+    "radius": 30,
+    "owner": "alice-1",
+    "createdBy": "alice-1",
+    "updatedAt": 1782838016992,
+    "createdAt": 1782838016992
+  },
+  {
+    "id": "ac9c02b3-4bda-4274-b9f5-0e61b7d9a596",
+    "type": "template",
+    "shape": "rectangle",
+    "x": 0,
+    "y": 0,
+    "width": 50,
+    "height": 50,
+    "owner": "alice-1",
+    "createdBy": "alice-1",
+    "updatedAt": 1782838016992,
+    "createdAt": 1782838016992
+  },
+  {
+    "id": "b25bcf23-002b-4257-9849-50d3f4d61f11",
+    "type": "template",
+    "shape": "cone",
+    "x": 0,
+    "y": 0,
+    "direction": 0,
+    "angle": 60,
+    "range": 200,
+    "owner": "alice-1",
+    "createdBy": "alice-1",
+    "updatedAt": 1782838016994,
+    "createdAt": 1782838016994,
+    "updatedBy": "dm-1"
+  }
+]

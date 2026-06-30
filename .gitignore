@@ -6,4 +6,7 @@ dist/
 .env.production
 .dev.vars
 mods/
+local-server/node_modules/
+local-server/data/
+local-server/public/node_modules/
 
