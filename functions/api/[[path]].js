@@ -261,6 +261,22 @@ export async function onRequest(context) {
       return json({ ok: true, session })
     }
 
+    // GET /api/auth/vtt-jwks — public key for VTT local server token verification
+    if (path === '/auth/vtt-jwks' && method === 'GET') {
+      const { getJwks } = await import('./vtt-utils.js')
+      const jwks = await getJwks(env)
+      return json(jwks)
+    }
+
+    // POST /api/auth/vtt-token — exchange session for a short-lived JWT signed with RS256
+    if (path === '/auth/vtt-token' && method === 'POST') {
+      if (!session) return json({ ok: false, error: 'No session' }, 401)
+      if (session.role === 'pending') return json({ ok: false, error: 'Account pending approval' }, 403)
+      const { signVttToken } = await import('./vtt-utils.js')
+      const token = await signVttToken(session, env)
+      return json({ ok: true, token, expiresIn: 3600 })
+    }
+
     // POST /api/auth/logout
     if (path === '/auth/logout' && method === 'POST') {
       await deleteSession(env, sessionToken)

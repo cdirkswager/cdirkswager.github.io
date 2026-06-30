@@ -148,6 +148,16 @@ export async function assignPlayerToUser(userId, playerId) {
   const data = await put('/auth/users/' + userId + '/assign-player', { playerId })
   return data.ok
 }
+export async function getVttToken() {
+  const data = await post('/auth/vtt-token')
+  return data.ok ? data : null
+}
+
+export async function getVttJwks() {
+  const data = await get('/auth/vtt-jwks')
+  return data.ok ? data : null
+}
+
 export async function checkAdminStatus() {
   return await get('/auth/check-admin')
 }

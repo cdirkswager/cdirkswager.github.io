@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getSession } from '../../data/auth'
+import { getSession, getVttToken } from '../../data/auth'
 import { getPlayer, savePlayer, generatePageSource, sanitizeHtml, sanitizeCss } from '../../data/store'
 import WidgetEditor from '../common/WidgetEditor'
 import Modal from '../common/Modal'
@@ -85,6 +85,9 @@ export default function ProfileEditor() {
   const [isMobile, setIsMobile] = useState(false)
   const [sourceTab, setSourceTab] = useState('html')
   const [showSourcePreview, setShowSourcePreview] = useState(false)
+  const [vttToken, setVttToken] = useState(null)
+  const [vttTokenError, setVttTokenError] = useState(null)
+  const [vttCopied, setVttCopied] = useState(false)
   const dirtyRef = useRef(false)
 
   const sourcePreviewDoc = useMemo(() => {
@@ -218,6 +221,24 @@ export default function ProfileEditor() {
 
   const handleSourceChange = (field, value) => {
     markDirty({ ...form, customCode: { ...(form.customCode || { enabled: false, html: '', css: '' }), [field]: value } })
+  }
+
+  const fetchVttToken = async () => {
+    setVttTokenError(null)
+    const result = await getVttToken()
+    if (result && result.ok) {
+      setVttToken(result.token)
+    } else {
+      setVttTokenError(result?.error || 'Failed to get token')
+    }
+  }
+
+  const copyVttToken = () => {
+    if (vttToken) {
+      navigator.clipboard.writeText(vttToken)
+      setVttCopied(true)
+      setTimeout(() => setVttCopied(false), 2000)
+    }
   }
 
   return (
@@ -607,6 +628,45 @@ export default function ProfileEditor() {
                 <span>Use custom code instead of widgets</span>
               </label>
             </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <h3 className="widget-title mb-2">🎮 VTT Game Server</h3>
+            <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: 12 }}>
+              Generate an identity token to connect to your local VTT game server.
+              This token proves who you are and your role (DM or player).
+            </p>
+            {!vttToken ? (
+              <button type="button" className="btn btn-sm" onClick={fetchVttToken}>
+                🔑 Generate Connection Token
+              </button>
+            ) : (
+              <div>
+                <div className="flex gap-1" style={{ alignItems: 'center', marginBottom: 8 }}>
+                  <code style={{
+                    flex: 1, padding: '8px 12px', background: '#1a1a1a',
+                    borderRadius: 4, fontSize: '0.72rem', wordBreak: 'break-all',
+                    border: '1px solid #333', color: '#6af',
+                  }}>
+                    {vttToken}
+                  </code>
+                  <button type="button" className="btn btn-sm" onClick={copyVttToken}>
+                    {vttCopied ? '✓ Copied' : '📋 Copy'}
+                  </button>
+                </div>
+                <p className="text-muted" style={{ fontSize: '0.75rem' }}>
+                  Token expires in 1 hour. Generate a new one when it expires.
+                </p>
+                <button type="button" className="btn btn-sm" onClick={() => { setVttToken(null); setVttTokenError(null) }}>
+                  🔄 New Token
+                </button>
+              </div>
+            )}
+            {vttTokenError && (
+              <p style={{ color: '#e74c3c', fontSize: '0.82rem', marginTop: 8 }}>
+                {vttTokenError}
+              </p>
+            )}
           </div>
 
           <div className="text-center mb-3 flex gap-1" style={{ justifyContent: 'center' }}>
