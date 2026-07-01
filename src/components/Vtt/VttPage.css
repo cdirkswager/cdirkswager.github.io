@@ -137,45 +137,270 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
-.vtt-toolbar {
+/* ── Cockpit toolbar ─────────────────────────────────────── */
+.vtt-cockpit-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
   background: #1a1a2e;
   border-bottom: 1px solid #333;
   min-height: 40px;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
-.vtt-presence {
-  color: #aaa;
-  font-size: 0.875rem;
-}
-
-.vtt-toolbar-actions {
+.vtt-tool-group {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
+}
+
+.vtt-tool-btn {
+  background: #2a2a4e;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.vtt-tool-btn:hover {
+  background: #3a3a5e;
+  color: #fff;
+}
+
+.vtt-tool-btn.active {
+  background: #6c63ff;
+  color: #fff;
+  border-color: #6c63ff;
+}
+
+.vtt-action-btn {
+  background: #333;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.vtt-action-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.vtt-action-btn.active {
+  background: #6c63ff;
+  color: #fff;
+  border-color: #6c63ff;
 }
 
 .vtt-disconnect-btn {
   background: #dc3545;
   color: #fff;
   border: none;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   cursor: pointer;
 }
 
 .vtt-leave-btn {
   background: #333;
-  color: #fff;
+  color: #aaa;
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  border: 1px solid #555;
+}
+
+.vtt-leave-btn:hover {
+  color: #fff;
+  background: #444;
+}
+
+/* ── Panels (overlay on canvas) ──────────────────────────── */
+.vtt-panels-container {
+  position: absolute;
+  top: 48px;
+  left: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100% - 56px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.vtt-panels-container > * {
+  pointer-events: auto;
+}
+
+.vtt-panel {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 12px;
+  width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.vtt-panel h4 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+
+/* ── Token panel ─────────────────────────────────────────── */
+.vtt-token-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #2a2a2a;
+  font-size: 0.82rem;
+}
+
+.vtt-token-name {
+  flex: 1;
+  color: #eee;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vtt-token-name:hover {
+  color: #6c63ff;
+}
+
+.vtt-token-pos {
+  color: #888;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.vtt-inline-input {
+  flex: 1;
+  padding: 2px 6px;
+  font-size: 0.82rem;
+}
+
+/* ── Lighting panel ──────────────────────────────────────── */
+.vtt-lighting-panel label {
+  display: block;
+  color: #ccc;
+  font-size: 0.82rem;
+  margin: 6px 0;
+}
+
+.vtt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.vtt-toggle input[type="checkbox"] {
+  accent-color: #6c63ff;
+}
+
+.vtt-range {
+  width: 100%;
+  margin: 4px 0;
+}
+
+/* ── Background panel ────────────────────────────────────── */
+.vtt-bg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vtt-file-input {
+  color: #ccc;
+  font-size: 0.82rem;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.vtt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.vtt-modal {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.vtt-modal h3 {
+  margin: 0 0 16px;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.vtt-modal label {
+  display: block;
+  color: #ccc;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.vtt-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+/* ── Presence display ────────────────────────────────────── */
+.vtt-presence-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #aaa;
+  font-size: 0.78rem;
+}
+
+.vtt-presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #28a745;
+  display: inline-block;
+}
+
+.vtt-presence-user {
+  color: #ccc;
+  padding: 2px 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  font-size: 0.75rem;
 }
 
 /* Canvas Mount */

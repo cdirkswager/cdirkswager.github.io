@@ -31,7 +31,7 @@ export {
 
 export async function createVttCanvas(mountEl, options = {}) {
   const renderer = new CanvasRenderer()
-  await renderer.init(mountEl, mountEl.parentElement)
+  await renderer.init(mountEl)
 
   const controller = new CanvasController(renderer)
   controller.enable()

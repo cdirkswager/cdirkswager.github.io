@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import VttCanvasMount from './VttCanvasMount'
+import VttCockpit from './VttCockpit'
 import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../../data/vtt.js'
 import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
+import { createSyncBridge } from './VttSyncBridge.js'
 import './VttPage.css'
 
 const FALLBACK_SERVER = 'localhost:3001'
@@ -13,11 +15,13 @@ export default function VttPage() {
   const [connectionState, setConnectionState] = useState('idle')
   const [connectionMessage, setConnectionMessage] = useState('')
   const [isDm, setIsDm] = useState(false)
+  const [connectedUsers, setConnectedUsers] = useState([])
+  const [canvas, setCanvas] = useState(null)
 
   const eventBusRef = useRef(null)
   const connectorRef = useRef(null)
-  const canvasRef = useRef(null)
   const connectionStateRef = useRef('idle')
+  const destroyBridgeRef = useRef(null)
 
   const session = currentUser()
   const dmCheck = session?.role === 'dm'
@@ -28,6 +32,8 @@ export default function VttPage() {
 
   useEffect(() => {
     return () => {
+      destroyBridgeRef.current?.()
+      destroyBridgeRef.current = null
       if (connectorRef.current) {
         connectorRef.current.disconnect()
       }
@@ -39,7 +45,6 @@ export default function VttPage() {
   }, [])
 
   const handleConnect = useCallback(async () => {
-    // Cancel any previous connection attempt to prevent double-token / stale reconnect loops
     if (connectorRef.current) {
       connectorRef.current.disconnect()
       connectorRef.current = null
@@ -74,7 +79,6 @@ export default function VttPage() {
       serverUrl: resolvedUrl,
     })
 
-    // Track state via ref to avoid stale closures in async flow
     connector.setOnStateChange(({ state, message }) => {
       connectionStateRef.current = state
       setConnectionState(state)
@@ -89,13 +93,17 @@ export default function VttPage() {
   }, [joinCode, serverUrl])
 
   const handleDisconnect = useCallback(() => {
+    destroyBridgeRef.current?.()
+    destroyBridgeRef.current = null
     if (connectorRef.current) {
       connectorRef.current.disconnect()
       connectorRef.current = null
     }
+    setCanvas(null)
     connectionStateRef.current = 'disconnected'
     setConnectionState('disconnected')
     setConnectionMessage('Disconnected')
+    setConnectedUsers([])
   }, [])
 
   const handleRegisterServer = useCallback(async () => {
@@ -114,9 +122,32 @@ export default function VttPage() {
     }
   }, [serverUrl])
 
-  const handleCanvasReady = useCallback((canvas) => {
-    canvasRef.current = canvas
+  const handleCanvasReady = useCallback((c) => {
+    setCanvas(c)
+    /* Wire up sync bridge — connects canvas ↔ EventBus ↔ spine */
+    if (eventBusRef.current) {
+      destroyBridgeRef.current?.()
+      destroyBridgeRef.current = createSyncBridge(c, eventBusRef.current)
+    }
   }, [])
+
+  const handleServerPresence = useCallback(() => {
+    /* Poll server for presence info */
+    fetch('/api/presence')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.users) setConnectedUsers(data.users)
+      })
+      .catch(() => {})
+  }, [])
+
+  /* Poll presence while connected */
+  useEffect(() => {
+    if (connectionState !== 'connected') return
+    const interval = setInterval(handleServerPresence, 5000)
+    handleServerPresence()
+    return () => clearInterval(interval)
+  }, [connectionState, handleServerPresence])
 
   const isConnected = connectionState === 'connected'
 
@@ -184,23 +215,15 @@ export default function VttPage() {
         </div>
       ) : (
         <div className="vtt-canvas-area">
-          <div className="vtt-toolbar">
-            <span className="vtt-presence">
-              {connectionState === 'connected' ? 'Connected' : connectionMessage || (connectionState !== 'idle' && connectionState !== 'disconnected' ? 'Connecting...' : '')}
-            </span>
-
-            <div className="vtt-toolbar-actions">
-              {connectionState !== 'connecting' && connectionState !== 'connected' && (
-                <button onClick={handleDisconnect} className="btn btn-sm vtt-disconnect-btn">
-                  Disconnect
-                </button>
-              )}
-              <a href="/" className="btn btn-sm vtt-leave-btn">
-                Leave VTT
-              </a>
-            </div>
-          </div>
-
+          <VttCockpit
+            canvas={canvas}
+            eventBus={eventBusRef.current}
+            scene={canvas?.scene}
+            isDm={isDm}
+            session={session}
+            connectedUsers={connectedUsers}
+            onDisconnect={handleDisconnect}
+          />
           <VttCanvasMount
             eventBus={eventBusRef.current}
             onReady={handleCanvasReady}
