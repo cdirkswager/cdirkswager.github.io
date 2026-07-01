@@ -116,6 +116,19 @@ export class CanvasController {
     this.refreshLighting()
   }
 
+  /** Set the viewpoint to all tokens owned by the current user.
+   *  For non-DM players this is called automatically after setup
+   *  and whenever owned tokens are created/deleted/updated. */
+  syncViewpointToOwnedTokens() {
+    if (this.isDm || !this.userId) return
+    const scene = this.renderer.currentScene
+    if (!scene) return
+    const ids = scene.tokens
+      .filter(t => t.userId === this.userId)
+      .map(t => t.id)
+    this.setViewpoint(ids)
+  }
+
   refreshLighting() {
     const t0 = perfStart()
     const overlay = this.renderer.lightingOverlay

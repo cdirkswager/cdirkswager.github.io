@@ -296,6 +296,24 @@
   white-space: nowrap;
 }
 
+.vtt-token-item.selected {
+  background: #2a2a3a;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+}
+
+.vtt-token-props h4 {
+  margin-top: 4px;
+}
+
+.vtt-token-prop-form label {
+  display: block;
+  color: #ccc;
+  font-size: 0.82rem;
+  margin: 6px 0;
+}
+
 .vtt-inline-input {
   flex: 1;
   padding: 2px 6px;
@@ -356,6 +374,8 @@
   padding: 24px;
   min-width: 320px;
   max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .vtt-modal h3 {

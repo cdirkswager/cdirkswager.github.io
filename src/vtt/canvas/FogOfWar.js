@@ -126,7 +126,7 @@ export class FogOfWar {
     const temp = new Container()
     const dark = new Graphics()
     dark.rect(0, 0, w, h)
-    dark.fill({ color: 0x000000, alpha: 0.85 })
+    dark.fill({ color: 0x000000, alpha: 0.95 })
     temp.addChild(dark)
 
     /* Blit the persistent hole Graphics on top (ERASE cuts through dark) */
@@ -162,7 +162,7 @@ export class FogOfWar {
       })
       if (pts.length < 6) continue
       this._holesGraphics.poly(pts)
-      this._holesGraphics.fill({ color: 0xffffff })
+      this._holesGraphics.fill({ color: 0xffffff, alpha: 1 })
     }
   }
 

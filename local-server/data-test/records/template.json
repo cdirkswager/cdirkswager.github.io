@@ -1,6 +1,6 @@
 [
   {
-    "id": "7b9fab54-bcd1-4b36-a03e-c5d488b9379b",
+    "id": "e12f8416-b6ce-497f-b8b7-12e6b32b372c",
     "type": "template",
     "shape": "circle",
     "x": 100,
@@ -9,11 +9,11 @@
     "owner": "alice-1",
     "label": "Fireball",
     "createdBy": "alice-1",
-    "updatedAt": 1782934429718,
-    "createdAt": 1782934429718
+    "updatedAt": 1782935128663,
+    "createdAt": 1782935128663
   },
   {
-    "id": "b91d2a8b-b9d6-42a6-a883-0189d0406d93",
+    "id": "404b9065-fc01-48b2-bd39-68ca4bc327ff",
     "type": "template",
     "shape": "cone",
     "x": 200,
@@ -23,11 +23,11 @@
     "range": 100,
     "owner": "gm-1",
     "createdBy": "dm-1",
-    "updatedAt": 1782934432725,
-    "createdAt": 1782934432725
+    "updatedAt": 1782935131683,
+    "createdAt": 1782935131683
   },
   {
-    "id": "ebb15ff1-b5b9-4e0a-8619-a18731735be3",
+    "id": "8d2c0d60-09e4-402c-8288-d0f4e8ec9949",
     "type": "template",
     "shape": "circle",
     "x": 10,
@@ -35,11 +35,11 @@
     "radius": 30,
     "owner": "alice-1",
     "createdBy": "alice-1",
-    "updatedAt": 1782934433247,
-    "createdAt": 1782934433247
+    "updatedAt": 1782935132257,
+    "createdAt": 1782935132257
   },
   {
-    "id": "8f53a3a1-474a-4b2c-a2d3-f00d530cd980",
+    "id": "185acd7d-3465-4931-b4f5-7ebb77c0daa3",
     "type": "template",
     "shape": "rectangle",
     "x": 0,
@@ -48,11 +48,11 @@
     "height": 50,
     "owner": "alice-1",
     "createdBy": "alice-1",
-    "updatedAt": 1782934433248,
-    "createdAt": 1782934433248
+    "updatedAt": 1782935132258,
+    "createdAt": 1782935132258
   },
   {
-    "id": "dd4e7606-4fb5-4c3e-b4e0-c6a624b24b70",
+    "id": "8dcd2bc9-20eb-4d45-b0dc-8c85808a6af9",
     "type": "template",
     "shape": "cone",
     "x": 0,
@@ -62,8 +62,8 @@
     "range": 200,
     "owner": "alice-1",
     "createdBy": "alice-1",
-    "updatedAt": 1782934433250,
-    "createdAt": 1782934433249,
+    "updatedAt": 1782935132261,
+    "createdAt": 1782935132260,
     "updatedBy": "dm-1"
   }
 ]

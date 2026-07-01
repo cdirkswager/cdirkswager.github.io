@@ -13,7 +13,7 @@
  */
 
 const RAY_STEP = Math.PI / 180 // 1 degree
-const MAX_VISION_RANGE = 5000
+const MAX_VISION_RANGE = 100000
 const MAX_LIGHT_RANGE = 3000
 const NEAR_CLIP = 1
 

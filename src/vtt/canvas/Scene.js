@@ -41,6 +41,13 @@ export class Scene {
     return this.tokens.find(t => t.id === id)
   }
 
+  updateToken(tokenId, changes) {
+    const t = this.getToken(tokenId)
+    if (!t) return null
+    Object.assign(t, changes)
+    return t
+  }
+
   addWall(wall) {
     this.walls.push(wall)
   }

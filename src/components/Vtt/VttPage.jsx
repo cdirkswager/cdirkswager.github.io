@@ -158,6 +158,8 @@ export default function VttPage() {
     if (c.controller) {
       c.controller.userId = session?.userId ?? null
       c.controller.isDm = session?.role === 'dm'
+      /* Non-DM players automatically see through all their owned tokens */
+      c.controller.syncViewpointToOwnedTokens()
     }
     /* Wire up sync bridge — connects canvas ↔ EventBus ↔ spine */
     if (eventBusRef.current) {

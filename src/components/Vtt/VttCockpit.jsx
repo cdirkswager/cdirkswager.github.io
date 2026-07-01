@@ -23,6 +23,12 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
   const [w, setW] = useState(100)
   const [h, setH] = useState(100)
   const [src, setSrc] = useState('')
+  const [visionEnabled, setVisionEnabled] = useState(false)
+  const [sightRange, setSightRange] = useState(300)
+  const [darkvisionRange, setDarkvisionRange] = useState(60)
+  const [lightRadius, setLightRadius] = useState(0)
+  const [lightColor, setLightColor] = useState('#ffeedd')
+  const [lightIntensity, setLightIntensity] = useState(1)
 
   const handleAdd = useCallback(() => {
     if (!canvas || !eventBus) return
@@ -38,10 +44,16 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
       height: h,
       src,
       userId,
+      visionEnabled,
+      sightRange,
+      darkvisionRange,
+      lightRadius,
+      lightColor: parseInt(lightColor.replace('#', ''), 16),
+      lightIntensity,
     })
     eventBus.emitRecord('token', 'created', token.toJSON())
     onClose()
-  }, [canvas, eventBus, name, w, h, src, onClose, userId])
+  }, [canvas, eventBus, name, w, h, src, onClose, userId, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
 
   return (
     <div className="vtt-modal-overlay" onClick={onClose}>
@@ -59,6 +71,37 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
         <label>Image URL (optional)
           <input value={src} onChange={e => setSrc(e.target.value)} className="vtt-input" placeholder="https://..." />
         </label>
+
+        <hr className="vtt-divider" />
+        <h4>Vision & Lighting</h4>
+        <label className="vtt-toggle">
+          <input type="checkbox" checked={visionEnabled} onChange={e => setVisionEnabled(e.target.checked)} />
+          Enable Vision
+        </label>
+        {visionEnabled && (
+          <>
+            <label>Sight Range (world units)
+              <input type="number" value={sightRange} onChange={e => setSightRange(Number(e.target.value))} className="vtt-input" min={0} />
+            </label>
+            <label>Darkvision Range
+              <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+            </label>
+          </>
+        )}
+        <label>Light Radius
+          <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
+        </label>
+        {lightRadius > 0 && (
+          <>
+            <label>Light Color
+              <input type="color" value={lightColor} onChange={e => setLightColor(e.target.value)} className="vtt-input" />
+            </label>
+            <label>Light Intensity
+              <input type="range" min="0" max="1" step="0.1" value={lightIntensity} onChange={e => setLightIntensity(Number(e.target.value))} className="vtt-range" />
+            </label>
+          </>
+        )}
+
         <div className="vtt-modal-actions">
           <button onClick={handleAdd} className="btn vtt-connect-btn">Add</button>
           <button onClick={onClose} className="btn btn-sm">Cancel</button>
@@ -68,19 +111,24 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
   )
 }
 
-/* ── Token list panel (DM) ─────────────────────────────────── */
-function TokenListPanel({ canvas, eventBus, scene, isDm }) {
+/* ── Token list + property editor panel (DM) ───────────────── */
+function TokenPanel({ canvas, eventBus, scene, isDm }) {
   const [tokens, setTokens] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
 
   useEffect(() => {
     if (!scene) return
     function refresh() { setTokens([...scene.tokens]) }
     refresh()
-    const off1 = eventBus?.on('token:created', refresh)
-    const off2 = eventBus?.on('token:updated', refresh)
-    const off3 = eventBus?.on('token:deleted', refresh)
-    return () => { off1?.(); off2?.(); off3?.() }
+    const offs = [
+      eventBus?.on('token:created', refresh),
+      eventBus?.on('token:updated', refresh),
+      eventBus?.on('token:deleted', refresh),
+    ]
+    return () => { offs.forEach(o => o?.()) }
   }, [scene, eventBus])
+
+  const sel = selectedId ? tokens.find(t => t.id === selectedId) : null
 
   const handleDelete = useCallback((id) => {
     if (!canvas || !eventBus || !scene) return
@@ -90,23 +138,137 @@ function TokenListPanel({ canvas, eventBus, scene, isDm }) {
       scene.removeToken(id)
     }
     eventBus.emitRecord('token', 'deleted', { id })
-  }, [canvas, eventBus, scene])
+    if (selectedId === id) setSelectedId(null)
+  }, [canvas, eventBus, scene, selectedId])
+
+  const handleSave = useCallback((changes) => {
+    if (!sel || !canvas || !eventBus || !scene) return
+    scene.updateToken(sel.id, changes)
+    canvas.renderer.loadScene(scene)
+    eventBus.emitRecord('token', 'updated', { id: sel.id, ...changes })
+    canvas.refreshLighting()
+  }, [sel, canvas, eventBus, scene])
 
   return (
     <div className="vtt-panel vtt-token-panel">
       <h4>Tokens ({tokens.length})</h4>
       <div className="vtt-token-list">
         {tokens.map(t => (
-          <div key={t.id} className="vtt-token-item">
+          <div
+            key={t.id}
+            className={`vtt-token-item ${t.id === selectedId ? 'selected' : ''}`}
+            onClick={() => setSelectedId(t.id)}
+          >
             <span className="vtt-token-name">{t.name}</span>
             <span className="vtt-token-pos">({Math.round(t.x)}, {Math.round(t.y)})</span>
             {isDm && (
-              <button onClick={() => handleDelete(t.id)} className="btn btn-sm vtt-disconnect-btn" title="Delete token">✕</button>
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(t.id) }} className="btn btn-sm vtt-disconnect-btn" title="Delete token">✕</button>
             )}
           </div>
         ))}
       </div>
+
+      {sel && (
+        <div className="vtt-token-props">
+          <hr className="vtt-divider" />
+          <h4>Properties — {sel.name}</h4>
+          <TokenPropEditor token={sel} onSave={handleSave} />
+        </div>
+      )}
     </div>
+  )
+}
+
+function TokenPropEditor({ token, onSave }) {
+  const [name, setName] = useState(token.name)
+  const [w, setW] = useState(token.width)
+  const [h, setH] = useState(token.height)
+  const [src, setSrc] = useState(token.src ?? '')
+  const [visionEnabled, setVisionEnabled] = useState(token.visionEnabled)
+  const [sightRange, setSightRange] = useState(token.sightRange)
+  const [darkvisionRange, setDarkvisionRange] = useState(token.darkvisionRange)
+  const [lightRadius, setLightRadius] = useState(token.lightRadius)
+  const [lightColor, setLightColor] = useState('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
+  const [lightIntensity, setLightIntensity] = useState(token.lightIntensity ?? 1)
+
+  useEffect(() => {
+    setName(token.name)
+    setW(token.width)
+    setH(token.height)
+    setSrc(token.src ?? '')
+    setVisionEnabled(token.visionEnabled)
+    setSightRange(token.sightRange)
+    setDarkvisionRange(token.darkvisionRange)
+    setLightRadius(token.lightRadius)
+    setLightColor('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
+    setLightIntensity(token.lightIntensity ?? 1)
+  }, [token])
+
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault()
+    onSave({
+      name,
+      width: w,
+      height: h,
+      src,
+      visionEnabled,
+      sightRange,
+      darkvisionRange,
+      lightRadius,
+      lightColor: parseInt(lightColor.replace('#', ''), 16),
+      lightIntensity,
+    })
+  }, [onSave, name, w, h, src, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
+
+  return (
+    <form onSubmit={handleSubmit} className="vtt-token-prop-form">
+      <label>Name
+        <input value={name} onChange={e => setName(e.target.value)} className="vtt-input" />
+      </label>
+      <label>Width
+        <input type="number" value={w} onChange={e => setW(Number(e.target.value))} className="vtt-input" min={20} />
+      </label>
+      <label>Height
+        <input type="number" value={h} onChange={e => setH(Number(e.target.value))} className="vtt-input" min={20} />
+      </label>
+      <label>Image URL
+        <input value={src} onChange={e => setSrc(e.target.value)} className="vtt-input" placeholder="https://..." />
+      </label>
+
+      <hr className="vtt-divider" />
+      <h4>Vision & Lighting</h4>
+      <label className="vtt-toggle">
+        <input type="checkbox" checked={visionEnabled} onChange={e => setVisionEnabled(e.target.checked)} />
+        Enable Vision
+      </label>
+      {visionEnabled && (
+        <>
+          <label>Sight Range
+            <input type="number" value={sightRange} onChange={e => setSightRange(Number(e.target.value))} className="vtt-input" min={0} />
+          </label>
+          <label>Darkvision Range
+            <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+          </label>
+        </>
+      )}
+      <label>Light Radius
+        <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
+      </label>
+      {lightRadius > 0 && (
+        <>
+          <label>Light Color
+            <input type="color" value={lightColor} onChange={e => setLightColor(e.target.value)} className="vtt-input" />
+          </label>
+          <label>Light Intensity
+            <input type="range" min="0" max="1" step="0.1" value={lightIntensity} onChange={e => setLightIntensity(Number(e.target.value))} className="vtt-range" />
+          </label>
+        </>
+      )}
+
+      <div className="vtt-modal-actions" style={{ marginTop: 8 }}>
+        <button type="submit" className="btn vtt-connect-btn">Save</button>
+      </div>
+    </form>
   )
 }
 
@@ -371,7 +533,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
 
       <div className="vtt-panels-container">
         {showTokenPanel && (
-          <TokenListPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} />
+          <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} />
         )}
         {showBgPanel && (
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />

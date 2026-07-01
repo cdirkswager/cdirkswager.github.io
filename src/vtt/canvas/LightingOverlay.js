@@ -22,7 +22,7 @@ export class LightingOverlay {
     this.container.eventMode = 'none'
     this._sprite = null
     this._rt = null
-    this._darknessAlpha = 0.65
+    this._darknessAlpha = 0.95
     this._ambientLight = 0
     this.visible = false
     /** When true, no darkness is applied — used for GM / view-all mode. */
@@ -91,7 +91,7 @@ export class LightingOverlay {
       })
       if (pts.length >= 6) {
         hole.poly(pts)
-        hole.fill({ color: 0xffffff })
+        hole.fill({ color: 0xffffff, alpha: 1 })
         hole.blendMode = 'erase'
         temp.addChild(hole)
       }

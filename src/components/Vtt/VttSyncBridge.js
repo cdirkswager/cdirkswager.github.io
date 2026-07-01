@@ -23,11 +23,13 @@ export function createSyncBridge(canvas, eventBus) {
     const token = new Token(data)
     canvas.addToken(token)
     controller.refreshLighting()
+    controller.syncViewpointToOwnedTokens()
   }))
 
   unsubs.push(eventBus.on('token:updated', (data) => {
     const token = scene.getToken(data.id)
     if (token) {
+      const prevUserId = token.userId
       token.name = data.name ?? token.name
       token.src = data.src ?? token.src
       token.x = data.x ?? token.x
@@ -44,6 +46,9 @@ export function createSyncBridge(canvas, eventBus) {
       token.lightColor = data.lightColor ?? token.lightColor
       token.lightIntensity = data.lightIntensity ?? token.lightIntensity
       renderer.updateTokenPosition(token.id, token.x, token.y)
+      if ('userId' in data && data.userId !== prevUserId) {
+        controller.syncViewpointToOwnedTokens()
+      }
     } else {
       canvas.addToken(new Token(data))
     }
@@ -52,6 +57,7 @@ export function createSyncBridge(canvas, eventBus) {
 
   unsubs.push(eventBus.on('token:deleted', (data) => {
     removeTokenFromCanvas(data.id)
+    controller.syncViewpointToOwnedTokens()
   }))
 
   unsubs.push(eventBus.on('wall:created', (data) => {
