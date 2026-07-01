@@ -149,7 +149,7 @@ export class CanvasController {
     }
 
     if (!this._viewpointTokenIds.length) {
-      overlay._clearLast()
+      overlay._clear()
       if (fog?.enabled) fog.update(bounds)
       this._lastVisionData = null
       perfEnd(t0, 'refreshLighting (no viewpoint)')
@@ -322,6 +322,7 @@ export class CanvasController {
       x: this.renderer.sceneContainer.x,
       y: this.renderer.sceneContainer.y,
     }
+    this._lightingDirty = true
     this.onSceneClicked?.(world.x, world.y)
   }
 
@@ -573,7 +574,7 @@ export class CanvasController {
   _onWheel = (e) => {
     e.preventDefault()
     this.renderer.zoom(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY)
-    this.refreshLighting()
+    /* World-space overlay automatically tracks zoom — no refresh needed */
   }
 
   _canInteractWithToken(token) {

@@ -81,10 +81,10 @@ export class CanvasRenderer {
     this.pingLayer = new PingLayer()
     this.sceneContainer.addChild(this.pingLayer.container)
 
-    /* Overlay renders above everything in screen space — NOT inside
-       sceneContainer, so darkness/vision/light stays fixed regardless
-       of pan/zoom. */
-    this.app.stage.addChild(this.overlayContainer)
+    /* Overlay renders on top of all scene content — moved INSIDE
+       sceneContainer so its world-space Graphics automatically tracks
+       pan/zoom without re-render. */
+    this.sceneContainer.addChild(this.overlayContainer)
     /* Fog layer renders below lighting overlay */
     this.overlayContainer.addChild(this.fogOfWar.container)
     this.overlayContainer.addChild(this.lightingOverlay.container)
@@ -190,7 +190,7 @@ export class CanvasRenderer {
   setLightingEnabled(enabled) {
     if (this.lightingOverlay) {
       this.lightingOverlay.enabled = enabled
-      if (!enabled) this.lightingOverlay._clearLast()
+      if (!enabled) this.lightingOverlay._clear()
     }
   }
 

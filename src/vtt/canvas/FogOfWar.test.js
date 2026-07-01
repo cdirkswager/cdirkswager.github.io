@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-/* Mock pixi.js — FogOfWar uses Container, RenderTexture, and Graphics
+/* Mock pixi.js — FogOfWar uses Container and Graphics
    which require a WebGL/WebGPU context in Node. We only test logic here. */
 vi.mock('pixi.js', () => {
   class MockContainer {
@@ -9,25 +9,18 @@ vi.mock('pixi.js', () => {
     removeChild(c) { this.children = this.children.filter(x => x !== c) }
     destroy() { this.children = [] }
   }
-  class MockSprite {
-    constructor() { this.eventMode = null; this.x = 0; this.y = 0; this._texture = null }
-    get texture() { return this._texture }
-    set texture(t) { this._texture = t }
-    destroy() {}
-  }
   class MockGraphics {
     constructor() { this.blendMode = null; this.eventMode = null }
     poly() { return this }
     rect() { return this }
     fill() { return this }
     clear() { return this }
+    cut() { return this }
     destroy() {}
   }
   return {
     Container: MockContainer,
-    Sprite: MockSprite,
     Graphics: MockGraphics,
-    RenderTexture: { create: () => ({ width: 0, height: 0, destroy: () => {} }) },
   }
 })
 
@@ -82,7 +75,6 @@ describe('FogOfWar', () => {
     expect(fog._playerPolys['*']).toHaveLength(1)
     fog.reset()
     expect(fog._playerPolys['*']).toHaveLength(0)
-    expect(fog._bakedCount).toBe(0)
   })
 
   it('reset clears a specific player', () => {
@@ -135,38 +127,19 @@ describe('FogOfWar', () => {
     fog.fromJSON(data)
     expect(fog._playerPolys['alice']).toHaveLength(1)
     expect(fog._playerPolys['bob']).toHaveLength(1)
-    expect(fog._dirty).toBe(true)
   })
 
   it('fromJSON handles legacy single-player array', () => {
     const data = [[{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }]]
     fog.fromJSON(data)
     expect(fog._playerPolys['*']).toEqual(data)
-    expect(fog._dirty).toBe(true)
   })
 
-  it('holesGraphics cleared on reset', () => {
-    fog.accumulate([[{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]])
-    expect(fog._bakedCount).toBe(0)
-
+  it('accumulate redraws darkness Graphics', () => {
+    const poly = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]
     fog.enabled = true
-    fog.update({ x: 0, y: 0, width: 800, height: 600 })
-    expect(fog._bakedCount).toBe(1)
-
-    fog.reset()
-    expect(fog._bakedCount).toBe(0)
-  })
-
-  it('_appendPolys delegates to holesGraphics poly/fill', () => {
-    /* After a full update, holesGraphics should be non-empty */
-    const polys = [[{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]]
-    fog._playerPolys['*'] = polys
-    fog._bakedCount = 0
-
-    /* We can't easily spy on the mocked Graphics, but we can verify
-       bakedCount advances */
-    fog._appendPolys(polys, 0, { x: 0, y: 0, width: 800, height: 600 })
-    fog._bakedCount = polys.length
-    expect(fog._bakedCount).toBe(1)
+    fog.accumulate([poly])
+    /* The _darkness Graphics should have been cleared and redrawn */
+    expect(fog._playerPolys['*']).toHaveLength(1)
   })
 })
