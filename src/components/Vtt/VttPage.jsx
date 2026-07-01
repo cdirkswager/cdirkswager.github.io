@@ -38,6 +38,12 @@ export default function VttPage() {
   }, [])
 
   const handleConnect = useCallback(async () => {
+    // Cancel any previous connection attempt to prevent double-token / stale reconnect loops
+    if (connectorRef.current) {
+      connectorRef.current.disconnect()
+      connectorRef.current = null
+    }
+
     let resolvedUrl = serverUrl || FALLBACK_SERVER
 
     if (joinCode.trim()) {

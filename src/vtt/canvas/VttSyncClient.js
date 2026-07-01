@@ -11,10 +11,30 @@ export class VttSyncClient {
     this._unsubs = []
   }
 
-  connect() {
+  async connect() {
     if (this._destroyed) return
-    const token = this.getToken()
-    console.log(`[VttSyncClient] connecting to ${this.url}, tokenLen=${token?.length ?? 0}`)
+
+    // Always fetch a fresh token immediately before connecting — never reuse stale tokens
+    let token
+    try {
+      const result = this.getToken()
+      token = await (result && typeof result.then === 'function' ? result : Promise.resolve(result))
+    } catch (e) {
+      console.error('[VttSyncClient] getToken() threw:', e.message)
+      setTimeout(() => this.connect(), 2000)
+      return
+    }
+
+    const tokenLen = token?.length ?? 0
+    console.log(`[VttSyncClient] connecting to ${this.url}, tokenLen=${tokenLen}`)
+
+    // Validate: a JWT must have exactly 3 dot-separated parts
+    if (token && token.split('.').length !== 3) {
+      console.error('[VttSyncClient] Invalid token format — expected 3 parts, got', token.split('.').length, '— aborting connect')
+      setTimeout(() => this.connect(), 2000)
+      return
+    }
+
     if (!token) {
       console.warn('[VttSyncClient] No token available, retrying in 2s')
       setTimeout(() => this.connect(), 2000)

@@ -49,13 +49,15 @@ export class VttConnector {
     try {
       // Import dynamically to avoid bundling in non-VTT paths
       const mod = await import('../vtt/canvas/VttSyncClient.js')
+
+      // Pass this.getToken through directly so VttSyncClient fetches a fresh token on every connect/reconnect
       this.syncClient = new mod.VttSyncClient({
         eventBus: this.eventBus,
-        getToken: () => token,
+        getToken: this.getToken,
         url: url,
       })
 
-      // Start the WebSocket connection
+      // Start the WebSocket connection — VttSyncClient calls getToken() fresh each time
       this.syncClient.connect()
 
       // Poll for connected state (VttSyncClient doesn't emit events)
