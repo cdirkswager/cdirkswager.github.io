@@ -129,6 +129,11 @@ describe('rayIntersectSegment', () => {
     const hit = rayIntersectSegment(0, 0, 100, 0, -50, -25, -50, 25)
     expect(hit).toBeNull()
   })
+
+  it('hit beyond ray endpoint (t > 1) returns null', () => {
+    const hit = rayIntersectSegment(0, 0, 100, 0, 200, -50, 200, 50)
+    expect(hit).toBeNull()
+  })
 })
 
 /* ───── polygonContainsPoint ──────────────────────────────────── */
@@ -198,6 +203,20 @@ describe('wall block rules', () => {
   it('wallBlocksLight: solid still blocks light', () => {
     expect(wallBlocksLight(w(0, 0, 1, 1, 'solid'))).toBe(true)
   })
+
+  /* ── Fail-safe: missing fields treated as blocking ──── */
+  it('wallBlocksVision: door with no doorState blocks (fail-safe)', () => {
+    expect(wallBlocksVision({ type: 'door' })).toBe(true)
+  })
+  it('wallBlocksVision: secret with no hidden blocks (fail-safe)', () => {
+    expect(wallBlocksVision({ type: 'secret' })).toBe(true)
+  })
+  it('wallBlocksLight: door with no doorState blocks (fail-safe)', () => {
+    expect(wallBlocksLight({ type: 'door' })).toBe(true)
+  })
+  it('wallBlocksLight: secret with no hidden blocks (fail-safe)', () => {
+    expect(wallBlocksLight({ type: 'secret' })).toBe(true)
+  })
 })
 
 /* ───── computeVisionPolygon ──────────────────────────────────── */
@@ -231,6 +250,25 @@ describe('computeVisionPolygon', () => {
     const blockedDist = Math.min(...poly.map(p => Math.hypot(p.x, p.y)))
     const openDist = Math.min(...noWall.map(p => Math.hypot(p.x, p.y)))
     expect(blockedDist).toBeLessThan(openDist)
+  })
+
+  it('solid wall to the west also blocks (leak-prone direction)', () => {
+    /* Wall at x=-80, directly west of token at origin.
+       This direction uses negative atan2 values — the angle range
+       that was previously un-normalized and could leak. */
+    const walls = [w(-80, -50, -80, 50)]
+    const poly = computeVisionPolygon(0, 0, 200, walls)
+    expect(poly).not.toBeNull()
+    /* At least one vertex lands on or near the wall plane (x ≈ -80) */
+    const nearWall = poly.filter(p => Math.abs(p.x + 80) < 2)
+    expect(nearWall.length).toBeGreaterThan(0)
+    /* The polygon is visibly blocked vs open area: min vertex distance
+       should be much smaller with the wall present. */
+    const noWall = computeVisionPolygon(0, 0, 200, [])
+    expect(noWall).not.toBeNull()
+    const blockedDist = Math.min(...poly.map(p => Math.hypot(p.x, p.y)))
+    const openDist = Math.min(...noWall.map(p => Math.hypot(p.x, p.y)))
+    expect(blockedDist).toBeLessThan(openDist * 0.6)
   })
 })
 

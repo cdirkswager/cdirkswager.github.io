@@ -68,10 +68,12 @@ export class LightingOverlay {
 
       for (const poly of allVisionPolys) {
         if (!poly || poly.length < 3) continue
-        this._darkness.cut()
         const pts = poly.flatMap(p => [p.x, p.y])
         this._darkness.poly(pts)
-        this._darkness.fill({ color: 0xffffff, alpha: 0 })
+      }
+      if (allVisionPolys.length > 0) {
+        this._darkness.cut()
+        this._darkness.fill()
       }
     }
 

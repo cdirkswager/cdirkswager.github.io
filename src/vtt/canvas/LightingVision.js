@@ -24,16 +24,16 @@ const SPATIAL_CELL = 200
 
 export function wallBlocksVision(wall) {
   if (wall.type === 'solid') return true
-  if (wall.type === 'door') return wall.doorState === 'closed'
-  if (wall.type === 'secret') return wall.hidden
+  if (wall.type === 'door') return wall.doorState !== 'open'
+  if (wall.type === 'secret') return wall.hidden !== false
   if (wall.type === 'terrain') return true
   return false
 }
 
 export function wallBlocksLight(wall) {
   if (wall.type === 'solid') return true
-  if (wall.type === 'door') return wall.doorState === 'closed'
-  if (wall.type === 'secret') return wall.hidden
+  if (wall.type === 'door') return wall.doorState !== 'open'
+  if (wall.type === 'secret') return wall.hidden !== false
   return false
 }
 
@@ -147,7 +147,7 @@ export function rayIntersectSegment(ox, oy, dx, dy, ax, ay, bx, by) {
   const t = ((ax - ox) * s2y - (ay - oy) * s2x) / denom
   const u = ((ax - ox) * s1y - (ay - oy) * s1x) / denom
 
-  if (t >= 0 && u >= 0 && u <= 1) {
+  if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
     return { x: ox + t * s1x, y: oy + t * s1y, t, u }
   }
   return null
@@ -159,24 +159,14 @@ function castRay(ox, oy, angle, range, walls, blockCheck) {
   const ex = ox + cos * range
   const ey = oy + sin * range
 
-  let closest = { x: ex, y: ey, t: range }
-  let hitWall = null
+  let closest = { x: ex, y: ey, t: 1 }
 
   for (const wall of walls) {
     if (!blockCheck(wall)) continue
     const hit = rayIntersectSegment(ox, oy, ex, ey, wall.x, wall.y, wall.x2, wall.y2)
     if (hit && hit.t < closest.t && hit.t * range > NEAR_CLIP) {
       closest = hit
-      hitWall = wall
     }
-  }
-
-  if (hitWall) {
-    const epsilon = 0.5
-    const cosPerp = -sin
-    const sinPerp = cos
-    closest.x += cosPerp * epsilon
-    closest.y += sinPerp * epsilon
   }
 
   return closest
@@ -187,6 +177,7 @@ function castRay(ox, oy, angle, range, walls, blockCheck) {
 function _buildAngleList(ox, oy, range, walls, blockCheck) {
   const wallAngles = new Set()
   const step = RAY_STEP
+  const twoPI = Math.PI * 2
 
   for (const wall of walls) {
     if (!blockCheck(wall)) continue
@@ -196,18 +187,18 @@ function _buildAngleList(ox, oy, range, walls, blockCheck) {
     if (segLen < 1) continue
     for (const [px, py] of [[wall.x, wall.y], [wall.x2, wall.y2]]) {
       const a = Math.atan2(py - oy, px - ox)
-      wallAngles.add(a)
+      wallAngles.add(((a % twoPI) + twoPI) % twoPI)
     }
   }
 
   const angles = []
-  for (let a = 0; a < Math.PI * 2; a += step) {
+  for (let a = 0; a < twoPI; a += step) {
     angles.push(a)
   }
   for (const wa of wallAngles) {
-    angles.push(wa - 0.001)
+    angles.push(((wa - 0.001) % twoPI + twoPI) % twoPI)
     angles.push(wa)
-    angles.push(wa + 0.001)
+    angles.push(((wa + 0.001) % twoPI + twoPI) % twoPI)
   }
   angles.sort((a, b) => a - b)
   return angles

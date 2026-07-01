@@ -109,7 +109,7 @@ export class Scene {
     const scene = new Scene(data)
     scene.tiles = (data.tiles ?? []).map(td => Object.assign(new Tile(), td))
     scene.tokens = (data.tokens ?? []).map(td => Object.assign(new Token(), td))
-    scene.walls = (data.walls ?? []).map(wd => Object.assign(new Wall(), wd))
+    scene.walls = (data.walls ?? []).map(wd => new Wall(wd))
     scene.templates = (data.templates ?? []).map(td => Object.assign(new Template(), td))
     return scene
   }

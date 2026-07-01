@@ -84,10 +84,12 @@ export class FogOfWar {
     if (store) {
       for (const poly of store) {
         if (poly.length < 3) continue
-        this._darkness.cut()
         const pts = poly.flatMap(p => [p.x, p.y])
         this._darkness.poly(pts)
-        this._darkness.fill({ color: 0xffffff, alpha: 0 })
+      }
+      if (store.length > 0) {
+        this._darkness.cut()
+        this._darkness.fill()
       }
     }
   }
