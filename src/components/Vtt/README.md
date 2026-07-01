@@ -16,7 +16,7 @@ npm install   # first time only
 node src/index.js
 ```
 
-By default it listens on `ws://localhost:3080`. The server will fetch its public key from the deployed site at startup (via `/api/auth/vtt-jwks`).
+By default it listens on `ws://localhost:3001`. The server will fetch its public key from the deployed site at startup (via `/api/auth/vtt-jwks`).
 
 ### 2. Open the VTT feature
 
@@ -25,7 +25,7 @@ Any logged-in user can navigate to `/vtt` on the deployed site. The existing log
 ### 3. Host a session (DM)
 
 1. DM starts the local server (step 1 above).
-2. DM navigates to `/vtt` and enters the server URL (e.g., `localhost:3080`).
+2. DM navigates to `/vtt` and enters the server URL (e.g., `localhost:3001`).
 3. DM clicks **"Register Server & Get Code"** — this creates a 6-character join code via the site's `/api/game/register` endpoint.
 4. DM shares the code with players.
 
@@ -65,7 +65,7 @@ Browser (logged-in user)
     ├─ GET /api/auth/vtt-token ─→ Cloudflare Worker → signed JWT
     ├─ GET /api/game/lookup/:code ─→ Cloudflare Worker → server URL
     │
-    └─ WebSocket ws://<server>:3080?token=<jwt>
+    └─ WebSocket ws://<server>:3001?token=<jwt>
             │
             ▼
     Local Server (Node.js, GM's machine)

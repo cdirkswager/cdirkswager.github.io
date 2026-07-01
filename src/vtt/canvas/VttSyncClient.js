@@ -14,6 +14,7 @@ export class VttSyncClient {
   connect() {
     if (this._destroyed) return
     const token = this.getToken()
+    console.log(`[VttSyncClient] connecting to ${this.url}, tokenLen=${token?.length ?? 0}`)
     if (!token) {
       console.warn('[VttSyncClient] No token available, retrying in 2s')
       setTimeout(() => this.connect(), 2000)

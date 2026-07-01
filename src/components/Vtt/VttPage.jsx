@@ -4,7 +4,7 @@ import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../
 import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
 
-const FALLBACK_SERVER = 'localhost:3080'
+const FALLBACK_SERVER = 'localhost:3001'
 
 export default function VttPage() {
   const [joinCode, setJoinCode] = useState('')

@@ -1,7 +1,7 @@
 import { getVttToken } from './auth'
 import api, { get, post } from './api'
 
-const DEFAULT_SERVER_URL = 'ws://localhost:3080'
+const DEFAULT_SERVER_URL = 'ws://localhost:3001'
 
 export async function getVttGameToken() {
   const data = await post('/auth/vtt-token')
@@ -45,7 +45,6 @@ export class VttConnector {
     if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
       url = 'ws://' + url
     }
-    const wsUrl = `${url}?token=${token}`
 
     try {
       // Import dynamically to avoid bundling in non-VTT paths
@@ -53,7 +52,7 @@ export class VttConnector {
       this.syncClient = new mod.VttSyncClient({
         eventBus: this.eventBus,
         getToken: () => token,
-        url: wsUrl,
+        url: url,
       })
 
       // Start the WebSocket connection

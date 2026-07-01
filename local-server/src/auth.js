@@ -7,6 +7,7 @@ export function createAuthVerifier(config) {
   function loadPublicKey() {
     if (config.publicKeyPath && existsSync(config.publicKeyPath)) {
       publicKey = readFileSync(config.publicKeyPath, 'utf-8')
+      console.log('[auth] Public key loaded from local file:', config.publicKeyPath)
       return true
     }
     return false
@@ -14,7 +15,10 @@ export function createAuthVerifier(config) {
 
   async function fetchPublicKeyFromSite() {
     try {
-      const res = await fetch(`${config.siteBaseUrl}/api/auth/vtt-jwks`)
+      const jwksUrl = `${config.siteBaseUrl}/api/auth/vtt-jwks`
+      console.log('[auth] Fetching JWKS from:', jwksUrl)
+      const res = await fetch(jwksUrl)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (data?.keys?.[0]) {
         const key = data.keys[0]
@@ -22,6 +26,7 @@ export function createAuthVerifier(config) {
           key: { kty: 'RSA', n: key.n, e: key.e },
           format: 'jwk',
         })
+        console.log('[auth] Public key loaded from live JWKS (kid:', key.kid || '?', ')')
         return true
       }
     } catch (e) {
@@ -31,7 +36,7 @@ export function createAuthVerifier(config) {
   }
 
   async function init() {
-    console.log('[auth] Fetching public key from site...')
+    console.log('[auth] Initializing with siteBaseUrl:', config.siteBaseUrl)
     const fetched = await fetchPublicKeyFromSite()
     if (!fetched) {
       console.log('[auth] Could not fetch from site, falling back to local key file...')

@@ -9,8 +9,11 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     const url = new URL(req.url, 'http://localhost')
     const token = url.searchParams.get('token')
 
+    console.log(`[WS] inbound connection, token present: ${!!token}, tokenLen: ${token?.length ?? 0}`)
+
     const identity = authVerifier.verifyToken(token)
     if (!identity) {
+      console.error('[auth] Token verification FAILED — key mismatch or expired')
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid or expired token' }))
       ws.close()
       return
