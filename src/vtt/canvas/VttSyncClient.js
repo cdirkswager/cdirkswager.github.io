@@ -16,6 +16,7 @@ export class VttSyncClient {
     this._reconnectAttempts = 0
     this._maxReconnectAttempts = 30
     this._maxReconnectDelay = 30000
+    this._initRecords = null
   }
 
   async connect() {
@@ -55,6 +56,7 @@ export class VttSyncClient {
     }
 
     this.ws = new WebSocket(`${this.url}?token=${token}`)
+    this._subscribe()
     this.ws.onopen = () => {
       console.log('[VttSyncClient] Transport open — waiting for auth')
     }
@@ -113,6 +115,22 @@ export class VttSyncClient {
     this._unsubs.push(
       this.eventBus.on('ephemeral', (e) => this._onEphemeral(e))
     )
+    this._unsubs.push(
+      this.eventBus.on('sync-bridge:ready', () => this.replayInitRecords())
+    )
+  }
+
+  replayInitRecords() {
+    if (!this._initRecords) return
+    const records = this._initRecords
+    this._initRecords = null
+    this._sending = true
+    for (const [type, recs] of Object.entries(records)) {
+      for (const record of recs) {
+        this.eventBus.emitRecord(type, 'created', record)
+      }
+    }
+    this._sending = false
   }
 
   _unsubscribe() {
@@ -128,13 +146,8 @@ export class VttSyncClient {
         this._reconnectAttempts = 0
         this._authFailed = false
 
-        this._sending = true
-        for (const [type, records] of Object.entries(msg.recordsByType || {})) {
-          for (const record of records) {
-            this.eventBus.emitRecord(type, 'created', record)
-          }
-        }
-        this._sending = false
+        // Store records for replay; the sync bridge may not be ready yet
+        this._initRecords = msg.recordsByType || {}
 
         if (this.onAuthenticated) this.onAuthenticated()
         break
@@ -202,7 +215,7 @@ export class VttSyncClient {
     this._destroyed = true
     this._authFailed = false
     this._authenticated = false
-    this._unsubs = []
+    this._unsubscribe()
     this._cleanupWs()
   }
 }

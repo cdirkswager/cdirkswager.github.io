@@ -141,6 +141,9 @@ export function createSyncBridge(canvas, eventBus) {
     eventBus.emitRecord('wall', 'updated', { id: wall.id, doorState: newState })
   }
 
+  /* Signal the sync client that the bridge is ready for init record replay */
+  eventBus.emit('sync-bridge:ready', {})
+
   return function destroySyncBridge() {
     controller.onTokenDragEnd = null
     controller.onWallCreated = null

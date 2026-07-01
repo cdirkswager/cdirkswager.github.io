@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html><body>
+<script type="importmap">
+{
+  "imports": {
+    "pixi.js": "../../node_modules/pixi.js/lib/pixi.min.js"
+  }
+}
+</script>
+<script type="module">
+try {
+  const { CanvasRenderer } = await import('../../src/vtt/canvas/CanvasRenderer.js')
+  const { Scene } = await import('../../src/vtt/canvas/Scene.js')
+  const { Token } = await import('../../src/vtt/canvas/Token.js')
+  console.log('All modules loaded successfully')
+  console.log('CanvasRenderer:', typeof CanvasRenderer)
+  console.log('Scene:', typeof Scene)
+  console.log('Token:', typeof Token)
+} catch (e) {
+  console.error('Module load error:', e)
+}
+</script>
+</body></html>
