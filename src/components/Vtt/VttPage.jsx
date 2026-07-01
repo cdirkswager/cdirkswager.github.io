@@ -3,6 +3,7 @@ import VttCanvasMount from './VttCanvasMount'
 import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../../data/vtt.js'
 import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
+import './VttPage.css'
 
 const FALLBACK_SERVER = 'localhost:3001'
 

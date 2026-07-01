@@ -33,6 +33,14 @@ export default function VttCanvasMount({ eventBus, onReady }) {
         if (onReady) {
           onReady(canvas)
         }
+
+        // Force resize after mount — flex layout may not have settled when init() ran,
+        // so the ResizeObserver might fire with stale/near-zero dimensions.
+        requestAnimationFrame(() => {
+          if (!destroyed && canvasRef.current?.renderer) {
+            canvasRef.current.renderer.resize()
+          }
+        })
       } catch (e) {
         if (!destroyed) {
           setError(e.message || 'Failed to initialize canvas')
