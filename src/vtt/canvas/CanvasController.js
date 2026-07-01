@@ -32,6 +32,9 @@ export class CanvasController {
     this._templateDragOffset = { x: 0, y: 0 }
     this._templateDragHandle = null  /* 'move', 'resize', or null */
 
+    /* Token hover feedback */
+    this._hoveredTokenId = null
+
     /** When true, the lighting overlay is bypassed (GM sees all). */
     this.viewAll = false
     /** Current scene ambient light factor 0-1. */
@@ -40,6 +43,10 @@ export class CanvasController {
     this._lastVisionData = null
     /** Spatial index over walls, rebuilt on wall change. */
     this._spatialIndex = new WallSpatialIndex()
+
+    /* Permission — set by the host after construction */
+    this.userId = null
+    this.isDm = false
 
     this.onTokenMoved = null
     this.onTokenClicked = null
@@ -327,6 +334,10 @@ export class CanvasController {
       return
     }
 
+    if (this.tool === TOOLS.TOKEN && !this._dragTarget) {
+      this._updateTokenHover(world)
+    }
+
     if (this._dragTarget) {
       let nx = world.x - this._dragOffset.x
       let ny = world.y - this._dragOffset.y
@@ -544,11 +555,18 @@ export class CanvasController {
     this.refreshLighting()
   }
 
+  _canInteractWithToken(token) {
+    if (this.isDm) return true
+    if (!this.userId) return false
+    return token.userId === this.userId
+  }
+
   _hitTestToken(wx, wy) {
     const entries = []
     for (const [key, entry] of this.renderer.spriteMap) {
       if (!key.startsWith('token-')) continue
       const t = entry.data
+      if (!this._canInteractWithToken(t)) continue
       if (wx >= t.x && wx <= t.x + t.width && wy >= t.y && wy <= t.y + t.height) {
         entries.push(entry)
       }
@@ -556,6 +574,40 @@ export class CanvasController {
     if (entries.length === 0) return null
     entries.sort((a, b) => a.data.zIndex ?? 0 - (b.data.zIndex ?? 0))
     return entries[entries.length - 1]
+  }
+
+  _setTokenOutline(entry, { width, color, alpha }) {
+    const t = entry.data
+    entry.outline.clear()
+    entry.outline.rect(0, 0, t.width, t.height)
+    entry.outline.fill({ color: 0x00aaff, alpha: 0 })
+    entry.outline.setStrokeStyle({ width, color, alpha })
+    entry.outline.stroke()
+  }
+
+  _updateTokenHover(world) {
+    const tokenEntry = this._hitTestToken(world.x, world.y)
+    const hoveredId = tokenEntry ? tokenEntry.data.id : null
+
+    if (hoveredId === this._hoveredTokenId) return
+
+    /* Un-highlight previous */
+    if (this._hoveredTokenId) {
+      const prev = this.renderer.spriteMap.get(`token-${this._hoveredTokenId}`)
+      if (prev) {
+        this._setTokenOutline(prev, { width: 2, color: 0xffffff, alpha: 0.5 })
+      }
+    }
+
+    /* Highlight new */
+    if (tokenEntry) {
+      this._setTokenOutline(tokenEntry, { width: 3, color: 0xffcc00, alpha: 1 })
+      this.renderer.app.canvas.style.cursor = 'pointer'
+    } else {
+      this.renderer.app.canvas.style.cursor = this.tool === TOOLS.WALL_DRAW ? 'crosshair' : 'default'
+    }
+
+    this._hoveredTokenId = hoveredId
   }
 
   deleteSelectedWall() {

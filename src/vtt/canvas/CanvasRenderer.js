@@ -1,4 +1,4 @@
-import { Application, Container, Sprite, Graphics, Texture } from 'pixi.js'
+import { Application, Container, Sprite, Graphics, Texture, Rectangle } from 'pixi.js'
 import { Grid } from './Grid.js'
 import { WallLayer } from './WallLayer.js'
 import { LightingOverlay } from './LightingOverlay.js'
@@ -226,7 +226,7 @@ export class CanvasRenderer {
     wrapper.y = token.y
     wrapper.eventMode = 'static'
     wrapper.cursor = token.locked ? 'default' : 'grab'
-    wrapper.hitArea = sprite.getBounds()
+    wrapper.hitArea = new Rectangle(0, 0, token.width, token.height)
 
     this.tokenContainer.addChild(wrapper)
     this.spriteMap.set(`token-${token.id}`, { type: 'token', data: token, sprite, wrapper, outline })
@@ -242,7 +242,6 @@ export class CanvasRenderer {
   }
 
   addToken(token) {
-    this.currentScene?.addToken(token)
     this._addTokenSprite(token)
   }
 
@@ -253,7 +252,6 @@ export class CanvasRenderer {
       entry.wrapper.destroy({ children: true })
       this.spriteMap.delete(`token-${tokenId}`)
     }
-    this.currentScene?.removeToken(tokenId)
   }
 
   updateTokenPosition(tokenId, x, y) {

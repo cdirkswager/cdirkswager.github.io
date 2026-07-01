@@ -18,7 +18,7 @@ function ToolBtn({ label, tool, activeTool, dmOnly, isDm, onSelect }) {
 }
 
 /* ── Add Token modal ───────────────────────────────────────── */
-function AddTokenModal({ canvas, eventBus, onClose }) {
+function AddTokenModal({ canvas, eventBus, onClose, userId }) {
   const [name, setName] = useState('New Token')
   const [w, setW] = useState(100)
   const [h, setH] = useState(100)
@@ -37,10 +37,11 @@ function AddTokenModal({ canvas, eventBus, onClose }) {
       width: w,
       height: h,
       src,
+      userId,
     })
     eventBus.emitRecord('token', 'created', token.toJSON())
     onClose()
-  }, [canvas, eventBus, name, w, h, src, onClose])
+  }, [canvas, eventBus, name, w, h, src, onClose, userId])
 
   return (
     <div className="vtt-modal-overlay" onClick={onClose}>
@@ -320,7 +321,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       </div>
 
       {showAddToken && (
-        <AddTokenModal canvas={canvas} eventBus={eventBus} onClose={() => setShowAddToken(false)} />
+        <AddTokenModal canvas={canvas} eventBus={eventBus} onClose={() => setShowAddToken(false)} userId={session?.userId} />
       )}
     </>
   )

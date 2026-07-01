@@ -154,12 +154,17 @@ export default function VttPage() {
 
   const handleCanvasReady = useCallback((c) => {
     setCanvas(c)
+    /* Set permission context on canvas controller */
+    if (c.controller) {
+      c.controller.userId = session?.userId ?? null
+      c.controller.isDm = session?.role === 'dm'
+    }
     /* Wire up sync bridge — connects canvas ↔ EventBus ↔ spine */
     if (eventBusRef.current) {
       destroyBridgeRef.current?.()
       destroyBridgeRef.current = createSyncBridge(c, eventBusRef.current)
     }
-  }, [])
+  }, [session])
 
   const handleServerPresence = useCallback(() => {
     /* Poll server for presence info */
