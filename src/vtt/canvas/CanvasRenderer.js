@@ -36,6 +36,17 @@ export class CanvasRenderer {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     })
+
+    /* Style the canvas so it fills its container without affecting layout.
+       This prevents the canvas from pushing mountEl larger (which would
+       cause a ResizeObserver feedback loop). */
+    this.app.canvas.style.position = 'absolute'
+    this.app.canvas.style.top = '0'
+    this.app.canvas.style.left = '0'
+    this.app.canvas.style.width = '100%'
+    this.app.canvas.style.height = '100%'
+    this.app.canvas.style.display = 'block'
+
     mountEl.appendChild(this.app.canvas)
 
     this.sceneContainer = new Container()
@@ -77,15 +88,38 @@ export class CanvasRenderer {
     this.overlayContainer.addChild(this.fogOfWar.container)
     this.overlayContainer.addChild(this.lightingOverlay.container)
 
-    this._setupResize(mountEl)
+    this._setupResize(mountEl, mountEl.parentElement)
   }
 
-  _setupResize(mountEl) {
+  _setupResize(mountEl, parentEl) {
+    /* Observe the PARENT container, not mountEl itself.
+       Resizing the canvas inside mountEl must never change what we observe —
+       that is the root cause of the infinite grow loop. */
+    const target = parentEl || mountEl
+
+    this._pendingResize = false
+    this._lastWidth = -1
+    this._lastHeight = -1
+
     this._resizeObserver = new ResizeObserver(() => {
       if (!this.app?.renderer) return
-      this.app.renderer.resize(mountEl.clientWidth, mountEl.clientHeight)
+      /* Debounce: coalesce multiple fires into one rAF tick */
+      if (this._pendingResize) return
+      this._pendingResize = true
+      requestAnimationFrame(() => {
+        this._pendingResize = false
+        const w = Math.round(target.clientWidth)
+        const h = Math.round(target.clientHeight)
+        /* Ignore zero/degenerate sizes */
+        if (w < 1 || h < 1) return
+        /* Only resize when integer dimensions actually changed */
+        if (w === this._lastWidth && h === this._lastHeight) return
+        this._lastWidth = w
+        this._lastHeight = h
+        this.app.renderer.resize(w, h)
+      })
     })
-    this._resizeObserver.observe(mountEl)
+    this._resizeObserver.observe(target)
   }
 
   loadScene(scene) {
@@ -272,8 +306,14 @@ export class CanvasRenderer {
   }
 
   resize() {
-    if (this.app) {
-      this.app.renderer.resize(this.app.canvas.parentElement.clientWidth, this.app.canvas.parentElement.clientHeight)
+    if (!this.app || !this._resizeObserver) return
+    /* Invalidate the cached size so the next rAF tick will actually resize */
+    this._lastWidth = -1
+    this._lastHeight = -1
+    const w = Math.round(this.app.canvas.parentElement.clientWidth)
+    const h = Math.round(this.app.canvas.parentElement.clientHeight)
+    if (w > 0 && h > 0) {
+      this.app.renderer.resize(w, h)
     }
   }
 
