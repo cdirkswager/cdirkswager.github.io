@@ -4,13 +4,15 @@ import { Wall } from './Wall.js'
 import { Template } from './Template.js'
 
 export class Scene {
-  constructor({ id, name, width, height, gridType, gridSize, backgroundColor, ambientLight } = {}) {
+  constructor({ id, name, width, height, gridType, gridSize, gridUnit, gridUnitLabel, backgroundColor, ambientLight } = {}) {
     this.id = id ?? crypto.randomUUID()
     this.name = name ?? 'New Scene'
     this.width = width ?? 4000
     this.height = height ?? 3000
     this.gridType = gridType ?? 'square'
     this.gridSize = gridSize ?? 100
+    this.gridUnit = gridUnit ?? 5
+    this.gridUnitLabel = gridUnitLabel ?? 'ft'
     this.backgroundColor = backgroundColor ?? '#2a2a2a'
     this.ambientLight = ambientLight ?? 0
     this.tiles = []
@@ -85,6 +87,8 @@ export class Scene {
       height: this.height,
       gridType: this.gridType,
       gridSize: this.gridSize,
+      gridUnit: this.gridUnit,
+      gridUnitLabel: this.gridUnitLabel,
       backgroundColor: this.backgroundColor,
       ambientLight: this.ambientLight,
       tiles: this.tiles.map(t => t.toJSON()),

@@ -22,6 +22,7 @@ export class CanvasRenderer {
     this.pingLayer = null
     this.currentScene = null
     this.spriteMap = new Map()
+    this._vpIndicator = null
     this.onTokenDragStart = null
     this.onTokenDragEnd = null
   }
@@ -142,8 +143,11 @@ export class CanvasRenderer {
       this._addTokenSprite(token)
     }
 
+    /* Re-add ruler container (cleared by _clearContainers) */
+    this.gizmoContainer.addChild(this.rulerLayer.container)
+
     /* Update ruler grid info */
-    this.rulerLayer.setGrid(scene.gridSize, scene.gridType)
+    this.rulerLayer.setGrid(scene.gridSize, scene.gridType, scene.gridUnit, scene.gridUnitLabel)
   }
 
   redrawWalls() {
@@ -167,6 +171,7 @@ export class CanvasRenderer {
     this.spriteMap.clear()
     this._currentGrid?.destroy()
     this._currentGrid = null
+    this._vpIndicator = null
   }
 
   getViewBounds() {
@@ -311,6 +316,32 @@ export class CanvasRenderer {
     if (w > 0 && h > 0) {
       this.app.renderer.resize(w, h)
     }
+  }
+
+  setViewpointToken(tokenId) {
+    /* Remove old indicator */
+    if (this._vpIndicator) {
+      this.gizmoContainer.removeChild(this._vpIndicator)
+      this._vpIndicator.destroy()
+      this._vpIndicator = null
+    }
+
+    if (!tokenId) return
+
+    const entry = this.spriteMap.get(`token-${tokenId}`)
+    if (!entry) return
+
+    const g = new Graphics()
+    g.setStrokeStyle({ width: 2, color: 0x00ffcc, alpha: 1 })
+    g.roundRect(-4, -4, entry.data.width + 8, entry.data.height + 8, 4)
+    g.stroke()
+    g.setStrokeStyle({ width: 1, color: 0xffffff, alpha: 0.6 })
+    g.roundRect(-2, -2, entry.data.width + 4, entry.data.height + 4, 2)
+    g.stroke()
+    g.eventMode = 'none'
+
+    entry.wrapper.addChild(g)
+    this._vpIndicator = g
   }
 
   destroy() {

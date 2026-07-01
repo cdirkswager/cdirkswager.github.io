@@ -15,7 +15,7 @@ import { measure } from './DistanceRules.js'
  *   The ruler uses type 'ruler-update' and 'ruler-clear'.
  */
 export class RulerLayer {
-  constructor(gridSize = 100, gridType = 'square') {
+  constructor(gridSize = 100, gridType = 'square', gridUnit = 5, gridUnitLabel = 'ft') {
     this.container = new Container()
     this.container.eventMode = 'none'
     this.container.visible = false
@@ -27,6 +27,8 @@ export class RulerLayer {
     this._waypoints = []
     this._gridSize = gridSize
     this._gridType = gridType
+    this._gridUnit = gridUnit
+    this._gridUnitLabel = gridUnitLabel
     this._eventBus = null
   }
 
@@ -35,9 +37,11 @@ export class RulerLayer {
     this._eventBus = bus
   }
 
-  setGrid(gridSize, gridType) {
+  setGrid(gridSize, gridType, gridUnit, gridUnitLabel) {
     this._gridSize = gridSize
     this._gridType = gridType
+    if (gridUnit !== undefined) this._gridUnit = gridUnit
+    if (gridUnitLabel !== undefined) this._gridUnitLabel = gridUnitLabel
   }
 
   /** Start a new ruler at (wx, wy). */
@@ -114,8 +118,9 @@ export class RulerLayer {
       const cells = measure(a.x, a.y, b.x, b.y, this._gridSize, this._gridType)
       totalCells += cells
 
+      const dist = cells * this._gridUnit
       const label = new Text({
-        text: `${cells.toFixed(1)} cells\n(${Math.round(cells * this._gridSize)} px)`,
+        text: `${dist.toFixed(1)} ${this._gridUnitLabel}`,
         style: {
           fontSize: 12,
           fill: 0xffdd44,
@@ -134,8 +139,9 @@ export class RulerLayer {
     /* Total label at the end */
     if (this._waypoints.length >= 2) {
       const last = this._waypoints[this._waypoints.length - 1]
+      const totalDist = totalCells * this._gridUnit
       const total = new Text({
-        text: `Total: ${totalCells.toFixed(1)} cells\n(${Math.round(totalCells * this._gridSize)} px)`,
+        text: `Total: ${totalDist.toFixed(1)} ${this._gridUnitLabel}`,
         style: {
           fontSize: 13,
           fill: 0xffffff,
@@ -159,6 +165,8 @@ export class RulerLayer {
       waypoints: this._waypoints.map(wp => ({ x: wp.x, y: wp.y })),
       gridSize: this._gridSize,
       gridType: this._gridType,
+      gridUnit: this._gridUnit,
+      gridUnitLabel: this._gridUnitLabel,
     })
   }
 

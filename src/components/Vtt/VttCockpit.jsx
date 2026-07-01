@@ -160,13 +160,30 @@ function BackgroundPanel({ canvas, eventBus, scene }) {
 }
 
 /* ── Lighting / Vision panel (DM) ──────────────────────────── */
-function LightingPanel({ canvas, isDm }) {
+function LightingPanel({ canvas, isDm, eventBus }) {
   if (!isDm || !canvas) return null
   const [lighting, setLighting] = useState(false)
   const [fog, setFog] = useState(false)
   const [viewAll, setViewAll] = useState(false)
   const [ambient, setAmbient] = useState(0)
-  const [viewpointId, setViewpointId] = useState('')
+  const [viewpointId, setViewpointId] = useState(canvas.controller?._viewpointTokenIds?.[0] ?? '')
+  const [tokens, setTokens] = useState(canvas.scene ? [...canvas.scene.tokens] : [])
+  const [gridUnit, setGridUnit] = useState(canvas.scene?.gridUnit ?? 5)
+  const [gridUnitLabel, setGridUnitLabel] = useState(canvas.scene?.gridUnitLabel ?? 'ft')
+
+  /* Sync token list with scene changes */
+  useEffect(() => {
+    if (!canvas?.scene) return
+    function refresh() { setTokens([...canvas.scene.tokens]) }
+    refresh()
+    const unsubs = []
+    if (eventBus) {
+      unsubs.push(eventBus.on('token:created', refresh))
+      unsubs.push(eventBus.on('token:updated', refresh))
+      unsubs.push(eventBus.on('token:deleted', refresh))
+    }
+    return () => { unsubs.forEach(u => u?.()) }
+  }, [canvas, eventBus])
 
   const handleToggleLighting = useCallback(() => {
     const next = !lighting
@@ -201,14 +218,34 @@ function LightingPanel({ canvas, isDm }) {
     canvas.refreshLighting()
   }, [canvas])
 
-  const handleSetViewpoint = useCallback(() => {
-    if (viewpointId.trim()) {
-      canvas.setViewpoint(viewpointId.trim())
+  const handleViewpointSelect = useCallback((e) => {
+    const id = e.target.value
+    setViewpointId(id)
+    if (id) {
+      canvas.setViewpoint(id)
     } else {
       canvas.controller.setViewpoint([])
       canvas.refreshLighting()
     }
-  }, [canvas, viewpointId])
+  }, [canvas])
+
+  const handleGridUnitChange = useCallback((e) => {
+    const val = Number(e.target.value)
+    setGridUnit(val)
+    if (canvas?.scene) {
+      canvas.scene.gridUnit = val
+      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, val, canvas.scene.gridUnitLabel)
+    }
+  }, [canvas])
+
+  const handleGridUnitLabelChange = useCallback((e) => {
+    const val = e.target.value
+    setGridUnitLabel(val)
+    if (canvas?.scene) {
+      canvas.scene.gridUnitLabel = val
+      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, canvas.scene.gridUnit, val)
+    }
+  }, [canvas])
 
   return (
     <div className="vtt-panel vtt-lighting-panel">
@@ -229,10 +266,34 @@ function LightingPanel({ canvas, isDm }) {
       <label>Ambient Light (0-1)
         <input type="range" min="0" max="1" step="0.05" value={ambient} onChange={handleSetAmbient} className="vtt-range" />
       </label>
-      <label>Viewpoint Token ID
-        <input value={viewpointId} onChange={e => setViewpointId(e.target.value)} className="vtt-input" placeholder="Paste token ID" />
+
+      <hr className="vtt-divider" />
+
+      <h4>Grid & Ruler</h4>
+      <label>Unit per grid cell
+        <input type="number" min="0.1" step="1" value={gridUnit} onChange={handleGridUnitChange} className="vtt-input" />
       </label>
-      <button onClick={handleSetViewpoint} className="btn btn-sm">Set Viewpoint</button>
+      <label>Unit label
+        <input type="text" value={gridUnitLabel} onChange={handleGridUnitLabelChange} className="vtt-input" placeholder="e.g. ft, m" />
+      </label>
+
+      <hr className="vtt-divider" />
+
+      <h4>Viewpoint</h4>
+      <p className="vtt-hint">Choose which token the scene is viewed from. Dynamic lighting uses this token's position and vision range.</p>
+      <label>
+        <select value={viewpointId} onChange={handleViewpointSelect} className="vtt-input">
+          <option value="">— None (no viewpoint) —</option>
+          {tokens.map(t => (
+            <option key={t.id} value={t.id}>
+              {t.name}{t.userId ? '' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      {viewpointId && (
+        <p className="vtt-viewpoint-info">Viewing from a token with <strong>Dynamic Lighting</strong> enabled</p>
+      )}
     </div>
   )
 }
@@ -316,7 +377,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />
         )}
         {showLighting && (
-          <LightingPanel canvas={canvas} isDm={isDm} />
+          <LightingPanel canvas={canvas} isDm={isDm} eventBus={eventBus} />
         )}
       </div>
 

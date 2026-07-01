@@ -107,6 +107,11 @@ export class CanvasController {
 
   setViewpoint(tokenIds) {
     this._viewpointTokenIds = Array.isArray(tokenIds) ? tokenIds : [tokenIds]
+    if (this._viewpointTokenIds.length > 0) {
+      this.renderer.setViewpointToken(this._viewpointTokenIds[0])
+    } else {
+      this.renderer.setViewpointToken(null)
+    }
     this._lightingDirty = true
     this.refreshLighting()
   }
