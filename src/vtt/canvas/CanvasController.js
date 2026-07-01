@@ -267,7 +267,8 @@ export class CanvasController {
 
   _handlePointerDown = (e) => {
     if (e.button === 2) return  /* right-click handled by contextmenu */
-    const world = this.renderer.screenToWorld(e.clientX, e.clientY)
+    const { x: cx, y: cy } = this.renderer.clientToCanvas(e.clientX, e.clientY)
+    const world = this.renderer.screenToWorld(cx, cy)
 
     if (e.altKey) {
       this.onPing?.(world.x, world.y)
@@ -335,7 +336,8 @@ export class CanvasController {
   }
 
   _handlePointerMove = (e) => {
-    const world = this.renderer.screenToWorld(e.clientX, e.clientY)
+    const { x: cx, y: cy } = this.renderer.clientToCanvas(e.clientX, e.clientY)
+    const world = this.renderer.screenToWorld(cx, cy)
 
     if (this.tool === TOOLS.WALL_DRAW && this._wallDrawStart) {
       this._updateWallPreview(world)
@@ -404,7 +406,8 @@ export class CanvasController {
 
   _onDoubleClick = (e) => {
     if (this.tool === TOOLS.WALL_SELECT) {
-      const world = this.renderer.screenToWorld(e.clientX, e.clientY)
+      const { x: cx, y: cy } = this.renderer.clientToCanvas(e.clientX, e.clientY)
+      const world = this.renderer.screenToWorld(cx, cy)
       const scene = this.renderer.currentScene
       if (!scene) return
       const hitWall = this.renderer.wallLayer.hitTest(world.x, world.y, scene.walls)

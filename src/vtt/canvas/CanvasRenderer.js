@@ -273,16 +273,22 @@ export class CanvasRenderer {
     this.sceneContainer.y += dy
   }
 
+  clientToCanvas(clientX, clientY) {
+    const rect = this.app.canvas.getBoundingClientRect()
+    return { x: clientX - rect.left, y: clientY - rect.top }
+  }
+
   zoom(delta, cx, cy) {
+    const { x: canvasX, y: canvasY } = this.clientToCanvas(cx, cy)
     const oldScale = this.sceneContainer.scale.x
     const newScale = Math.max(0.1, Math.min(5, oldScale * (delta > 0 ? 1.1 : 0.9)))
     if (newScale === oldScale) return
 
-    const worldPos = this._screenToWorld(cx, cy)
+    const worldPos = this._screenToWorld(canvasX, canvasY)
     this.sceneContainer.scale.set(newScale)
     const newScreen = this._worldToScreen(worldPos.x, worldPos.y)
-    this.sceneContainer.x += cx - newScreen.x
-    this.sceneContainer.y += cy - newScreen.y
+    this.sceneContainer.x += canvasX - newScreen.x
+    this.sceneContainer.y += canvasY - newScreen.y
   }
 
   screenToWorld(sx, sy) {
