@@ -231,6 +231,16 @@ export class CanvasController {
   /* ── Pointer handlers ──────────────────────────────────────── */
 
   _onPointerDown = (e) => {
+    try {
+      this._handlePointerDown(e)
+    } catch (err) {
+      console.error('[CanvasController] _onPointerDown error:', err)
+      this._dragTarget = null
+      this._panning = false
+    }
+  }
+
+  _handlePointerDown = (e) => {
     if (e.button === 2) return  /* right-click handled by contextmenu */
     const world = this.renderer.screenToWorld(e.clientX, e.clientY)
 
@@ -290,6 +300,16 @@ export class CanvasController {
   }
 
   _onPointerMove = (e) => {
+    try {
+      this._handlePointerMove(e)
+    } catch (err) {
+      console.error('[CanvasController] _onPointerMove error:', err)
+      this._dragTarget = null
+      this._panning = false
+    }
+  }
+
+  _handlePointerMove = (e) => {
     const world = this.renderer.screenToWorld(e.clientX, e.clientY)
 
     if (this.tool === TOOLS.WALL_DRAW && this._wallDrawStart) {
@@ -329,6 +349,16 @@ export class CanvasController {
   }
 
   _onPointerUp = () => {
+    try {
+      this._handlePointerUp()
+    } catch (err) {
+      console.error('[CanvasController] _onPointerUp error:', err)
+      this._dragTarget = null
+      this._panning = false
+    }
+  }
+
+  _handlePointerUp = () => {
     if (this._dragTarget) {
       this._dragTarget.sprite.cursor = 'grab'
       this._dragTarget.wrapper.cursor = 'grab'

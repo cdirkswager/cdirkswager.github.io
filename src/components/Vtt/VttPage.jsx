@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { Component, useState, useRef, useCallback, useEffect } from 'react'
 import VttCanvasMount from './VttCanvasMount'
 import VttCockpit from './VttCockpit'
 import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../../data/vtt.js'
@@ -6,6 +6,35 @@ import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
 import { createSyncBridge } from './VttSyncBridge.js'
 import './VttPage.css'
+
+class VttErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[VttErrorBoundary] Caught:', error, info)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="vtt-error-boundary">
+          <p>Canvas encountered an error.</p>
+          <button onClick={() => { this.setState({ error: null }); this.props.onReset?.() }} className="btn btn-sm">
+            Reload Canvas
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const FALLBACK_SERVER = 'localhost:3001'
 
@@ -17,6 +46,7 @@ export default function VttPage() {
   const [isDm, setIsDm] = useState(false)
   const [connectedUsers, setConnectedUsers] = useState([])
   const [canvas, setCanvas] = useState(null)
+  const [canvasKey, setCanvasKey] = useState(0)
 
   const eventBusRef = useRef(null)
   const connectorRef = useRef(null)
@@ -149,6 +179,13 @@ export default function VttPage() {
     return () => clearInterval(interval)
   }, [connectionState, handleServerPresence])
 
+  const handleCanvasReset = useCallback(() => {
+    destroyBridgeRef.current?.()
+    destroyBridgeRef.current = null
+    setCanvas(null)
+    setCanvasKey(k => k + 1)
+  }, [])
+
   const isConnected = connectionState === 'connected'
 
   return (
@@ -224,10 +261,12 @@ export default function VttPage() {
             connectedUsers={connectedUsers}
             onDisconnect={handleDisconnect}
           />
-          <VttCanvasMount
-            eventBus={eventBusRef.current}
-            onReady={handleCanvasReady}
-          />
+          <VttErrorBoundary key={canvasKey} onReset={handleCanvasReset}>
+            <VttCanvasMount
+              eventBus={eventBusRef.current}
+              onReady={handleCanvasReady}
+            />
+          </VttErrorBoundary>
         </div>
       )}
     </div>

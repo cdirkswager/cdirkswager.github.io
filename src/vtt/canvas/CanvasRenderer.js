@@ -204,8 +204,6 @@ export class CanvasRenderer {
   async _addTokenSprite(token) {
     const tex = token.src ? await Texture.from(token.src) : this._makePlaceholderTex(token)
     const sprite = new Sprite(tex)
-    sprite.x = token.x
-    sprite.y = token.y
     sprite.width = token.width
     sprite.height = token.height
     sprite.rotation = token.rotation
