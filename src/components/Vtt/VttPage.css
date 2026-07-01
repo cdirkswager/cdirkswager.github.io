@@ -1,6 +1,6 @@
 .vtt-page {
   width: 100%;
-  height: calc(100vh - var(--nav-height));
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
