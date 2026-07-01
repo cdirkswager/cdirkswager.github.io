@@ -23,7 +23,10 @@ export default function VttCanvasMount({ eventBus, onReady }) {
           eventBus,
         })
 
-        if (destroyed) return
+        if (destroyed) {
+          canvas.destroy()
+          return
+        }
 
         canvasRef.current = canvas
 

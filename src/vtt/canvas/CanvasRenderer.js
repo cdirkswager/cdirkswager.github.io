@@ -81,10 +81,11 @@ export class CanvasRenderer {
   }
 
   _setupResize(mountEl) {
-    const ro = new ResizeObserver(() => {
+    this._resizeObserver = new ResizeObserver(() => {
+      if (!this.app?.renderer) return
       this.app.renderer.resize(mountEl.clientWidth, mountEl.clientHeight)
     })
-    ro.observe(mountEl)
+    this._resizeObserver.observe(mountEl)
   }
 
   loadScene(scene) {
@@ -277,6 +278,7 @@ export class CanvasRenderer {
   }
 
   destroy() {
+    this._resizeObserver?.disconnect()
     this._currentGrid?.destroy()
     this.wallLayer?.destroy()
     this.templateLayer?.destroy()

@@ -85,10 +85,6 @@ export default function VttPage() {
     setConnectionMessage('Connecting...')
 
     const connected = await connector.connect()
-    if (!connected && connectionStateRef.current !== 'connected') {
-      setConnectionState('error')
-      setConnectionMessage('Failed to connect. Check that the local server is running.')
-    }
   }, [joinCode, serverUrl])
 
   const handleDisconnect = useCallback(() => {
@@ -121,7 +117,7 @@ export default function VttPage() {
     canvasRef.current = canvas
   }, [])
 
-  const isConnected = connectionState === 'connected' || connectionState === 'connecting'
+  const isConnected = connectionState === 'connected'
 
   return (
     <div className="vtt-page">
@@ -189,12 +185,11 @@ export default function VttPage() {
         <div className="vtt-canvas-area">
           <div className="vtt-toolbar">
             <span className="vtt-presence">
-              {connectionState === 'connected' ? 'Connected' : 'Connecting...'}
-              {connectionMessage && connectionState !== 'connecting' && ` — ${connectionMessage}`}
+              {connectionState === 'connected' ? 'Connected' : connectionMessage || (connectionState !== 'idle' && connectionState !== 'disconnected' ? 'Connecting...' : '')}
             </span>
 
             <div className="vtt-toolbar-actions">
-              {connectionState !== 'connecting' && (
+              {connectionState !== 'connecting' && connectionState !== 'connected' && (
                 <button onClick={handleDisconnect} className="btn btn-sm vtt-disconnect-btn">
                   Disconnect
                 </button>

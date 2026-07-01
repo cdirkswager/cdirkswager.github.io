@@ -17,7 +17,7 @@ export async function lookupServer(joinCode) {
 export async function registerServer(serverUrl) {
   const data = await post('/game/register', { serverUrl })
   if (!data.ok || !data.code) return null
-  return { code: data.code, serverUrl: data.serverUrl }
+  return { code: data.code, serverUrl: serverUrl }
 }
 
 export class VttConnector {
@@ -55,12 +55,18 @@ export class VttConnector {
         eventBus: this.eventBus,
         getToken: this.getToken,
         url: url,
+        onAuthenticated: () => {
+          this._setState('connected')
+        },
+        onAuthError: (message) => {
+          this._setState('error', message || 'Authentication failed')
+        },
       })
 
       // Start the WebSocket connection — VttSyncClient calls getToken() fresh each time
       this.syncClient.connect()
 
-      // Poll for connected state (VttSyncClient doesn't emit events)
+      // Wait for real auth success or failure via callbacks, with a timeout
       return await new Promise((resolve) => {
         let done = false
         const timeout = setTimeout(() => {
@@ -69,30 +75,25 @@ export class VttConnector {
             this._setState('error', 'Connection timed out')
             resolve(false)
           }
-        }, 10000)
+        }, 15000)
 
+        // Poll for state changes — the callbacks set connectionState which we check here
         const poll = setInterval(() => {
           if (done) return
-          const ws = this.syncClient?.ws
-          if (!ws) return // not connected yet
-
-          if (ws.readyState === WebSocket.OPEN) {
+          if (this.connectionState === 'connected') {
             clearInterval(poll)
             done = true
             clearTimeout(timeout)
-            this._setState('connected')
             resolve(true)
-          } else if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-            // Connection failed or was closed
+          } else if (this.connectionState === 'error') {
             clearInterval(poll)
             done = true
             clearTimeout(timeout)
-            this._setState('error', 'Connection refused')
             resolve(false)
           }
         }, 200)
 
-        // Also check immediately in case it's already open (unlikely but safe)
+        // Also check immediately in case it's already resolved
         poll()
       })
     } catch (e) {
@@ -119,18 +120,4 @@ export class VttConnector {
   get state() {
     return this.connectionState
   }
-}
-
-export async function connectVtt(eventBus, serverUrl) {
-  const token = await getVttGameToken()
-  if (!token) return { ok: false, error: 'Failed to get VTT token' }
-
-  let wsUrl = serverUrl || DEFAULT_SERVER_URL
-  if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-    wsUrl = 'ws://' + wsUrl
-  }
-
-  const { VttSyncClient } = await import('../vtt/canvas/VttSyncClient.js')
-  const syncClient = new VttSyncClient({ eventBus, getToken: () => token, url: wsUrl })
-  return { ok: true, syncClient }
 }

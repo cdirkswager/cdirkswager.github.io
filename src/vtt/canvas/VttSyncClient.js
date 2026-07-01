@@ -1,14 +1,21 @@
 export class VttSyncClient {
-  constructor({ eventBus, getToken, url }) {
+  constructor({ eventBus, getToken, url, onAuthenticated, onAuthError }) {
     if (!eventBus || !getToken || !url) throw new Error('VttSyncClient requires eventBus, getToken, and url')
     this.eventBus = eventBus
     this.getToken = getToken
     this.url = url
+    this.onAuthenticated = onAuthenticated
+    this.onAuthError = onAuthError
     this.ws = null
     this.reconnectDelay = 2000
     this._sending = false
     this._destroyed = false
     this._unsubs = []
+    this._authenticated = false
+    this._authFailed = false
+    this._reconnectAttempts = 0
+    this._maxReconnectAttempts = 30
+    this._maxReconnectDelay = 30000
   }
 
   async connect() {
@@ -31,7 +38,8 @@ export class VttSyncClient {
     // Validate: a JWT must have exactly 3 dot-separated parts
     if (token && token.split('.').length !== 3) {
       console.error('[VttSyncClient] Invalid token format — expected 3 parts, got', token.split('.').length, '— aborting connect')
-      setTimeout(() => this.connect(), 2000)
+      this._authFailed = true
+      if (this.onAuthError) this.onAuthError('Invalid token format')
       return
     }
 
@@ -40,10 +48,15 @@ export class VttSyncClient {
       setTimeout(() => this.connect(), 2000)
       return
     }
+
+    // Clean up any previous WebSocket before creating a new one
+    if (this.ws) {
+      this._cleanupWs()
+    }
+
     this.ws = new WebSocket(`${this.url}?token=${token}`)
     this.ws.onopen = () => {
-      console.log('[VttSyncClient] Connected')
-      this._subscribe()
+      console.log('[VttSyncClient] Transport open — waiting for auth')
     }
     this.ws.onmessage = (e) => {
       try { this._onMessage(JSON.parse(e.data)) } catch (err) {
@@ -51,11 +64,46 @@ export class VttSyncClient {
       }
     }
     this.ws.onclose = () => {
-      console.log('[VttSyncClient] Disconnected, reconnecting...')
-      this._unsubscribe()
-      if (!this._destroyed) setTimeout(() => this.connect(), this.reconnectDelay)
+      if (this._destroyed || this._authFailed) return
+
+      // If we were authenticated and now disconnected, try to reconnect
+      if (this._authenticated) {
+        console.log('[VttSyncClient] Authenticated disconnect — reconnecting...')
+        this._authenticated = false
+        this._scheduleReconnect()
+      } else {
+        console.log('[VttSyncClient] Pre-auth disconnect — retrying...')
+        setTimeout(() => this.connect(), 2000)
+      }
     }
     this.ws.onerror = () => {}
+  }
+
+  _cleanupWs() {
+    if (!this.ws) return
+    try { this.ws.onclose = null } catch {}
+    try { this.ws.onerror = null } catch {}
+    try { this.ws.close() } catch {}
+    this.ws = null
+  }
+
+  _scheduleReconnect() {
+    const attempts = ++this._reconnectAttempts
+    if (attempts > this._maxReconnectAttempts) {
+      console.error('[VttSyncClient] Max reconnect attempts reached')
+      if (this.onAuthError) this.onAuthError('Max reconnect attempts reached')
+      return
+    }
+
+    // Exponential backoff: 2s, 4s, 8s, ... capped at _maxReconnectDelay
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, attempts - 1),
+      this._maxReconnectDelay
+    )
+    console.log(`[VttSyncClient] Reconnecting in ${delay}ms (attempt ${attempts}/${this._maxReconnectAttempts})`)
+    setTimeout(() => {
+      if (!this._destroyed) this.connect()
+    }, delay)
   }
 
   _subscribe() {
@@ -75,6 +123,11 @@ export class VttSyncClient {
   _onMessage(msg) {
     switch (msg.type) {
       case 'init':
+        // Real auth success — transport open is NOT enough; init means server verified our token
+        this._authenticated = true
+        this._reconnectAttempts = 0
+        this._authFailed = false
+
         this._sending = true
         for (const [type, records] of Object.entries(msg.recordsByType || {})) {
           for (const record of records) {
@@ -82,30 +135,41 @@ export class VttSyncClient {
           }
         }
         this._sending = false
+
+        if (this.onAuthenticated) this.onAuthenticated()
         break
+
       case 'record-created':
         this._sending = true
         this.eventBus.emitRecord(msg.record.type, 'created', msg.record)
         this._sending = false
         break
+
       case 'record-updated':
         this._sending = true
         this.eventBus.emitRecord(msg.record.type, 'updated', msg.record)
         this._sending = false
         break
+
       case 'record-deleted':
         this._sending = true
         this.eventBus.emitRecord(msg.kind, 'deleted', { id: msg.recordId })
         this._sending = false
         break
+
       case 'ephemeral':
         this.eventBus.emitEphemeral(msg.payload.type, { ...msg.payload, fromUserId: msg.userId, fromUsername: msg.by })
         break
+
       case 'record-created-ack':
       case 'record-updated-ack':
         break
+
       case 'error':
+        // Auth failure — do NOT reconnect; surface the error
         console.error('[VttSyncClient] Server error:', msg.message)
+        this._authFailed = true
+        if (this.onAuthError) this.onAuthError(msg.message)
         break
     }
   }
@@ -117,9 +181,11 @@ export class VttSyncClient {
       case 'created':
         this.ws.send(JSON.stringify({ type: 'create-record', record: { ...e.data, type: e.resource } }))
         break
+
       case 'updated':
         this.ws.send(JSON.stringify({ type: 'update-record', kind: e.resource, recordId: e.data.id, changes: e.data }))
         break
+
       case 'deleted':
         this.ws.send(JSON.stringify({ type: 'delete-record', kind: e.resource, recordId: e.data.id }))
         break
@@ -134,11 +200,9 @@ export class VttSyncClient {
 
   disconnect() {
     this._destroyed = true
-    this._unsubscribe()
-    if (this.ws) {
-      this.ws.onclose = null
-      this.ws.close()
-      this.ws = null
-    }
+    this._authFailed = false
+    this._authenticated = false
+    this._unsubs = []
+    this._cleanupWs()
   }
 }
