@@ -111,6 +111,12 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           }
         }
 
+        // Only DM may create actors
+        if (kind === 'actor' && identity.role !== 'dm') {
+          _deny(ws, 'Permission denied: only DM can create actors')
+          return
+        }
+
         const record = {
           id: msg.record.id || crypto.randomUUID(),
           ...msg.record,

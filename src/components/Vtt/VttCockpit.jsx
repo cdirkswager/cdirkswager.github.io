@@ -538,7 +538,7 @@ function ActorPanel({ canvas, eventBus, scene, isDm, session, connectedUsers }) 
   return (
     <div className="vtt-panel vtt-actor-panel">
       <h4>Actors ({actors.length})</h4>
-      <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Actor</button>
+      {isDm && <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Actor</button>}
       <div className="vtt-token-list" style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
         {actors.filter(a => isDm || hasAccess(session, a, 'observer')).map(a => (
           <div
@@ -655,7 +655,7 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
             </select>
           </label>
 
-          {availableUsers.length > 0 && (
+          {availableUsers.length > 0 ? (
             <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
               <select value={grantUserId} onChange={e => setGrantUserId(e.target.value)} className="vtt-input" style={{ flex: 1 }}>
                 <option value="">— Select user —</option>
@@ -669,6 +669,8 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
               </select>
               <button onClick={handleGrant} className="btn btn-sm vtt-action-btn">Grant</button>
             </div>
+          ) : (
+            <em style={{ fontSize: 12 }}>No other users connected</em>
           )}
 
           {Object.entries(existingGrants).length > 0 && (
