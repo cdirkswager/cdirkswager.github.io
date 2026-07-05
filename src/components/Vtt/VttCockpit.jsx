@@ -488,7 +488,7 @@ function LightingPanel({ canvas, isDm, eventBus }) {
 }
 
 /* ── Actor Panel ────────────────────────────────────────────── */
-function ActorPanel({ canvas, eventBus, scene, isDm, session }) {
+function ActorPanel({ canvas, eventBus, scene, isDm, session, connectedUsers }) {
   const [actors, setActors] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [items, setItems] = useState([])
@@ -564,6 +564,7 @@ function ActorPanel({ canvas, eventBus, scene, isDm, session }) {
           eventBus={eventBus}
           canvas={canvas}
           scene={scene}
+          connectedUsers={connectedUsers}
         />
       )}
     </div>
@@ -571,7 +572,7 @@ function ActorPanel({ canvas, eventBus, scene, isDm, session }) {
 }
 
 /* ── Actor Detail ──────────────────────────────────────────── */
-function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene }) {
+function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, connectedUsers }) {
   const [name, setName] = useState(actor.name)
   const [actorType, setActorType] = useState(actor.actorType)
   const [img, setImg] = useState(actor.img ?? '')
@@ -581,6 +582,13 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene }) {
   const [grantLevel, setGrantLevel] = useState('owner')
 
   const canEdit = isDm || hasAccess(session, actor, 'owner')
+
+  const existingGrants = actor.ownership?.users ?? {}
+  const grantedUserIds = new Set(Object.keys(existingGrants))
+
+  const availableUsers = (connectedUsers ?? []).filter(u =>
+    u.userId !== session?.userId && u.role !== 'dm' && !grantedUserIds.has(u.userId)
+  )
 
   useEffect(() => {
     setName(actor.name)
@@ -599,8 +607,8 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene }) {
   }, [eventBus, canEdit, actor, name, actorType, img, attrsJson, ownershipDefault])
 
   const handleGrant = useCallback(() => {
-    if (!eventBus || !canEdit || !grantUserId.trim()) return
-    const users = { ...actor.ownership?.users, [grantUserId.trim()]: grantLevel }
+    if (!eventBus || !canEdit || !grantUserId) return
+    const users = { ...actor.ownership?.users, [grantUserId]: grantLevel }
     eventBus.emitRecord('actor', 'updated', { id: actor.id, ownership: { ...actor.ownership, users } })
     setGrantUserId('')
   }, [eventBus, canEdit, actor, grantUserId, grantLevel])
@@ -640,28 +648,40 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene }) {
 
           <hr className="vtt-divider" />
           <h5>Ownership</h5>
+
           <label>Default
             <select value={ownershipDefault} onChange={e => setOwnershipDefault(e.target.value)} className="vtt-input">
               {OWNERSHIP_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </label>
 
-          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-            <input value={grantUserId} onChange={e => setGrantUserId(e.target.value)} placeholder="userId" className="vtt-input" style={{ flex: 1 }} />
-            <select value={grantLevel} onChange={e => setGrantLevel(e.target.value)} className="vtt-input" style={{ width: 80 }}>
-              {OWNERSHIP_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <button onClick={handleGrant} className="btn btn-sm vtt-action-btn">Grant</button>
-          </div>
+          {availableUsers.length > 0 && (
+            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <select value={grantUserId} onChange={e => setGrantUserId(e.target.value)} className="vtt-input" style={{ flex: 1 }}>
+                <option value="">— Select user —</option>
+                {availableUsers.map(u => (
+                  <option key={u.userId} value={u.userId}>{u.username} ({u.role})</option>
+                ))}
+              </select>
+              <select value={grantLevel} onChange={e => setGrantLevel(e.target.value)} className="vtt-input" style={{ width: 80 }}>
+                <option value="observer">observer</option>
+                <option value="owner">owner</option>
+              </select>
+              <button onClick={handleGrant} className="btn btn-sm vtt-action-btn">Grant</button>
+            </div>
+          )}
 
-          {actor.ownership?.users && Object.entries(actor.ownership.users).length > 0 && (
+          {Object.entries(existingGrants).length > 0 && (
             <div style={{ marginTop: 4 }}>
-              {Object.entries(actor.ownership.users).map(([uid, level]) => (
-                <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
-                  <span>{uid}: <strong>{level}</strong></span>
-                  <button onClick={() => handleRevoke(uid)} className="btn btn-sm vtt-disconnect-btn">✕</button>
-                </div>
-              ))}
+              {Object.entries(existingGrants).map(([uid, level]) => {
+                const user = (connectedUsers ?? []).find(u => u.userId === uid)
+                return (
+                  <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
+                    <span>{user ? user.username : uid + ' (offline)'}: <strong>{level}</strong></span>
+                    <button onClick={() => handleRevoke(uid)} className="btn btn-sm vtt-disconnect-btn">✕</button>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -779,7 +799,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
         )}
         {showActorPanel && (
-          <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
+          <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} connectedUsers={connectedUsers} />
         )}
         {showBgPanel && (
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />
