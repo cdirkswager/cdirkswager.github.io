@@ -580,15 +580,32 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
   const [ownershipDefault, setOwnershipDefault] = useState(actor.ownership?.default ?? 'none')
   const [grantUserId, setGrantUserId] = useState('')
   const [grantLevel, setGrantLevel] = useState('owner')
+  const [websiteUsers, setWebsiteUsers] = useState([])
+  const [websiteUsersError, setWebsiteUsersError] = useState(false)
 
   const canEdit = isDm || hasAccess(session, actor, 'owner')
 
   const existingGrants = actor.ownership?.users ?? {}
   const grantedUserIds = new Set(Object.keys(existingGrants))
 
-  const availableUsers = (connectedUsers ?? []).filter(u =>
-    u.userId !== session?.userId && u.role !== 'dm' && !grantedUserIds.has(u.userId)
-  )
+  const connectedUserIds = new Set((connectedUsers ?? []).map(u => u.userId))
+
+  let availableUsers
+  if (isDm && websiteUsers.length > 0) {
+    availableUsers = websiteUsers
+      .filter(u => u.id !== session?.userId && u.role !== 'dm' && !grantedUserIds.has(u.id))
+      .map(u => ({ userId: u.id, username: u.username, role: u.role, online: connectedUserIds.has(u.id) }))
+  } else {
+    availableUsers = (connectedUsers ?? [])
+      .filter(u => u.userId !== session?.userId && u.role !== 'dm' && !grantedUserIds.has(u.userId))
+      .map(u => ({ ...u, online: true }))
+  }
+
+  const lookupUser = (uid) => {
+    const fromRoster = websiteUsers.find(u => u.id === uid)
+    if (fromRoster) return fromRoster
+    return (connectedUsers ?? []).find(u => u.userId === uid)
+  }
 
   useEffect(() => {
     setName(actor.name)
@@ -597,6 +614,16 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
     setAttrsJson(JSON.stringify(actor.attributes ?? {}, null, 2))
     setOwnershipDefault(actor.ownership?.default ?? 'none')
   }, [actor])
+
+  useEffect(() => {
+    if (!isDm) return
+    let cancelled = false
+    fetch('/api/auth/users', { credentials: 'same-origin' })
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
+      .then(data => { if (!cancelled && data.ok) setWebsiteUsers(data.users) })
+      .catch(() => { if (!cancelled) setWebsiteUsersError(true) })
+    return () => { cancelled = true }
+  }, [isDm])
 
   const handleSave = useCallback(() => {
     if (!eventBus || !canEdit) return
@@ -660,7 +687,7 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
               <select value={grantUserId} onChange={e => setGrantUserId(e.target.value)} className="vtt-input" style={{ flex: 1 }}>
                 <option value="">— Select user —</option>
                 {availableUsers.map(u => (
-                  <option key={u.userId} value={u.userId}>{u.username} ({u.role})</option>
+                  <option key={u.userId} value={u.userId}>{u.username} ({u.role}){u.online ? ' • online' : ''}</option>
                 ))}
               </select>
               <select value={grantLevel} onChange={e => setGrantLevel(e.target.value)} className="vtt-input" style={{ width: 80 }}>
@@ -669,14 +696,16 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
               </select>
               <button onClick={handleGrant} className="btn btn-sm vtt-action-btn">Grant</button>
             </div>
+          ) : isDm && websiteUsersError ? (
+            <em style={{ fontSize: 12 }}>Could not load users</em>
           ) : (
-            <em style={{ fontSize: 12 }}>No other users connected</em>
+            <em style={{ fontSize: 12 }}>No users available to grant</em>
           )}
 
           {Object.entries(existingGrants).length > 0 && (
             <div style={{ marginTop: 4 }}>
               {Object.entries(existingGrants).map(([uid, level]) => {
-                const user = (connectedUsers ?? []).find(u => u.userId === uid)
+                const user = lookupUser(uid)
                 return (
                   <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
                     <span>{user ? user.username : uid + ' (offline)'}: <strong>{level}</strong></span>
