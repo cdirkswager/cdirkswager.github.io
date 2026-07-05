@@ -2,6 +2,7 @@ import { Graphics } from 'pixi.js'
 import { Wall } from './Wall.js'
 import { Template } from './Template.js'
 import { computeCombinedVision, WallSpatialIndex, perfStart, perfEnd } from './LightingVision.js'
+import { getAccessLevel } from './ownership.js'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
 
@@ -47,6 +48,7 @@ export class CanvasController {
     /* Permission — set by the host after construction */
     this.userId = null
     this.isDm = false
+    this.actorMap = new Map()
 
     this.onTokenMoved = null
     this.onTokenClicked = null
@@ -580,6 +582,10 @@ export class CanvasController {
   _canInteractWithToken(token) {
     if (this.isDm) return true
     if (!this.userId) return false
+    if (token.actorId) {
+      const actor = this.actorMap.get(token.actorId)
+      if (actor) return getAccessLevel({ userId: this.userId, role: 'player' }, actor) === 'owner'
+    }
     return token.userId === this.userId
   }
 

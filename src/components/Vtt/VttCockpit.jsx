@@ -1,5 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { uploadImage } from '../../data/api.js'
+import { Actor } from '../../vtt/canvas/Actor.js'
+import { Item } from '../../vtt/canvas/Item.js'
+import { getAccessLevel, hasAccess, OWNERSHIP_LEVELS } from '../../vtt/canvas/ownership.js'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
 
@@ -112,9 +115,10 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
 }
 
 /* ── Token list + property editor panel (DM) ───────────────── */
-function TokenPanel({ canvas, eventBus, scene, isDm }) {
+function TokenPanel({ canvas, eventBus, scene, isDm, session }) {
   const [tokens, setTokens] = useState([])
   const [selectedId, setSelectedId] = useState(null)
+  const [actors, setActors] = useState([])
 
   useEffect(() => {
     if (!scene) return
@@ -127,6 +131,15 @@ function TokenPanel({ canvas, eventBus, scene, isDm }) {
     ]
     return () => { offs.forEach(o => o?.()) }
   }, [scene, eventBus])
+
+  useEffect(() => {
+    function refresh() {
+      if (canvas?.controller?.actorMap) setActors(Array.from(canvas.controller.actorMap.values()))
+    }
+    refresh()
+    const offs = [eventBus?.on('actors-changed', refresh)]
+    return () => { offs.forEach(o => o?.()) }
+  }, [canvas, eventBus])
 
   const sel = selectedId ? tokens.find(t => t.id === selectedId) : null
 
@@ -172,18 +185,19 @@ function TokenPanel({ canvas, eventBus, scene, isDm }) {
         <div className="vtt-token-props">
           <hr className="vtt-divider" />
           <h4>Properties — {sel.name}</h4>
-          <TokenPropEditor token={sel} onSave={handleSave} />
+          <TokenPropEditor token={sel} onSave={handleSave} actors={actors} />
         </div>
       )}
     </div>
   )
 }
 
-function TokenPropEditor({ token, onSave }) {
+function TokenPropEditor({ token, onSave, actors }) {
   const [name, setName] = useState(token.name)
   const [w, setW] = useState(token.width)
   const [h, setH] = useState(token.height)
   const [src, setSrc] = useState(token.src ?? '')
+  const [actorId, setActorId] = useState(token.actorId ?? '')
   const [visionEnabled, setVisionEnabled] = useState(token.visionEnabled)
   const [sightRange, setSightRange] = useState(token.sightRange)
   const [darkvisionRange, setDarkvisionRange] = useState(token.darkvisionRange)
@@ -196,6 +210,7 @@ function TokenPropEditor({ token, onSave }) {
     setW(token.width)
     setH(token.height)
     setSrc(token.src ?? '')
+    setActorId(token.actorId ?? '')
     setVisionEnabled(token.visionEnabled)
     setSightRange(token.sightRange)
     setDarkvisionRange(token.darkvisionRange)
@@ -211,6 +226,7 @@ function TokenPropEditor({ token, onSave }) {
       width: w,
       height: h,
       src,
+      actorId: actorId || null,
       visionEnabled,
       sightRange,
       darkvisionRange,
@@ -218,7 +234,7 @@ function TokenPropEditor({ token, onSave }) {
       lightColor: parseInt(lightColor.replace('#', ''), 16),
       lightIntensity,
     })
-  }, [onSave, name, w, h, src, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
+  }, [onSave, name, w, h, src, actorId, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
 
   return (
     <form onSubmit={handleSubmit} className="vtt-token-prop-form">
@@ -234,6 +250,17 @@ function TokenPropEditor({ token, onSave }) {
       <label>Image URL
         <input value={src} onChange={e => setSrc(e.target.value)} className="vtt-input" placeholder="https://..." />
       </label>
+
+      {actors && actors.length > 0 && (
+        <label>Linked Actor
+          <select value={actorId} onChange={e => setActorId(e.target.value)} className="vtt-input">
+            <option value="">— None (standalone) —</option>
+            {actors.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <hr className="vtt-divider" />
       <h4>Vision & Lighting</h4>
@@ -460,6 +487,215 @@ function LightingPanel({ canvas, isDm, eventBus }) {
   )
 }
 
+/* ── Actor Panel ────────────────────────────────────────────── */
+function ActorPanel({ canvas, eventBus, scene, isDm, session }) {
+  const [actors, setActors] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [items, setItems] = useState([])
+  const itemsMapRef = useRef(new Map())
+
+  /* Sync actors from controller.actorMap */
+  useEffect(() => {
+    if (!canvas?.controller) return
+    function refresh() {
+      setActors(Array.from(canvas.controller.actorMap.values()))
+    }
+    refresh()
+    const offs = [
+      eventBus?.on('actors-changed', refresh),
+    ]
+    return () => { offs.forEach(o => o?.()) }
+  }, [canvas, eventBus])
+
+  /* Keep items in sync via EventBus */
+  useEffect(() => {
+    const map = itemsMapRef.current
+    const refresh = () => setItems(Array.from(map.values()))
+    const offs = [
+      eventBus?.on('item:created', (data) => { map.set(data.id, data); refresh() }),
+      eventBus?.on('item:updated', (data) => { map.set(data.id, { ...map.get(data.id), ...data }); refresh() }),
+      eventBus?.on('item:deleted', (data) => { map.delete(data.id); refresh() }),
+    ]
+    return () => { offs.forEach(o => o?.()) }
+  }, [eventBus])
+
+  const selected = selectedId ? actors.find(a => a.id === selectedId) : null
+  const actorItems = selected ? items.filter(i => i.actorId === selected.id) : []
+
+  const handleCreate = useCallback(() => {
+    if (!eventBus) return
+    const actor = new Actor({ name: 'New Character' })
+    eventBus.emitRecord('actor', 'created', actor.toJSON())
+    setSelectedId(actor.id)
+  }, [eventBus])
+
+  const handleDelete = useCallback((id) => {
+    if (!eventBus) return
+    eventBus.emitRecord('actor', 'deleted', { id })
+    if (selectedId === id) setSelectedId(null)
+  }, [eventBus, selectedId])
+
+  return (
+    <div className="vtt-panel vtt-actor-panel">
+      <h4>Actors ({actors.length})</h4>
+      <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Actor</button>
+      <div className="vtt-token-list" style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+        {actors.filter(a => isDm || hasAccess(session, a, 'observer')).map(a => (
+          <div
+            key={a.id}
+            className={`vtt-token-item ${a.id === selectedId ? 'selected' : ''}`}
+            onClick={() => setSelectedId(a.id)}
+          >
+            <span className="vtt-token-name">{a.name}</span>
+            <span className="vtt-token-pos">({a.actorType})</span>
+            {isDm && (
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id) }} className="btn btn-sm vtt-disconnect-btn">✕</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {selected && (
+        <ActorDetail
+          actor={selected}
+          items={actorItems}
+          isDm={isDm}
+          session={session}
+          eventBus={eventBus}
+          canvas={canvas}
+          scene={scene}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ── Actor Detail ──────────────────────────────────────────── */
+function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene }) {
+  const [name, setName] = useState(actor.name)
+  const [actorType, setActorType] = useState(actor.actorType)
+  const [img, setImg] = useState(actor.img ?? '')
+  const [attrsJson, setAttrsJson] = useState(JSON.stringify(actor.attributes ?? {}, null, 2))
+  const [ownershipDefault, setOwnershipDefault] = useState(actor.ownership?.default ?? 'none')
+  const [grantUserId, setGrantUserId] = useState('')
+  const [grantLevel, setGrantLevel] = useState('owner')
+
+  const canEdit = isDm || hasAccess(session, actor, 'owner')
+
+  useEffect(() => {
+    setName(actor.name)
+    setActorType(actor.actorType)
+    setImg(actor.img ?? '')
+    setAttrsJson(JSON.stringify(actor.attributes ?? {}, null, 2))
+    setOwnershipDefault(actor.ownership?.default ?? 'none')
+  }, [actor])
+
+  const handleSave = useCallback(() => {
+    if (!eventBus || !canEdit) return
+    let attrs
+    try { attrs = JSON.parse(attrsJson) } catch { attrs = actor.attributes }
+    const changes = { name, actorType, img, attributes: attrs, ownership: { ...actor.ownership, default: ownershipDefault } }
+    eventBus.emitRecord('actor', 'updated', { id: actor.id, ...changes })
+  }, [eventBus, canEdit, actor, name, actorType, img, attrsJson, ownershipDefault])
+
+  const handleGrant = useCallback(() => {
+    if (!eventBus || !canEdit || !grantUserId.trim()) return
+    const users = { ...actor.ownership?.users, [grantUserId.trim()]: grantLevel }
+    eventBus.emitRecord('actor', 'updated', { id: actor.id, ownership: { ...actor.ownership, users } })
+    setGrantUserId('')
+  }, [eventBus, canEdit, actor, grantUserId, grantLevel])
+
+  const handleRevoke = useCallback((uid) => {
+    if (!eventBus || !canEdit) return
+    const users = { ...actor.ownership?.users }
+    delete users[uid]
+    eventBus.emitRecord('actor', 'updated', { id: actor.id, ownership: { ...actor.ownership, users } })
+  }, [eventBus, canEdit, actor])
+
+  const handleAddItem = useCallback(() => {
+    if (!eventBus || !canEdit) return
+    const item = new Item({ name: 'New Item', actorId: actor.id })
+    eventBus.emitRecord('item', 'created', item.toJSON())
+  }, [eventBus, canEdit, actor])
+
+  const handleDeleteItem = useCallback((itemId) => {
+    if (!eventBus || !canEdit) return
+    eventBus.emitRecord('item', 'deleted', { id: itemId })
+  }, [eventBus, canEdit])
+
+  return (
+    <div className="vtt-token-props">
+      <hr className="vtt-divider" />
+      <h4>{actor.name}</h4>
+
+      {canEdit ? (
+        <>
+          <label>Name <input value={name} onChange={e => setName(e.target.value)} className="vtt-input" /></label>
+          <label>Type <input value={actorType} onChange={e => setActorType(e.target.value)} className="vtt-input" /></label>
+          <label>Image URL <input value={img} onChange={e => setImg(e.target.value)} className="vtt-input" /></label>
+
+          <hr className="vtt-divider" />
+          <h5>Attributes (JSON)</h5>
+          <textarea value={attrsJson} onChange={e => setAttrsJson(e.target.value)} className="vtt-input" rows={4} style={{ fontFamily: 'monospace', fontSize: 11 }} />
+
+          <hr className="vtt-divider" />
+          <h5>Ownership</h5>
+          <label>Default
+            <select value={ownershipDefault} onChange={e => setOwnershipDefault(e.target.value)} className="vtt-input">
+              {OWNERSHIP_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </label>
+
+          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+            <input value={grantUserId} onChange={e => setGrantUserId(e.target.value)} placeholder="userId" className="vtt-input" style={{ flex: 1 }} />
+            <select value={grantLevel} onChange={e => setGrantLevel(e.target.value)} className="vtt-input" style={{ width: 80 }}>
+              {OWNERSHIP_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+            <button onClick={handleGrant} className="btn btn-sm vtt-action-btn">Grant</button>
+          </div>
+
+          {actor.ownership?.users && Object.entries(actor.ownership.users).length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              {Object.entries(actor.ownership.users).map(([uid, level]) => (
+                <div key={uid} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
+                  <span>{uid}: <strong>{level}</strong></span>
+                  <button onClick={() => handleRevoke(uid)} className="btn btn-sm vtt-disconnect-btn">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button onClick={handleSave} className="btn btn-sm vtt-connect-btn" style={{ marginTop: 8 }}>Save Actor</button>
+
+          <hr className="vtt-divider" />
+          <h5>Inventory ({items.length})</h5>
+          <button onClick={handleAddItem} className="btn btn-sm vtt-action-btn">+ Item</button>
+          {items.map(item => (
+            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0' }}>
+              <span>{item.name} (x{item.quantity ?? 1})</span>
+              <button onClick={() => handleDeleteItem(item.id)} className="btn btn-sm vtt-disconnect-btn">✕</button>
+            </div>
+          ))}
+        </>
+      ) : (
+        <>
+          <p><strong>Type:</strong> {actor.actorType}</p>
+          <p><strong>Attributes:</strong></p>
+          <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap' }}>{JSON.stringify(actor.attributes, null, 2)}</pre>
+          {items.length > 0 && (
+            <>
+              <p><strong>Inventory:</strong></p>
+              {items.map(item => (
+                <div key={item.id} style={{ fontSize: 12 }}>{item.name} (x{item.quantity ?? 1})</div>
+              ))}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ── Presence display ─────────────────────────────────────── */
 function PresenceBar({ connectedUsers, session }) {
   return (
@@ -481,6 +717,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [activeTool, setActiveTool] = useState('pan')
   const [showAddToken, setShowAddToken] = useState(false)
   const [showTokenPanel, setShowTokenPanel] = useState(false)
+  const [showActorPanel, setShowActorPanel] = useState(false)
   const [showBgPanel, setShowBgPanel] = useState(false)
   const [showLighting, setShowLighting] = useState(false)
 
@@ -518,6 +755,9 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
               <button onClick={() => setShowTokenPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showTokenPanel ? 'active' : ''}`}>
                 Tokens
               </button>
+              <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
+                Actors
+              </button>
               <button onClick={() => setShowBgPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showBgPanel ? 'active' : ''}`}>
                 Map BG
               </button>
@@ -526,6 +766,9 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
               </button>
             </>
           )}
+          <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
+            Actors
+          </button>
           <button onClick={onDisconnect} className="btn btn-sm vtt-disconnect-btn">DC</button>
           <a href="/" className="btn btn-sm vtt-leave-btn">Leave</a>
         </div>
@@ -533,7 +776,10 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
 
       <div className="vtt-panels-container">
         {showTokenPanel && (
-          <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} />
+          <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
+        )}
+        {showActorPanel && (
+          <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
         )}
         {showBgPanel && (
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />

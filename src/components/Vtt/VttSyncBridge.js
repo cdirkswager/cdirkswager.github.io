@@ -2,6 +2,8 @@ import { Token } from '../../vtt/canvas/Token.js'
 import { Wall } from '../../vtt/canvas/Wall.js'
 import { Template } from '../../vtt/canvas/Template.js'
 import { Tile } from '../../vtt/canvas/Tile.js'
+import { Actor } from '../../vtt/canvas/Actor.js'
+import { Item } from '../../vtt/canvas/Item.js'
 
 export function createSyncBridge(canvas, eventBus) {
   const controller = canvas.controller
@@ -45,6 +47,7 @@ export function createSyncBridge(canvas, eventBus) {
       token.lightRadius = data.lightRadius ?? token.lightRadius
       token.lightColor = data.lightColor ?? token.lightColor
       token.lightIntensity = data.lightIntensity ?? token.lightIntensity
+      if ('actorId' in data) token.actorId = data.actorId
       renderer.updateTokenPosition(token.id, token.x, token.y)
       if ('userId' in data && data.userId !== prevUserId) {
         controller.syncViewpointToOwnedTokens()
@@ -114,6 +117,38 @@ export function createSyncBridge(canvas, eventBus) {
   unsubs.push(eventBus.on('tile:deleted', (data) => {
     scene.removeTile(data.id)
     renderer.loadScene(scene)
+  }))
+
+  /* ---------- Actor/Item record handlers (game-level, no renderer impact) ---------- */
+  unsubs.push(eventBus.on('actor:created', (data) => {
+    if (controller.actorMap) controller.actorMap.set(data.id, data)
+    eventBus.emit('actors-changed', {})
+  }))
+
+  unsubs.push(eventBus.on('actor:updated', (data) => {
+    if (controller.actorMap) {
+      const existing = controller.actorMap.get(data.id)
+      if (existing) Object.assign(existing, data)
+      else controller.actorMap.set(data.id, data)
+    }
+    eventBus.emit('actors-changed', {})
+  }))
+
+  unsubs.push(eventBus.on('actor:deleted', (data) => {
+    if (controller.actorMap) controller.actorMap.delete(data.id)
+    eventBus.emit('actors-changed', {})
+  }))
+
+  unsubs.push(eventBus.on('item:created', (data) => {
+    eventBus.emit('items-changed', {})
+  }))
+
+  unsubs.push(eventBus.on('item:updated', (data) => {
+    eventBus.emit('items-changed', {})
+  }))
+
+  unsubs.push(eventBus.on('item:deleted', (data) => {
+    eventBus.emit('items-changed', {})
   }))
 
   /* ---------- Outgoing: wire canvas callbacks to emit sync events ---------- */

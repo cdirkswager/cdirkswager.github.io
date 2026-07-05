@@ -1,5 +1,6 @@
 import { WebSocketServer } from 'ws'
 import crypto from 'node:crypto'
+import { getAccessLevel, hasAccess } from '../../src/vtt/canvas/ownership.js'
 
 export function createWebSocketHub(server, authVerifier, store, eventBus) {
   const wss = new WebSocketServer({ server })
@@ -56,9 +57,60 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     }))
   }
 
+  function _deny(ws, message) {
+    ws.send(JSON.stringify({ type: 'error', message }))
+  }
+
+  function _checkActorAccess(identity, actor) {
+    if (identity.role === 'dm') return true
+    return hasAccess(identity, actor, 'owner')
+  }
+
+  function _resolveActorForToken(kind, recordId, changes) {
+    if (kind === 'token') {
+      const token = store.getById('token', recordId)
+      if (token && token.actorId) return store.getById('actor', token.actorId)
+      if (!token && changes?.actorId) return store.getById('actor', changes.actorId)
+    }
+    return null
+  }
+
   function handleMessage(ws, identity, msg) {
     switch (msg.type) {
       case 'create-record': {
+        const kind = msg.record.type || 'records'
+
+        // Permission check for item creation (must own the actor)
+        if (kind === 'item') {
+          const actorId = msg.record.actorId
+          if (!actorId) {
+            _deny(ws, 'Item requires actorId')
+            return
+          }
+          const actor = store.getById('actor', actorId)
+          if (!actor) {
+            _deny(ws, 'Actor not found')
+            return
+          }
+          if (!_checkActorAccess(identity, actor)) {
+            _deny(ws, 'Permission denied: not the actor owner')
+            return
+          }
+        }
+
+        // Permission check for token creation with actor link
+        if (kind === 'token' && msg.record.actorId) {
+          const actor = store.getById('actor', msg.record.actorId)
+          if (!actor) {
+            _deny(ws, 'Actor not found')
+            return
+          }
+          if (!_checkActorAccess(identity, actor)) {
+            _deny(ws, 'Permission denied: not the actor owner')
+            return
+          }
+        }
+
         const record = {
           id: msg.record.id || crypto.randomUUID(),
           ...msg.record,
@@ -66,7 +118,6 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           updatedAt: Date.now(),
           createdAt: Date.now(),
         }
-        const kind = record.type || 'records'
         store.insert(kind, record)
         const event = { type: 'record-created', record, by: identity.username }
         broadcast(event, ws)
@@ -78,13 +129,40 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
         const kind = msg.kind || 'records'
         const existing = store.getById(kind, msg.recordId)
         if (!existing) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Record not found' }))
+          _deny(ws, 'Record not found')
           return
         }
-        if (existing.createdBy && existing.createdBy !== identity.userId && identity.role !== 'gm' && identity.role !== 'dm') {
-          ws.send(JSON.stringify({ type: 'error', message: 'Permission denied: not the owner' }))
+
+        // Permission check: actors, items, and actor-linked tokens use ownership model
+        let permitted = false
+
+        if (kind === 'actor') {
+          permitted = _checkActorAccess(identity, existing)
+        } else if (kind === 'item') {
+          const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
+          permitted = actor ? _checkActorAccess(identity, actor) : (identity.role === 'dm')
+        } else if (kind === 'token') {
+          const actor = _resolveActorForToken(kind, msg.recordId, msg.changes)
+          permitted = actor ? _checkActorAccess(identity, actor) : (existing.createdBy === identity.userId || identity.role === 'dm')
+        } else {
+          // Fallback to createdBy check for existing record types (wall, template, tile, etc.)
+          permitted = !existing.createdBy || existing.createdBy === identity.userId || identity.role === 'dm'
+        }
+
+        if (!permitted) {
+          _deny(ws, 'Permission denied')
           return
         }
+
+        // For actor updates, prevent non-owners from changing ownership
+        if (kind === 'actor' && msg.changes.ownership) {
+          const ownerPermitted = identity.role === 'dm' || hasAccess(identity, existing, 'owner')
+          if (!ownerPermitted) {
+            _deny(ws, 'Permission denied: cannot change ownership')
+            return
+          }
+        }
+
         const updated = store.update(kind, msg.recordId, {
           ...msg.changes,
           updatedBy: identity.userId,
@@ -99,13 +177,29 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
         const kind = msg.kind || 'records'
         const existing = store.getById(kind, msg.recordId)
         if (!existing) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Record not found' }))
+          _deny(ws, 'Record not found')
           return
         }
-        if (existing.createdBy && existing.createdBy !== identity.userId && identity.role !== 'gm' && identity.role !== 'dm') {
-          ws.send(JSON.stringify({ type: 'error', message: 'Permission denied: not the owner' }))
+
+        let permitted = false
+
+        if (kind === 'actor') {
+          permitted = _checkActorAccess(identity, existing)
+        } else if (kind === 'item') {
+          const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
+          permitted = actor ? _checkActorAccess(identity, actor) : (identity.role === 'dm')
+        } else if (kind === 'token') {
+          const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
+          permitted = actor ? _checkActorAccess(identity, actor) : (existing.createdBy === identity.userId || identity.role === 'dm')
+        } else {
+          permitted = !existing.createdBy || existing.createdBy === identity.userId || identity.role === 'dm'
+        }
+
+        if (!permitted) {
+          _deny(ws, 'Permission denied')
           return
         }
+
         const removed = store.remove(kind, msg.recordId)
         if (removed) {
           const event = { type: 'record-deleted', recordId: msg.recordId, kind, by: identity.username }
@@ -121,7 +215,7 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
       }
 
       default:
-        ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${msg.type}` }))
+        _deny(ws, `Unknown message type: ${msg.type}`)
     }
   }
 
