@@ -340,6 +340,20 @@ function LightingPanel({ canvas, isDm, eventBus }) {
   const [ambient, setAmbient] = useState(canvas.scene?.ambientLight ?? 0)
   const [gridUnit, setGridUnit] = useState(canvas.scene?.gridUnit ?? 5)
   const [gridUnitLabel, setGridUnitLabel] = useState(canvas.scene?.gridUnitLabel ?? 'ft')
+  const [viewAll, setViewAll] = useState(canvas.controller?.viewAll ?? false)
+  const [viewpointId, setViewpointId] = useState(canvas.controller?._viewpointTokenIds?.[0] ?? '')
+  const [tokens, setTokens] = useState(canvas.scene ? [...canvas.scene.tokens] : [])
+
+  /* Sync token list when tokens change */
+  useEffect(() => {
+    if (!eventBus || !canvas?.scene) return
+    const sync = () => setTokens([...canvas.scene.tokens])
+    sync()
+    const unsub1 = eventBus.on('token:created', sync)
+    const unsub2 = eventBus.on('token:updated', sync)
+    const unsub3 = eventBus.on('token:deleted', sync)
+    return () => { unsub1(); unsub2(); unsub3() }
+  }, [eventBus, canvas])
 
   /* Sync state from scene record changes (e.g. init replay) */
   useEffect(() => {
@@ -392,6 +406,31 @@ function LightingPanel({ canvas, isDm, eventBus }) {
     }
   }, [canvas])
 
+  const handleToggleViewAll = useCallback(() => {
+    const next = !viewAll
+    setViewAll(next)
+    if (canvas?.controller) {
+      canvas.controller.viewAll = next
+      canvas.refreshLighting()
+    }
+  }, [canvas, viewAll])
+
+  const handleViewpointSelect = useCallback((e) => {
+    const id = e.target.value
+    setViewpointId(id)
+    if (!canvas?.controller) return
+    if (id) {
+      canvas.controller.viewAll = false
+      setViewAll(false)
+      canvas.setViewpoint(id)
+    } else {
+      canvas.controller.setViewpoint([])
+      canvas.controller.viewAll = true
+      setViewAll(true)
+      canvas.refreshLighting()
+    }
+  }, [canvas])
+
   return (
     <div className="vtt-panel vtt-lighting-panel">
       <h4>Lighting & Vision</h4>
@@ -401,6 +440,20 @@ function LightingPanel({ canvas, isDm, eventBus }) {
       </label>
       <label>Ambient Light (0-1)
         <input type="range" min="0" max="1" step="0.05" value={ambient} onChange={handleSetAmbient} className="vtt-range" />
+      </label>
+
+      <label className="vtt-toggle">
+        <input type="checkbox" checked={viewAll} onChange={handleToggleViewAll} />
+        GM View All
+      </label>
+
+      <label>View from token
+        <select value={viewpointId} onChange={handleViewpointSelect} className="vtt-input">
+          <option value="">— None (view all) —</option>
+          {tokens.map(t => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
       </label>
 
       <hr className="vtt-divider" />
