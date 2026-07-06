@@ -222,11 +222,13 @@ export function createSyncBridge(canvas, eventBus) {
     eventBus.emitRecord('wall', 'updated', { id: wall.id, doorState: newState })
   }
 
+  /* Signal the sync client that the bridge is ready for init record replay.
+     Replay must run before scene:created is emitted so the scene is populated
+     before we snapshot its state to the server. */
+  eventBus.emit('sync-bridge:ready', {})
+
   /* Ensure the scene exists as a server record so lighting/ambient updates don't fail */
   eventBus.emitRecord('scene', 'created', canvas.scene.toJSON())
-
-  /* Signal the sync client that the bridge is ready for init record replay */
-  eventBus.emit('sync-bridge:ready', {})
 
   return function destroySyncBridge() {
     controller.onTokenDragEnd = null

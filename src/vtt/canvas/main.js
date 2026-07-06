@@ -47,6 +47,9 @@ export async function createVttCanvas(mountEl, options = {}) {
   const eventBus = options.eventBus ?? new EventBus()
 
   renderer.loadScene(scene)
+  /* Ensure spatial index is rebuilt for any pre-existing scene walls */
+  controller._spatialIndex.invalidate()
+  controller.refreshLighting()
   renderer.rulerLayer.setEventBus(eventBus)
   renderer.pingLayer.setEventBus(eventBus)
 

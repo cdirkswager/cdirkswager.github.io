@@ -122,10 +122,8 @@ export class VttSyncClient {
 
   replayInitRecords() {
     if (!this._initRecords) return
-    const records = this._initRecords
-    this._initRecords = null
     this._sending = true
-    for (const [type, recs] of Object.entries(records)) {
+    for (const [type, recs] of Object.entries(this._initRecords)) {
       for (const record of recs) {
         this.eventBus.emitRecord(type, 'created', record)
       }
