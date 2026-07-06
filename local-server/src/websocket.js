@@ -142,7 +142,7 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           createdAt: Date.now(),
         }
         store.insert(kind, record)
-        const event = { type: 'record-created', record, by: identity.username }
+        const event = { type: 'record-created', record, kind, by: identity.username }
         broadcast(event, ws)
         ws.send(JSON.stringify({ type: 'record-created-ack', record, kind }))
         break

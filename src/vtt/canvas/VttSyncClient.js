@@ -152,13 +152,13 @@ export class VttSyncClient {
 
       case 'record-created':
         this._sending = true
-        this.eventBus.emitRecord(msg.record.type, 'created', msg.record)
+        this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'created', msg.record)
         this._sending = false
         break
 
       case 'record-updated':
         this._sending = true
-        this.eventBus.emitRecord(msg.record.type, 'updated', msg.record)
+        this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'updated', msg.record)
         this._sending = false
         break
 
