@@ -158,13 +158,10 @@ export default function VttPage() {
     if (c.controller) {
       c.controller.userId = session?.userId ?? null
       c.controller.isDm = session?.role === 'dm'
-      /* DM sees dynamic lighting from all vision-enabled tokens;
-         non-DM players automatically see through their owned tokens. */
-      if (c.controller.isDm) {
-        c.controller.syncViewpointToAllVisionTokens()
-      } else {
-        c.controller.syncViewpointToOwnedTokens()
-      }
+      /* Shared wall-based dynamic lighting: all clients (DM + players)
+         see the union of every vision-enabled token's vision.  Per-player
+         vision restriction is deferred. */
+      c.controller.syncViewpointToAllVisionTokens()
     }
     /* Wire up sync bridge — connects canvas ↔ EventBus ↔ spine */
     if (eventBusRef.current) {

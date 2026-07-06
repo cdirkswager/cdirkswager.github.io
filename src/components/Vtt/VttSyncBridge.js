@@ -227,6 +227,14 @@ export function createSyncBridge(canvas, eventBus) {
      before we snapshot its state to the server. */
   eventBus.emit('sync-bridge:ready', {})
 
+  /* Post-replay finalization: recompute shared viewpoint from loaded vision
+     tokens, then rebuild spatial index and refresh lighting.  This guarantees
+     loaded walls are indexed and vision tokens drive vision regardless of the
+     order in which init records were replayed. */
+  controller.syncViewpointToAllVisionTokens()
+  controller._spatialIndex.invalidate()
+  controller.refreshLighting()
+
   /* Ensure the scene exists as a server record so lighting/ambient updates don't fail */
   eventBus.emitRecord('scene', 'created', canvas.scene.toJSON())
 

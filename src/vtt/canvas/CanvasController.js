@@ -136,9 +136,8 @@ export class CanvasController {
   }
 
   /** Set viewpoint to all tokens that contribute vision or light —
-   *  used by the DM to see the full dynamic-lighting picture. */
+   *  shared wall-based dynamic lighting for all clients. */
   syncViewpointToAllVisionTokens() {
-    if (!this.isDm) return
     const scene = this.renderer.currentScene
     if (!scene) return
     const ids = scene.tokens
@@ -157,6 +156,12 @@ export class CanvasController {
 
     overlay.viewAll = this.viewAll
 
+    /* Always rebuild spatial index — walls must be indexed regardless
+       of whether a viewpoint is currently set.  During init replay walls
+       often load before tokens, and the index must be built to avoid the
+       "unindexed walls" gap when the viewpoint is finally set. */
+    this._spatialIndex.rebuildIfNeeded(scene.walls)
+
     if (this.viewAll) {
       overlay.update(null, null, scene.ambientLight ?? 0)
       this._lastVisionData = null
@@ -170,8 +175,6 @@ export class CanvasController {
       perfEnd(t0, 'refreshLighting (no viewpoint)')
       return
     }
-
-    this._spatialIndex.rebuildIfNeeded(scene.walls)
 
     const vision = computeCombinedVision(
       scene.walls,
