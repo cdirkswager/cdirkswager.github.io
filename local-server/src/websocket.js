@@ -117,6 +117,23 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           return
         }
 
+        // Upsert: if a record with this ID already exists, update instead of inserting a duplicate
+        const existing = store.getById(kind, msg.record.id)
+        if (existing) {
+          const updated = store.update(kind, msg.record.id, {
+            ...msg.record,
+            id: existing.id,
+            createdBy: existing.createdBy,
+            createdAt: existing.createdAt,
+            updatedBy: identity.userId,
+            updatedAt: Date.now(),
+          })
+          const event = { type: 'record-updated', record: updated, kind, by: identity.username }
+          broadcast(event, ws)
+          ws.send(JSON.stringify({ type: 'record-updated-ack', record: updated, kind }))
+          break
+        }
+
         const record = {
           id: msg.record.id || crypto.randomUUID(),
           ...msg.record,

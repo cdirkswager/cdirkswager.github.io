@@ -136,6 +136,7 @@ export class CanvasController {
   }
 
   refreshLighting() {
+    if (!this.renderer) return
     const t0 = perfStart()
     const overlay = this.renderer.lightingOverlay
     if (!overlay?.enabled && !this.viewAll) return

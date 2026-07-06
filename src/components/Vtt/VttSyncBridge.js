@@ -213,6 +213,9 @@ export function createSyncBridge(canvas, eventBus) {
     eventBus.emitRecord('wall', 'updated', { id: wall.id, doorState: newState })
   }
 
+  /* Ensure the scene exists as a server record so lighting/ambient updates don't fail */
+  eventBus.emitRecord('scene', 'created', canvas.scene.toJSON())
+
   /* Signal the sync client that the bridge is ready for init record replay */
   eventBus.emit('sync-bridge:ready', {})
 
