@@ -16,7 +16,7 @@ export function createSyncBridge(canvas, eventBus) {
     if (!existing) return
     renderer.removeToken(id)
     scene.removeToken(id)
-    controller.refreshLighting()
+    controller.invalidateLighting()
   }
 
   /* ---------- Incoming record handlers ---------- */
@@ -24,7 +24,7 @@ export function createSyncBridge(canvas, eventBus) {
     if (scene.getToken(data.id)) return
     const token = new Token(data)
     canvas.addToken(token)
-    controller.refreshLighting()
+    controller.invalidateLighting()
     controller.syncViewpointToOwnedTokens()
     controller.syncViewpointToAllVisionTokens()
   }))
@@ -56,7 +56,7 @@ export function createSyncBridge(canvas, eventBus) {
     } else {
       canvas.addToken(new Token(data))
     }
-    controller.refreshLighting()
+    controller.invalidateLighting()
   }))
 
   unsubs.push(eventBus.on('token:deleted', (data) => {
@@ -70,7 +70,7 @@ export function createSyncBridge(canvas, eventBus) {
     scene.addWall(data instanceof Wall ? data : new Wall(data))
     renderer.redrawWalls()
     controller._spatialIndex.invalidate()
-    controller.refreshLighting()
+    controller.invalidateLighting()
   }))
 
   unsubs.push(eventBus.on('wall:updated', (data) => {
@@ -79,7 +79,7 @@ export function createSyncBridge(canvas, eventBus) {
       scene.updateWall(data.id, data)
       renderer.redrawWalls()
       controller._spatialIndex.invalidate()
-      controller.refreshLighting()
+      controller.invalidateLighting()
     }
   }))
 
@@ -87,7 +87,7 @@ export function createSyncBridge(canvas, eventBus) {
     scene.removeWall(data.id)
     renderer.redrawWalls()
     controller._spatialIndex.invalidate()
-    controller.refreshLighting()
+    controller.invalidateLighting()
   }))
 
   unsubs.push(eventBus.on('template:created', (data) => {

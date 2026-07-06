@@ -24,6 +24,7 @@ export class CanvasController {
     this._wallDrawSnap = true
     this._viewpointTokenIds = []
     this._lightingDirty = true
+    this._lightingInvalidated = false
 
     /* Ruler state */
     this._rulerActive = false
@@ -196,6 +197,19 @@ export class CanvasController {
         timestamp: Date.now(),
       })
     }
+  }
+
+  /** Deferred lighting refresh — coalesces multiple invalidations
+   *  into a single recompute via microtask.  Use in sync handlers
+   *  where N records may be replayed synchronously (e.g. init wall
+   *  replay) to avoid O(N) full recomputes. */
+  invalidateLighting() {
+    if (this._lightingInvalidated) return
+    this._lightingInvalidated = true
+    queueMicrotask(() => {
+      this._lightingInvalidated = false
+      this.refreshLighting()
+    })
   }
 
   enable() {
