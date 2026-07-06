@@ -19,7 +19,7 @@ export default function VttCanvasMount({ eventBus, onReady }) {
           height: 3000,
           gridType: 'square',
           gridSize: 100,
-          backgroundColor: '#0f0f0f',
+          backgroundColor: '#2a2a2a',
           eventBus,
         })
 

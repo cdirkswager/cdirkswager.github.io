@@ -13,7 +13,7 @@ export class Scene {
     this.gridSize = gridSize ?? 100
     this.gridUnit = gridUnit ?? 5
     this.gridUnitLabel = gridUnitLabel ?? 'ft'
-    this.backgroundColor = backgroundColor ?? '#0f0f0f'
+    this.backgroundColor = backgroundColor ?? '#2a2a2a'
     this.ambientLight = ambientLight ?? 0
     this.lightingEnabled = false
     this.tiles = []

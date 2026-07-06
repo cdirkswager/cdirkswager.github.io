@@ -2,9 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { uploadImage } from '../../data/api.js'
 import { Actor } from '../../vtt/canvas/Actor.js'
 import { Item } from '../../vtt/canvas/Item.js'
-import { hasAccess, OWNERSHIP_LEVELS } from '../../vtt/canvas/ownership.js'
-import VttInventory from './VttInventory.jsx'
-import VttPartyPanel from './VttPartyPanel.jsx'
+import { getAccessLevel, hasAccess, OWNERSHIP_LEVELS } from '../../vtt/canvas/ownership.js'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
 
@@ -755,8 +753,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [showActorPanel, setShowActorPanel] = useState(false)
   const [showBgPanel, setShowBgPanel] = useState(false)
   const [showLighting, setShowLighting] = useState(false)
-  const [showInventory, setShowInventory] = useState(false)
-  const [showPartyPanel, setShowPartyPanel] = useState(false)
 
   /* Sync active tool to canvas controller once canvas is available */
   useEffect(() => {
@@ -764,27 +760,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       canvas.setTool(activeTool)
     }
   }, [canvas, activeTool])
-
-  /* Keyboard shortcuts */
-  useEffect(() => {
-    function handleKey(e) {
-      if ((e.key === 'i' || e.key === 'I') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.target.closest('input,textarea,select')) {
-        e.preventDefault()
-        setShowInventory(p => !p)
-      }
-      if (e.key === 'Escape') {
-        setShowAddToken(false)
-        setShowInventory(false)
-        setShowTokenPanel(false)
-        setShowActorPanel(false)
-        setShowBgPanel(false)
-        setShowLighting(false)
-        setShowPartyPanel(false)
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [])
 
   const handleToolSelect = useCallback((tool) => {
     setActiveTool(prev => prev === tool && tool === 'token' ? 'pan' : tool)
@@ -794,12 +769,12 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
     <>
       <div className="vtt-cockpit-toolbar">
         <div className="vtt-tool-group">
-          <ToolBtn label="Pan" tool="pan" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="Token" tool="token" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="Wall" tool="wall-draw" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="Wall Sel" tool="wall-select" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="Ruler" tool="ruler" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="Template" tool="template" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="✋ Pan" tool="pan" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="◎ Token" tool="token" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="▬ Wall" tool="wall-draw" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="↗ Wall Sel" tool="wall-select" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="📏 Ruler" tool="ruler" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
+          <ToolBtn label="⬠ Template" tool="template" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
         </div>
 
         <PresenceBar connectedUsers={connectedUsers} session={session} />
@@ -827,12 +802,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
             Actors
           </button>
-          <button onClick={() => setShowPartyPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showPartyPanel ? 'active' : ''}`}>
-            Party
-          </button>
-          <button onClick={() => setShowInventory(true)} className="btn btn-sm vtt-action-btn">
-            Inventory
-          </button>
           <button onClick={onDisconnect} className="btn btn-sm vtt-disconnect-btn">DC</button>
           <a href="/" className="btn btn-sm vtt-leave-btn">Leave</a>
         </div>
@@ -851,23 +820,10 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         {showLighting && (
           <LightingPanel canvas={canvas} isDm={isDm} eventBus={eventBus} />
         )}
-        {showPartyPanel && (
-          <VttPartyPanel canvas={canvas} eventBus={eventBus} session={session} />
-        )}
       </div>
 
       {showAddToken && (
         <AddTokenModal canvas={canvas} eventBus={eventBus} onClose={() => setShowAddToken(false)} userId={session?.userId} />
-      )}
-
-      {showInventory && (
-        <VttInventory
-          canvas={canvas}
-          eventBus={eventBus}
-          isDm={isDm}
-          session={session}
-          onClose={() => setShowInventory(false)}
-        />
       )}
     </>
   )
