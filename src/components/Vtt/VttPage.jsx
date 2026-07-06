@@ -5,6 +5,7 @@ import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../
 import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
 import { createSyncBridge } from './VttSyncBridge.js'
+import { Actor } from '../../vtt/canvas/Actor.js'
 import './VttPage.css'
 
 class VttErrorBoundary extends Component {
@@ -167,6 +168,18 @@ export default function VttPage() {
     if (eventBusRef.current) {
       destroyBridgeRef.current?.()
       destroyBridgeRef.current = createSyncBridge(c, eventBusRef.current)
+    }
+    /* Auto-create party stash if it doesn't exist */
+    if (eventBusRef.current && c.controller) {
+      const actors = Array.from(c.controller.actorMap.values())
+      if (!actors.find(a => a.actorType === 'party-stash')) {
+        const stash = new Actor({
+          name: 'Party Stash',
+          actorType: 'party-stash',
+          ownership: { default: 'owner', users: {} },
+        })
+        eventBusRef.current.emitRecord('actor', 'created', stash.toJSON())
+      }
     }
   }, [session])
 

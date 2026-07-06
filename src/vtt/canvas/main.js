@@ -41,7 +41,7 @@ export async function createVttCanvas(mountEl, options = {}) {
     height: options.height ?? 3000,
     gridType: options.gridType ?? 'square',
     gridSize: options.gridSize ?? 100,
-    backgroundColor: options.backgroundColor ?? '#2a2a2a',
+    backgroundColor: options.backgroundColor ?? '#0f0f0f',
   })
 
   const eventBus = options.eventBus ?? new EventBus()
