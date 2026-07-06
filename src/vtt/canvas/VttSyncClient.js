@@ -190,7 +190,7 @@ export class VttSyncClient {
     const msg = { resource: e.resource, action: e.action, data: e.data }
     switch (e.action) {
       case 'created':
-        this.ws.send(JSON.stringify({ type: 'create-record', record: { ...e.data, type: e.resource } }))
+        this.ws.send(JSON.stringify({ type: 'create-record', kind: e.resource, record: { ...e.data } }))
         break
 
       case 'updated':

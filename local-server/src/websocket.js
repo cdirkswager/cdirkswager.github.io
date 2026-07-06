@@ -78,7 +78,7 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
   function handleMessage(ws, identity, msg) {
     switch (msg.type) {
       case 'create-record': {
-        const kind = msg.record.type || 'records'
+        const kind = msg.kind || msg.record.type || 'records'
 
         // Permission check for item creation (must own the actor)
         if (kind === 'item') {

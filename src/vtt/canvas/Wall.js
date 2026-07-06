@@ -7,7 +7,7 @@ export class Wall {
     this.y = y ?? 0
     this.x2 = x2 ?? 100
     this.y2 = y2 ?? 100
-    this.type = type ?? 'solid'
+    this.type = WALL_TYPES.includes(type) ? type : 'solid'
     this.doorState = doorState !== undefined ? doorState : (this.type === 'door' ? 'closed' : null)
     this.hidden = hidden !== undefined ? hidden : (this.type === 'secret')
   }
