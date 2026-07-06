@@ -5,7 +5,6 @@ import { Item } from '../../vtt/canvas/Item.js'
 import { hasAccess, OWNERSHIP_LEVELS } from '../../vtt/canvas/ownership.js'
 import VttInventory from './VttInventory.jsx'
 import VttPartyPanel from './VttPartyPanel.jsx'
-import VttLootPanel from './VttLootPanel.jsx'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
 
@@ -758,8 +757,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [showLighting, setShowLighting] = useState(false)
   const [showInventory, setShowInventory] = useState(false)
   const [showPartyPanel, setShowPartyPanel] = useState(false)
-  const [showLootPanel, setShowLootPanel] = useState(false)
-  const [lootPileId, setLootPileId] = useState(null)
 
   /* Sync active tool to canvas controller once canvas is available */
   useEffect(() => {
@@ -783,25 +780,11 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         setShowBgPanel(false)
         setShowLighting(false)
         setShowPartyPanel(false)
-        setShowLootPanel(false)
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
-
-  /* Wire token click to open loot panel for loot-pile tokens */
-  useEffect(() => {
-    if (!canvas?.controller) return
-    canvas.controller.onTokenClicked = (token) => {
-      const actor = canvas.controller.actorMap?.get(token.actorId)
-      if (actor?.actorType === 'loot-pile') {
-        setLootPileId(actor.id)
-        setShowLootPanel(true)
-      }
-    }
-    return () => { canvas.controller.onTokenClicked = null }
-  }, [canvas])
 
   const handleToolSelect = useCallback((tool) => {
     setActiveTool(prev => prev === tool && tool === 'token' ? 'pan' : tool)
@@ -850,9 +833,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <button onClick={() => setShowInventory(true)} className="btn btn-sm vtt-action-btn">
             Inventory
           </button>
-          <button onClick={() => setShowLootPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showLootPanel ? 'active' : ''}`}>
-            Loot
-          </button>
           <button onClick={onDisconnect} className="btn btn-sm vtt-disconnect-btn">DC</button>
           <a href="/" className="btn btn-sm vtt-leave-btn">Leave</a>
         </div>
@@ -887,17 +867,6 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           isDm={isDm}
           session={session}
           onClose={() => setShowInventory(false)}
-        />
-      )}
-
-      {showLootPanel && (
-        <VttLootPanel
-          eventBus={eventBus}
-          canvas={canvas}
-          isDm={isDm}
-          session={session}
-          onClose={() => { setShowLootPanel(false); setLootPileId(null) }}
-          initialLootPileId={lootPileId}
         />
       )}
     </>

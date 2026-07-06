@@ -324,7 +324,6 @@ function InventorySection({ title, items, containers, canEdit, eventBus, onSelec
             <div className="vtt-container-items">
               {items.filter(i => i.containerId === container.id).map(item => (
                 <DraggableItem key={item.id} item={item} onClick={() => onSelectItem(item)}>
-{item.img && <img src={item.img} alt="" className="vtt-inv-icon" />}
                   <span className="vtt-inv-item-name">{item.name}</span>
                   <span className="vtt-inv-item-qty">x{item.quantity ?? 1}</span>
                   <span className="vtt-inv-item-weight">{((item.weight || 0) * (item.quantity || 1)).toFixed(1)} lbs</span>
@@ -339,7 +338,7 @@ function InventorySection({ title, items, containers, canEdit, eventBus, onSelec
       ))}
       {rootItems.map(item => (
         <DraggableItem key={item.id} item={item} onClick={() => onSelectItem(item)}>
-          {item.img && <img src={item.img} alt="" className="vtt-inv-icon" />}
+          <span className="vtt-inv-item-name">{item.name}</span>
           <span className="vtt-inv-item-qty">x{item.quantity ?? 1}</span>
           <span className="vtt-inv-item-weight">{((item.weight || 0) * (item.quantity || 1)).toFixed(1)} lbs</span>
           {canEdit && (
@@ -452,20 +451,13 @@ export default function VttInventory({ canvas, eventBus, isDm, session, onClose 
   useEffect(() => {
     const map = itemsMapRef.current
     const refresh = () => setItems(Array.from(map.values()))
-    /* Pre-populate from central itemMap (survives mount/unmount) */
-    if (canvas?.controller?.itemMap) {
-      for (const [id, item] of canvas.controller.itemMap) {
-        if (!map.has(id)) map.set(id, item)
-      }
-    }
     const offs = [
       eventBus?.on('item:created', (data) => { map.set(data.id, data); refresh() }),
       eventBus?.on('item:updated', (data) => { map.set(data.id, { ...map.get(data.id), ...data }); refresh() }),
       eventBus?.on('item:deleted', (data) => { map.delete(data.id); refresh() }),
     ]
-    refresh()
     return () => offs.forEach(o => o?.())
-  }, [eventBus, canvas])
+  }, [eventBus])
 
   useEffect(() => {
     if (!selectedId && actors.length > 0) {

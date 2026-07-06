@@ -179,25 +179,15 @@ export function createSyncBridge(canvas, eventBus) {
     controller.syncViewpointToAllVisionTokens()
   }))
 
-  /* Ensure itemMap exists on controller */
-  if (!controller.itemMap) controller.itemMap = new Map()
-
   unsubs.push(eventBus.on('item:created', (data) => {
-    if (controller.itemMap) controller.itemMap.set(data.id, data)
     eventBus.emit('items-changed', {})
   }))
 
   unsubs.push(eventBus.on('item:updated', (data) => {
-    if (controller.itemMap) {
-      const existing = controller.itemMap.get(data.id)
-      if (existing) Object.assign(existing, data)
-      else controller.itemMap.set(data.id, data)
-    }
     eventBus.emit('items-changed', {})
   }))
 
   unsubs.push(eventBus.on('item:deleted', (data) => {
-    if (controller.itemMap) controller.itemMap.delete(data.id)
     eventBus.emit('items-changed', {})
   }))
 
