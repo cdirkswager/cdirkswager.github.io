@@ -2,7 +2,6 @@ import { Application, Container, Sprite, Graphics, Texture, Rectangle } from 'pi
 import { Grid } from './Grid.js'
 import { WallLayer } from './WallLayer.js'
 import { LightingOverlay } from './LightingOverlay.js'
-import { FogOfWar } from './FogOfWar.js'
 import { TemplateLayer } from './TemplateLayer.js'
 import { RulerLayer } from './RulerLayer.js'
 import { PingLayer } from './PingLayer.js'
@@ -59,8 +58,6 @@ export class CanvasRenderer {
     this.templateLayer = new TemplateLayer()
     this.rulerLayer = new RulerLayer()
     this.overlayContainer = new Container()
-    this.fogOfWar = new FogOfWar(this)
-    this.fogOfWar.enabled = false
     this.lightingOverlay = new LightingOverlay(this)
     this.lightingOverlay.enabled = false
 
@@ -85,8 +82,6 @@ export class CanvasRenderer {
        sceneContainer so its world-space Graphics automatically tracks
        pan/zoom without re-render. */
     this.sceneContainer.addChild(this.overlayContainer)
-    /* Fog layer renders below lighting overlay */
-    this.overlayContainer.addChild(this.fogOfWar.container)
     this.overlayContainer.addChild(this.lightingOverlay.container)
 
     this._setupResize(mountEl, mountEl.parentElement)
@@ -357,7 +352,6 @@ export class CanvasRenderer {
     this.templateLayer?.destroy()
     this.rulerLayer?.destroy()
     this.pingLayer?.destroy()
-    this.fogOfWar?.destroy()
     this.lightingOverlay?.destroy()
     this.app?.destroy(true)
   }

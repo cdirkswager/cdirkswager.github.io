@@ -300,8 +300,8 @@ describe('computeCombinedVision', () => {
     expect(result).toBeNull()
   })
 
-  it('returns vision polygon for a single viewpoint token', () => {
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 100 })]
+  it('returns vision polygon for a single viewpoint token (darkvision)', () => {
+    const tokens = [token({ id: 't1', x: 0, y: 0, darkvisionRange: 100 })]
     const result = computeCombinedVision([], tokens, 't1')
     expect(result).not.toBeNull()
     expect(result.visionPolygons).toHaveLength(1)
@@ -309,16 +309,16 @@ describe('computeCombinedVision', () => {
     expect(result.tokenIds).toEqual(['t1'])
   })
 
-  it('includes darkvision polygon when darkvisionRange differs', () => {
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 100, darkvisionRange: 200 })]
-    const result = computeCombinedVision([], tokens, 't1')
-    expect(result.visionPolygons).toHaveLength(2)
-  })
-
-  it('does not duplicate darkvision when range matches sightRange', () => {
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 100, darkvisionRange: 100 })]
+  it('produces one darkvision polygon when darkvisionRange > 0', () => {
+    const tokens = [token({ id: 't1', x: 0, y: 0, darkvisionRange: 200 })]
     const result = computeCombinedVision([], tokens, 't1')
     expect(result.visionPolygons).toHaveLength(1)
+  })
+
+  it('produces no vision polygon when darkvisionRange is 0', () => {
+    const tokens = [token({ id: 't1', x: 0, y: 0, visionEnabled: true, darkvisionRange: 0 })]
+    const result = computeCombinedVision([], tokens, 't1')
+    expect(result.visionPolygons).toHaveLength(0)
   })
 
   it('includes light polygons from all tokens', () => {
@@ -331,10 +331,10 @@ describe('computeCombinedVision', () => {
     expect(result.lightPolygons[0].radius).toBe(150)
   })
 
-  it('unions vision from multiple viewpoint tokens', () => {
+  it('unions darkvision from multiple viewpoint tokens', () => {
     const tokens = [
-      token({ id: 't1', x: 0, y: 0, sightRange: 100 }),
-      token({ id: 't2', x: 300, y: 300, sightRange: 100 }),
+      token({ id: 't1', x: 0, y: 0, darkvisionRange: 100 }),
+      token({ id: 't2', x: 300, y: 300, darkvisionRange: 100 }),
     ]
     const result = computeCombinedVision([], tokens, ['t1', 't2'])
     expect(result.visionPolygons).toHaveLength(2)
@@ -394,13 +394,13 @@ describe('computeCombinedVision', () => {
   })
 
   it('passes ambientLight in result', () => {
-    const tokens = [token({ id: 't1', sightRange: 100 })]
+    const tokens = [token({ id: 't1', darkvisionRange: 100 })]
     const result = computeCombinedVision([], tokens, 't1', 0.5)
     expect(result.ambientLight).toBe(0.5)
   })
 
   it('getVisibleRegion returns first vision polygon', () => {
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 100 })]
+    const tokens = [token({ id: 't1', x: 0, y: 0, darkvisionRange: 100 })]
     const result = computeCombinedVision([], tokens, 't1')
     expect(result.getVisibleRegion()).toBe(result.visionPolygons[0])
   })
@@ -410,7 +410,7 @@ describe('computeCombinedVision', () => {
 
 describe('computeCombinedVision with spatial index', () => {
   it('produces same result as without spatial index (open area)', () => {
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 100 })]
+    const tokens = [token({ id: 't1', x: 0, y: 0, darkvisionRange: 100 })]
     const walls = [w(1000, 1000, 1100, 1100, 'solid')]
 
     const withoutSI = computeCombinedVision(walls, tokens, 't1')
@@ -431,7 +431,7 @@ describe('computeCombinedVision with spatial index', () => {
       w(100, 100, -100, 100, 'solid'),
       w(-100, 100, -100, -100, 'solid'),
     ]
-    const tokens = [token({ id: 't1', x: 0, y: 0, sightRange: 500 })]
+    const tokens = [token({ id: 't1', x: 0, y: 0, darkvisionRange: 500 })]
 
     const si = new WallSpatialIndex()
     si.rebuildIfNeeded(walls)

@@ -274,20 +274,14 @@ export function computeCombinedVision(walls, tokens, viewpointTokenIds, sceneAmb
   for (const t of viewTokens) {
     const cx = t.centerX
     const cy = t.centerY
-    const maxRange = Math.max(t.sightRange ?? 0, t.darkvisionRange ?? 0)
+    const maxRange = t.darkvisionRange ?? 0
     const wallsInRange = spatialIndex
       ? spatialIndex.getWallsInRange(cx, cy, maxRange + SPATIAL_CELL)
       : walls
 
-    if (t.visionEnabled && t.sightRange > 0) {
-      const visionPoly = computeVisionPolygon(cx, cy, t.sightRange, wallsInRange)
-      if (visionPoly) results.visionPolygons.push(visionPoly)
-    }
-
     /* Darkvision: sees a set distance even in complete darkness.
-       Walls still block darkvision. The darkvision polygon is added
-       alongside normal vision; the renderer unions via ERASE blend. */
-    if (t.visionEnabled && t.darkvisionRange > 0 && t.darkvisionRange !== (t.sightRange ?? 0)) {
+       Walls still block darkvision. */
+    if (t.visionEnabled && t.darkvisionRange > 0) {
       const darkWalls = spatialIndex
         ? spatialIndex.getWallsInRange(cx, cy, t.darkvisionRange + SPATIAL_CELL)
         : wallsInRange

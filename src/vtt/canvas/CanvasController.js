@@ -118,15 +118,19 @@ export class CanvasController {
     this.refreshLighting()
   }
 
-  /** Set the viewpoint to all tokens owned by the current user.
-   *  For non-DM players this is called automatically after setup
-   *  and whenever owned tokens are created/deleted/updated. */
+  /** Derive viewpoint from tokens whose actorId links to an actor
+   *  the current user has `owner` access to. For non-DM players this
+   *  is called after setup and whenever owned tokens/actors change. */
   syncViewpointToOwnedTokens() {
     if (this.isDm || !this.userId) return
     const scene = this.renderer.currentScene
     if (!scene) return
     const ids = scene.tokens
-      .filter(t => t.userId === this.userId)
+      .filter(t => {
+        if (!t.actorId) return false
+        const actor = this.actorMap?.get(t.actorId)
+        return actor && getAccessLevel({ userId: this.userId, role: 'player' }, actor) === 'owner'
+      })
       .map(t => t.id)
     this.setViewpoint(ids)
   }
@@ -134,17 +138,14 @@ export class CanvasController {
   refreshLighting() {
     const t0 = perfStart()
     const overlay = this.renderer.lightingOverlay
-    const fog = this.renderer.fogOfWar
     if (!overlay?.enabled && !this.viewAll) return
     const scene = this.renderer.currentScene
     if (!scene) return
-    const bounds = this.renderer.getViewBounds()
 
     overlay.viewAll = this.viewAll
 
     if (this.viewAll) {
-      overlay.update(bounds, null, this.ambientLight)
-      if (fog?.enabled) fog.update(bounds)
+      overlay.update(null, null, scene.ambientLight ?? 0)
       this._lastVisionData = null
       perfEnd(t0, 'refreshLighting (viewAll)')
       return
@@ -152,7 +153,6 @@ export class CanvasController {
 
     if (!this._viewpointTokenIds.length) {
       overlay._clear()
-      if (fog?.enabled) fog.update(bounds)
       this._lastVisionData = null
       perfEnd(t0, 'refreshLighting (no viewpoint)')
       return
@@ -164,18 +164,12 @@ export class CanvasController {
       scene.walls,
       scene.tokens,
       this._viewpointTokenIds,
-      scene.ambientLight ?? this.ambientLight,
+      scene.ambientLight ?? 0,
       this._spatialIndex,
     )
 
     this.renderer.updateLighting(vision)
     this._lastVisionData = vision
-
-    if (fog?.enabled && vision) {
-      const polys = vision.visionPolygons ?? (vision.visionPolygon ? [vision.visionPolygon] : [])
-      fog.accumulate(polys)
-      fog.update(bounds)
-    }
 
     perfEnd(t0, 'refreshLighting')
 

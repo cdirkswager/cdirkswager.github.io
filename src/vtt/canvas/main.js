@@ -10,7 +10,6 @@ import { TemplateLayer } from './TemplateLayer.js'
 import { RulerLayer } from './RulerLayer.js'
 import { PingLayer } from './PingLayer.js'
 import { LightingOverlay } from './LightingOverlay.js'
-import { FogOfWar } from './FogOfWar.js'
 import { computeCombinedVision, computeVisionPolygon, computeLightPolygon } from './LightingVision.js'
 import { EventBus } from './EventBus.js'
 import { VttSyncClient } from './VttSyncClient.js'
@@ -21,7 +20,7 @@ export {
   CanvasRenderer, CanvasController, Scene,
   Token, Tile, WALL_TYPES, Wall, WallLayer,
   Template, TEMPLATE_TYPES, TemplateLayer, RulerLayer, PingLayer,
-  LightingOverlay, FogOfWar,
+  LightingOverlay,
   computeCombinedVision, computeVisionPolygon, computeLightPolygon,
   EventBus,
   registerRule, getRule, listRules, setActive, getActive, measure,
@@ -101,8 +100,6 @@ export async function createVttCanvas(mountEl, options = {}) {
     setTool: (tool) => controller.setTool(tool),
     get tools() { return controller.TOOLS },
     setLightingEnabled: (enabled) => renderer.setLightingEnabled(enabled),
-    setFogEnabled: (enabled) => { renderer.fogOfWar.enabled = enabled; controller.refreshLighting() },
-    resetFog: () => { renderer.fogOfWar.reset(); controller.refreshLighting() },
     setViewpoint: (tokenId) => controller.setViewpoint(tokenId),
     refreshLighting: () => controller.refreshLighting(),
     destroy: () => {

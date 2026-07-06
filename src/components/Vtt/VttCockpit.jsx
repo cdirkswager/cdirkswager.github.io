@@ -27,7 +27,6 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
   const [h, setH] = useState(100)
   const [src, setSrc] = useState('')
   const [visionEnabled, setVisionEnabled] = useState(false)
-  const [sightRange, setSightRange] = useState(300)
   const [darkvisionRange, setDarkvisionRange] = useState(60)
   const [lightRadius, setLightRadius] = useState(0)
   const [lightColor, setLightColor] = useState('#ffeedd')
@@ -48,7 +47,6 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
       src,
       userId,
       visionEnabled,
-      sightRange,
       darkvisionRange,
       lightRadius,
       lightColor: parseInt(lightColor.replace('#', ''), 16),
@@ -56,7 +54,7 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
     })
     eventBus.emitRecord('token', 'created', token.toJSON())
     onClose()
-  }, [canvas, eventBus, name, w, h, src, onClose, userId, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
+  }, [canvas, eventBus, name, w, h, src, onClose, userId, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity])
 
   return (
     <div className="vtt-modal-overlay" onClick={onClose}>
@@ -82,14 +80,9 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
           Enable Vision
         </label>
         {visionEnabled && (
-          <>
-            <label>Sight Range (world units)
-              <input type="number" value={sightRange} onChange={e => setSightRange(Number(e.target.value))} className="vtt-input" min={0} />
-            </label>
-            <label>Darkvision Range
-              <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
-            </label>
-          </>
+          <label>Darkvision Range
+            <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+          </label>
         )}
         <label>Light Radius
           <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
@@ -199,7 +192,6 @@ function TokenPropEditor({ token, onSave, actors }) {
   const [src, setSrc] = useState(token.src ?? '')
   const [actorId, setActorId] = useState(token.actorId ?? '')
   const [visionEnabled, setVisionEnabled] = useState(token.visionEnabled)
-  const [sightRange, setSightRange] = useState(token.sightRange)
   const [darkvisionRange, setDarkvisionRange] = useState(token.darkvisionRange)
   const [lightRadius, setLightRadius] = useState(token.lightRadius)
   const [lightColor, setLightColor] = useState('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
@@ -212,7 +204,6 @@ function TokenPropEditor({ token, onSave, actors }) {
     setSrc(token.src ?? '')
     setActorId(token.actorId ?? '')
     setVisionEnabled(token.visionEnabled)
-    setSightRange(token.sightRange)
     setDarkvisionRange(token.darkvisionRange)
     setLightRadius(token.lightRadius)
     setLightColor('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
@@ -228,13 +219,12 @@ function TokenPropEditor({ token, onSave, actors }) {
       src,
       actorId: actorId || null,
       visionEnabled,
-      sightRange,
       darkvisionRange,
       lightRadius,
       lightColor: parseInt(lightColor.replace('#', ''), 16),
       lightIntensity,
     })
-  }, [onSave, name, w, h, src, actorId, visionEnabled, sightRange, darkvisionRange, lightRadius, lightColor, lightIntensity])
+  }, [onSave, name, w, h, src, actorId, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity])
 
   return (
     <form onSubmit={handleSubmit} className="vtt-token-prop-form">
@@ -269,14 +259,9 @@ function TokenPropEditor({ token, onSave, actors }) {
         Enable Vision
       </label>
       {visionEnabled && (
-        <>
-          <label>Sight Range
-            <input type="number" value={sightRange} onChange={e => setSightRange(Number(e.target.value))} className="vtt-input" min={0} />
-          </label>
-          <label>Darkvision Range
-            <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
-          </label>
-        </>
+        <label>Darkvision Range
+          <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+        </label>
       )}
       <label>Light Radius
         <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
@@ -351,72 +336,43 @@ function BackgroundPanel({ canvas, eventBus, scene }) {
 /* ── Lighting / Vision panel (DM) ──────────────────────────── */
 function LightingPanel({ canvas, isDm, eventBus }) {
   if (!isDm || !canvas) return null
-  const [lighting, setLighting] = useState(false)
-  const [fog, setFog] = useState(false)
-  const [viewAll, setViewAll] = useState(false)
-  const [ambient, setAmbient] = useState(0)
-  const [viewpointId, setViewpointId] = useState(canvas.controller?._viewpointTokenIds?.[0] ?? '')
-  const [tokens, setTokens] = useState(canvas.scene ? [...canvas.scene.tokens] : [])
+  const [lighting, setLighting] = useState(canvas.scene?.lightingEnabled ?? false)
+  const [ambient, setAmbient] = useState(canvas.scene?.ambientLight ?? 0)
   const [gridUnit, setGridUnit] = useState(canvas.scene?.gridUnit ?? 5)
   const [gridUnitLabel, setGridUnitLabel] = useState(canvas.scene?.gridUnitLabel ?? 'ft')
 
-  /* Sync token list with scene changes */
+  /* Sync state from scene record changes (e.g. init replay) */
   useEffect(() => {
-    if (!canvas?.scene) return
-    function refresh() { setTokens([...canvas.scene.tokens]) }
-    refresh()
-    const unsubs = []
-    if (eventBus) {
-      unsubs.push(eventBus.on('token:created', refresh))
-      unsubs.push(eventBus.on('token:updated', refresh))
-      unsubs.push(eventBus.on('token:deleted', refresh))
+    if (!eventBus || !canvas?.scene) return
+    const refresh = () => {
+      setLighting(canvas.scene.lightingEnabled)
+      setAmbient(canvas.scene.ambientLight ?? 0)
     }
-    return () => { unsubs.forEach(u => u?.()) }
+    return eventBus.on('scene:updated', refresh)
+  }, [eventBus, canvas])
+
+  const maybeEmitSceneUpdate = useCallback((changes) => {
+    if (!canvas?.scene || !eventBus) return
+    Object.assign(canvas.scene, changes)
+    eventBus.emitRecord('scene', 'updated', { id: canvas.scene.id, ...changes })
   }, [canvas, eventBus])
 
   const handleToggleLighting = useCallback(() => {
     const next = !lighting
     setLighting(next)
     canvas.setLightingEnabled(next)
+    canvas.scene.lightingEnabled = next
+    maybeEmitSceneUpdate({ lightingEnabled: next })
     if (next) canvas.refreshLighting()
-  }, [canvas, lighting])
-
-  const handleToggleFog = useCallback(() => {
-    const next = !fog
-    setFog(next)
-    canvas.setFogEnabled(next)
-    if (next) canvas.refreshLighting()
-  }, [canvas, fog])
-
-  const handleToggleViewAll = useCallback(() => {
-    const next = !viewAll
-    setViewAll(next)
-    canvas.controller.viewAll = next
-    canvas.refreshLighting()
-  }, [canvas, viewAll])
-
-  const handleResetFog = useCallback(() => {
-    canvas.resetFog()
-  }, [canvas])
+  }, [canvas, lighting, maybeEmitSceneUpdate])
 
   const handleSetAmbient = useCallback((e) => {
     const val = Number(e.target.value)
     setAmbient(val)
     canvas.scene.ambientLight = val
-    canvas.controller.ambientLight = val
+    maybeEmitSceneUpdate({ ambientLight: val })
     canvas.refreshLighting()
-  }, [canvas])
-
-  const handleViewpointSelect = useCallback((e) => {
-    const id = e.target.value
-    setViewpointId(id)
-    if (id) {
-      canvas.setViewpoint(id)
-    } else {
-      canvas.controller.setViewpoint([])
-      canvas.refreshLighting()
-    }
-  }, [canvas])
+  }, [canvas, maybeEmitSceneUpdate])
 
   const handleGridUnitChange = useCallback((e) => {
     const val = Number(e.target.value)
@@ -441,17 +397,8 @@ function LightingPanel({ canvas, isDm, eventBus }) {
       <h4>Lighting & Vision</h4>
       <label className="vtt-toggle">
         <input type="checkbox" checked={lighting} onChange={handleToggleLighting} />
-        Dynamic Lighting
+        Lighting
       </label>
-      <label className="vtt-toggle">
-        <input type="checkbox" checked={fog} onChange={handleToggleFog} />
-        Fog of War
-      </label>
-      <label className="vtt-toggle">
-        <input type="checkbox" checked={viewAll} onChange={handleToggleViewAll} />
-        GM View All
-      </label>
-      <button onClick={handleResetFog} className="btn btn-sm" style={{marginTop:4}}>Reset Fog</button>
       <label>Ambient Light (0-1)
         <input type="range" min="0" max="1" step="0.05" value={ambient} onChange={handleSetAmbient} className="vtt-range" />
       </label>
@@ -465,24 +412,6 @@ function LightingPanel({ canvas, isDm, eventBus }) {
       <label>Unit label
         <input type="text" value={gridUnitLabel} onChange={handleGridUnitLabelChange} className="vtt-input" placeholder="e.g. ft, m" />
       </label>
-
-      <hr className="vtt-divider" />
-
-      <h4>Viewpoint</h4>
-      <p className="vtt-hint">Choose which token the scene is viewed from. Dynamic lighting uses this token's position and vision range.</p>
-      <label>
-        <select value={viewpointId} onChange={handleViewpointSelect} className="vtt-input">
-          <option value="">— None (no viewpoint) —</option>
-          {tokens.map(t => (
-            <option key={t.id} value={t.id}>
-              {t.name}{t.userId ? '' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
-      {viewpointId && (
-        <p className="vtt-viewpoint-info">Viewing from a token with <strong>Dynamic Lighting</strong> enabled</p>
-      )}
     </div>
   )
 }

@@ -15,6 +15,7 @@ export class Scene {
     this.gridUnitLabel = gridUnitLabel ?? 'ft'
     this.backgroundColor = backgroundColor ?? '#2a2a2a'
     this.ambientLight = ambientLight ?? 0
+    this.lightingEnabled = false
     this.tiles = []
     this.tokens = []
     this.walls = []
@@ -98,6 +99,7 @@ export class Scene {
       gridUnitLabel: this.gridUnitLabel,
       backgroundColor: this.backgroundColor,
       ambientLight: this.ambientLight,
+      lightingEnabled: this.lightingEnabled,
       tiles: this.tiles.map(t => t.toJSON()),
       tokens: this.tokens.map(t => t.toJSON()),
       walls: this.walls.map(w => w.toJSON()),

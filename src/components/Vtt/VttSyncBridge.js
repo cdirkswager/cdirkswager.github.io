@@ -41,7 +41,6 @@ export function createSyncBridge(canvas, eventBus) {
       token.locked = data.locked ?? token.locked
       token.visible = data.visible ?? token.visible
       token.elevation = data.elevation ?? token.elevation
-      token.sightRange = data.sightRange ?? token.sightRange
       token.visionEnabled = data.visionEnabled ?? token.visionEnabled
       token.darkvisionRange = data.darkvisionRange ?? token.darkvisionRange
       token.lightRadius = data.lightRadius ?? token.lightRadius
@@ -119,10 +118,40 @@ export function createSyncBridge(canvas, eventBus) {
     renderer.loadScene(scene)
   }))
 
+  /* ---------- Scene record updates (lighting settings persistence) ---------- */
+  unsubs.push(eventBus.on('scene:created', (data) => {
+    /* Apply persisted scene settings on init replay */
+    const scene = canvas.scene
+    if (!scene) return
+    if ('lightingEnabled' in data) {
+      scene.lightingEnabled = data.lightingEnabled
+      renderer.setLightingEnabled(data.lightingEnabled)
+    }
+    if ('ambientLight' in data) {
+      scene.ambientLight = data.ambientLight
+    }
+    if (data.lightingEnabled || data.ambientLight) controller.refreshLighting()
+  }))
+
+  unsubs.push(eventBus.on('scene:updated', (data) => {
+    const scene = canvas.scene
+    if (!scene || data.id !== scene.id) return
+    if ('lightingEnabled' in data) {
+      scene.lightingEnabled = data.lightingEnabled
+      renderer.setLightingEnabled(data.lightingEnabled)
+      if (data.lightingEnabled) controller.refreshLighting()
+    }
+    if ('ambientLight' in data) {
+      scene.ambientLight = data.ambientLight
+      controller.refreshLighting()
+    }
+  }))
+
   /* ---------- Actor/Item record handlers (game-level, no renderer impact) ---------- */
   unsubs.push(eventBus.on('actor:created', (data) => {
     if (controller.actorMap) controller.actorMap.set(data.id, data)
     eventBus.emit('actors-changed', {})
+    controller.syncViewpointToOwnedTokens()
   }))
 
   unsubs.push(eventBus.on('actor:updated', (data) => {
@@ -132,11 +161,13 @@ export function createSyncBridge(canvas, eventBus) {
       else controller.actorMap.set(data.id, data)
     }
     eventBus.emit('actors-changed', {})
+    controller.syncViewpointToOwnedTokens()
   }))
 
   unsubs.push(eventBus.on('actor:deleted', (data) => {
     if (controller.actorMap) controller.actorMap.delete(data.id)
     eventBus.emit('actors-changed', {})
+    controller.syncViewpointToOwnedTokens()
   }))
 
   unsubs.push(eventBus.on('item:created', (data) => {
