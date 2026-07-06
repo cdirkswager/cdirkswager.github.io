@@ -26,6 +26,7 @@ export function createSyncBridge(canvas, eventBus) {
     canvas.addToken(token)
     controller.refreshLighting()
     controller.syncViewpointToOwnedTokens()
+    controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('token:updated', (data) => {
@@ -50,6 +51,7 @@ export function createSyncBridge(canvas, eventBus) {
       renderer.updateTokenPosition(token.id, token.x, token.y)
       if ('userId' in data && data.userId !== prevUserId) {
         controller.syncViewpointToOwnedTokens()
+        controller.syncViewpointToAllVisionTokens()
       }
     } else {
       canvas.addToken(new Token(data))
@@ -60,12 +62,14 @@ export function createSyncBridge(canvas, eventBus) {
   unsubs.push(eventBus.on('token:deleted', (data) => {
     removeTokenFromCanvas(data.id)
     controller.syncViewpointToOwnedTokens()
+    controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('wall:created', (data) => {
     if (scene.getWall(data.id)) return
     scene.addWall(data instanceof Wall ? data : new Wall(data))
     renderer.redrawWalls()
+    controller._spatialIndex.invalidate()
     controller.refreshLighting()
   }))
 
@@ -74,6 +78,7 @@ export function createSyncBridge(canvas, eventBus) {
     if (existing) {
       scene.updateWall(data.id, data)
       renderer.redrawWalls()
+      controller._spatialIndex.invalidate()
       controller.refreshLighting()
     }
   }))
@@ -81,6 +86,7 @@ export function createSyncBridge(canvas, eventBus) {
   unsubs.push(eventBus.on('wall:deleted', (data) => {
     scene.removeWall(data.id)
     renderer.redrawWalls()
+    controller._spatialIndex.invalidate()
     controller.refreshLighting()
   }))
 
@@ -152,6 +158,7 @@ export function createSyncBridge(canvas, eventBus) {
     if (controller.actorMap) controller.actorMap.set(data.id, data)
     eventBus.emit('actors-changed', {})
     controller.syncViewpointToOwnedTokens()
+    controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('actor:updated', (data) => {
@@ -162,12 +169,14 @@ export function createSyncBridge(canvas, eventBus) {
     }
     eventBus.emit('actors-changed', {})
     controller.syncViewpointToOwnedTokens()
+    controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('actor:deleted', (data) => {
     if (controller.actorMap) controller.actorMap.delete(data.id)
     eventBus.emit('actors-changed', {})
     controller.syncViewpointToOwnedTokens()
+    controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('item:created', (data) => {

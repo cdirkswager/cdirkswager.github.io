@@ -158,9 +158,13 @@ export default function VttPage() {
     if (c.controller) {
       c.controller.userId = session?.userId ?? null
       c.controller.isDm = session?.role === 'dm'
-      c.controller.viewAll = session?.role === 'dm'
-      /* Non-DM players automatically see through all their owned tokens */
-      c.controller.syncViewpointToOwnedTokens()
+      /* DM sees dynamic lighting from all vision-enabled tokens;
+         non-DM players automatically see through their owned tokens. */
+      if (c.controller.isDm) {
+        c.controller.syncViewpointToAllVisionTokens()
+      } else {
+        c.controller.syncViewpointToOwnedTokens()
+      }
     }
     /* Wire up sync bridge — connects canvas ↔ EventBus ↔ spine */
     if (eventBusRef.current) {

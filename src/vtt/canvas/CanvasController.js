@@ -135,6 +135,18 @@ export class CanvasController {
     this.setViewpoint(ids)
   }
 
+  /** Set viewpoint to all tokens that contribute vision or light —
+   *  used by the DM to see the full dynamic-lighting picture. */
+  syncViewpointToAllVisionTokens() {
+    if (!this.isDm) return
+    const scene = this.renderer.currentScene
+    if (!scene) return
+    const ids = scene.tokens
+      .filter(t => t.visionEnabled && (t.darkvisionRange > 0 || t.lightRadius > 0))
+      .map(t => t.id)
+    this.setViewpoint(ids)
+  }
+
   refreshLighting() {
     if (!this.renderer) return
     const t0 = perfStart()
@@ -274,7 +286,6 @@ export class CanvasController {
 
     if (this.tool === TOOLS.WALL_DRAW) {
       this._handleWallDrawDown(world)
-      this._spatialDirty = true
       return
     }
 
@@ -413,7 +424,7 @@ export class CanvasController {
         const newState = hitWall.doorState === 'open' ? 'closed' : 'open'
         scene.updateWall(hitWall.id, { doorState: newState })
         this.renderer.redrawWalls()
-        this._spatialDirty = true
+        this._spatialIndex.invalidate()
         this.refreshLighting()
         this.onDoorToggled?.(hitWall, newState)
       }
@@ -532,7 +543,7 @@ export class CanvasController {
     if (wall.length > 5) {
       scene.addWall(wall)
       this.renderer.redrawWalls()
-      this._spatialDirty = true
+      this._spatialIndex.invalidate()
       this.refreshLighting()
       this.onWallCreated?.(wall)
     }
@@ -639,7 +650,7 @@ export class CanvasController {
     if (!scene) return
     scene.removeWall(this._selectedWall.id)
     this.renderer.redrawWalls()
-    this._spatialDirty = true
+    this._spatialIndex.invalidate()
     this.refreshLighting()
     this.onWallDeleted?.(this._selectedWall)
     this._selectedWall = null
