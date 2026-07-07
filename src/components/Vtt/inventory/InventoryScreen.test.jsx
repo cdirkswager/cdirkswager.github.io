@@ -70,11 +70,13 @@ describe('InventoryScreen (read-only)', () => {
     expect(screen.queryByText(/Shared party stash/i)).not.toBeInTheDocument()
   })
 
-  it('calls onClose on Escape', () => {
+  it('calls onClose from the close button', () => {
     const { controller } = build()
     const onClose = vi.fn()
     render(<InventoryScreen controller={controller} eventBus={makeBus()} session={{ userId: 'u1', role: 'player' }} onClose={onClose} />)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.click(screen.getByTitle('Close (Esc)'))
     expect(onClose).toHaveBeenCalled()
   })
+
+
 })

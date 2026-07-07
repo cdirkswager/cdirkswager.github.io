@@ -410,6 +410,33 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
         break
       }
 
+      case 'create-loot-pile': {
+        if (identity.role !== 'dm') { _deny(ws, 'Only DM can create loot piles'); return }
+        const now = Date.now()
+        const pile = {
+          type: 'actor',
+          id: msg.id || crypto.randomUUID(),
+          name: msg.name || 'Loot',
+          actorType: 'loot-pile',
+          ownership: { default: 'owner', users: {} },
+          attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } },
+          createdBy: identity.userId,
+          updatedAt: now, createdAt: now,
+        }
+        store.insert('actor', pile)
+        broadcast({ type: 'record-created', record: pile, kind: 'actor', by: identity.username })
+        ws.send(JSON.stringify({ type: 'record-created-ack', record: pile, kind: 'actor' }))
+        if (msg.seedItems && Array.isArray(msg.seedItems)) {
+          for (const tpl of msg.seedItems) {
+            const item = { ...tpl, id: tpl.id || crypto.randomUUID(), actorId: pile.id, createdBy: identity.userId, updatedAt: now, createdAt: now }
+            store.insert('item', item)
+            broadcast({ type: 'record-created', record: item, kind: 'item', by: identity.username })
+            ws.send(JSON.stringify({ type: 'record-created-ack', record: item, kind: 'item' }))
+          }
+        }
+        break
+      }
+
       case 'ephemeral': {
         const event = { type: 'ephemeral', payload: msg.payload, by: identity.username, userId: identity.userId }
         broadcast(event, ws)

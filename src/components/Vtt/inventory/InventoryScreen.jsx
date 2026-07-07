@@ -1,121 +1,65 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, closestCenter } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { useInventoryModel } from './useInventoryModel.js'
 import { getAccessLevel } from '../../../vtt/canvas/ownership.js'
-import { resolveDrop, parseDndId } from './dndIntent.js'
-import { availableItemActions } from './itemActions.js'
-import { ItemContextMenu, SplitModal } from './ItemContextMenu.jsx'
+import { resolveDrop } from './dndIntent.js'
 import PartyRail from './PartyRail.jsx'
 import Paperdoll from './Paperdoll.jsx'
 import CharacterPanel from './CharacterPanel.jsx'
 import ItemGrid from './ItemGrid.jsx'
 import { IconMenu, IconMap, IconBag, IconBook, IconUser, IconClose, IconCoin, IconWeight } from './icons.jsx'
 
-export default function InventoryScreen({ controller, eventBus, session, onClose }) {
-  const model = useInventoryModel({ controller, eventBus, session })
+/**
+ * InventoryScreen — full-screen game-like character + inventory overlay with
+ * drag-and-drop. Equip (grid→slot), unequip (slot→grid), move (into/out of
+ * containers), and transfer (drop on a party portrait). All mutations are
+ * optimistic with server-authoritative rollback (see VttSyncBridge). You can
+ * only drag items on actors you own; equipped gear of others is locked. Esc closes.
+ */
+export default function InventoryScreen({ controller, eventBus, session, initialActorId, onClose }) {
+  const model = useInventoryModel({ controller, eventBus, session, initialActorId })
   const user = { userId: session?.userId, role: session?.role }
   const accessOf = (a) => getAccessLevel(user, a)
 
-  const [activeDrag, setActiveDrag] = useState(null)
+  const [activeItem, setActiveItem] = useState(null)
   const [toast, setToast] = useState(null)
-  const [ctxItem, setCtxItem] = useState(null)
-  const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 })
-  const [splitItem, setSplitItem] = useState(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
-  const showToast = useCallback((msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2500)
-  }, [])
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  )
-
+  // Surface server rejections (e.g. "Container is full", "Illegal equip slot").
   useEffect(() => {
     if (!eventBus) return
-    const unsub = eventBus.on('op-rejected', (m) => showToast(m.message))
-    return unsub
-  }, [eventBus, showToast])
+    const off = eventBus.on('op-rejected', ({ message }) => {
+      setToast(message || 'Action not allowed')
+      setTimeout(() => setToast(null), 2600)
+    })
+    return () => off?.()
+  }, [eventBus])
 
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose?.() } }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose])
-
-  const handleDragStart = useCallback(({ active }) => {
-    const itemId = parseDndId(active.id).id
-    const item = model.getItem(itemId)
-    if (item) setActiveDrag(item)
+  const onDragStart = useCallback((e) => {
+    const id = e.active?.data?.current?.itemId
+    setActiveItem(id ? model.getItem(id) : null)
   }, [model])
 
-  const handleDragEnd = useCallback(({ active, over }) => {
-    setActiveDrag(null)
-    if (!over) return
-
-    const intent = resolveDrop(active.id, over.id, {
-      getItem: (id) => model.getItem(id),
-      owns: model.owns,
-      gridActorId: model.gridActor?.id,
+  const onDragEnd = useCallback((e) => {
+    setActiveItem(null)
+    const overId = e.over?.id
+    if (!overId) return
+    const action = resolveDrop(e.active.id, overId, {
+      getItem: model.getItem, owns: model.owns, gridActorId: model.gridActor?.id,
     })
-
-    switch (intent.kind) {
-      case 'equip':
-        controller?.equipItem?.(intent.itemId, intent.slot)
-        break
-      case 'unequip':
-        controller?.unequipItem?.(intent.itemId)
-        break
-      case 'move':
-        controller?.moveItem?.(intent.itemId, intent.parentItemId, { unequip: intent.unequip })
-        break
-      case 'transfer':
-        controller?.transferItem?.({ itemId: intent.itemId, toActorId: intent.toActorId })
-        break
+    switch (action.kind) {
+      case 'equip':    controller?.equipItem?.(action.itemId, action.slot); break
+      case 'unequip':  controller?.unequipItem?.(action.itemId); break
+      case 'move':     controller?.moveItem?.(action.itemId, action.parentItemId, { unequip: action.unequip }); break
+      case 'transfer': controller?.transferItem?.({ itemId: action.itemId, toActorId: action.toActorId }); break
       case 'invalid':
-        showToast(intent.reason === 'not-owner' ? "You don't control this character" : "Item doesn't fit there")
+        setToast(action.reason === 'wrong-slot' ? "That doesn't go there"
+          : action.reason === 'not-owner' ? "You don't control this character" : 'Not allowed')
+        setTimeout(() => setToast(null), 2200)
         break
+      default: break
     }
-  }, [controller, model, showToast])
-
-  const handleDragCancel = useCallback(() => setActiveDrag(null), [])
-
-  const handleContextMenu = useCallback((item, e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setCtxItem(item)
-    setCtxPos({ x: e.clientX, y: e.clientY })
-  }, [])
-
-  const runAction = useCallback((action) => {
-    const item = ctxItem
-    setCtxItem(null)
-    if (!item) return
-    switch (action.action) {
-      case 'equip':
-        controller?.equipItem?.(item.id, action.slot)
-        break
-      case 'unequip':
-        controller?.unequipItem?.(item.id)
-        break
-      case 'split':
-        setSplitItem(item)
-        break
-      case 'give':
-        if (model.partyStash) {
-          controller?.transferItem?.({ itemId: item.id, toActorId: model.partyStash.id })
-        }
-        break
-      case 'delete':
-        controller?.deleteItem?.(item.id)
-        break
-    }
-  }, [ctxItem, controller, model.partyStash])
-
-  const handleSplit = useCallback((quantity) => {
-    if (splitItem) controller?.splitStack?.(splitItem.id, quantity)
-    setSplitItem(null)
-  }, [splitItem, controller])
+  }, [controller, model])
 
   const gp = model.currency?.gp ?? 0
   const carried = model.carry?.carried ?? 0
@@ -123,13 +67,7 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
 
   return (
     <div className="inv-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-        collisionDetection={closestCenter}
-      >
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="inv-frame" role="dialog" aria-label="Character and inventory">
           <div className="inv-topbar">
             <button className="inv-iconbtn" title="Menu"><IconMenu /></button>
@@ -158,47 +96,18 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
                 paperdoll={<Paperdoll selected={model.selected} equipment={model.equipment} locked={!model.owns} onUnequip={(id) => controller?.unequipItem?.(id)} />}
               />
             </div>
-            <ItemGrid
-              model={model}
-              onContextMenu={handleContextMenu}
-              controller={controller}
-            />
+            <ItemGrid model={model} controller={controller} />
           </div>
+
+          {toast && <div className="inv-toast">{toast}</div>}
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {activeDrag ? (
-            <div className="drag-overlay">
-              <img src={activeDrag.img} alt={activeDrag.name} />
-              <span>{activeDrag.name}</span>
-            </div>
-          ) : null}
+          {activeItem
+            ? <div className="inv-cell filled inv-drag-ghost"><img src={activeItem.img} alt="" /></div>
+            : null}
         </DragOverlay>
       </DndContext>
-
-      {ctxItem && (
-        <ItemContextMenu
-          item={ctxItem}
-          ctx={{ owns: model.owns, canGive: !!model.partyStash && model.gridActor !== model.partyStash, equipment: model.equipment }}
-          position={ctxPos}
-          onAction={runAction}
-          onClose={() => setCtxItem(null)}
-        />
-      )}
-
-      {splitItem && (
-        <SplitModal
-          item={splitItem}
-          onSplit={handleSplit}
-          onClose={() => setSplitItem(null)}
-        />
-      )}
-
-      {toast && (
-        <div className="inv-toast" key={toast}>
-          {toast}
-        </div>
-      )}
     </div>
   )
 }

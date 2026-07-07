@@ -4,6 +4,9 @@ import { Actor } from '../../vtt/canvas/Actor.js'
 import { Item } from '../../vtt/canvas/Item.js'
 import { getAccessLevel, hasAccess, OWNERSHIP_LEVELS } from '../../vtt/canvas/ownership.js'
 import InventoryScreen from './inventory/InventoryScreen.jsx'
+import LootPanel from './inventory/LootPanel.jsx'
+import PartyPanel from './inventory/PartyPanel.jsx'
+import { useWindowStack, useVttHotkeys } from './inventory/windowStack.js'
 import './vtt-theme.css'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
@@ -755,21 +758,26 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [showActorPanel, setShowActorPanel] = useState(false)
   const [showBgPanel, setShowBgPanel] = useState(false)
   const [showLighting, setShowLighting] = useState(false)
-  const [showInventory, setShowInventory] = useState(false)
 
-  /* Game-like hotkeys: I toggles the inventory/character screen, Esc closes.
-     Suppressed while typing in a field. (Full window-stack lands in Phase 7.) */
+  /* Game-like window shell: one stack, one Esc handler (see windowStack.js).
+     I = inventory · L = loot · P = party · Esc = close the top overlay. */
+  const win = useWindowStack()
+  const [lootPileId, setLootPileId] = useState(null)
+  const [focusActorId, setFocusActorId] = useState(null)
+  useVttHotkeys({ dispatch: win.dispatch, hasTop: !!win.top })
+
+  /* Clicking a loot-pile token opens the loot panel bound to that pile. */
   useEffect(() => {
-    const onKey = (e) => {
-      const el = e.target
-      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
-      if (typing) return
-      if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setShowInventory(v => !v) }
-      else if (e.key === 'Escape' && showInventory) { setShowInventory(false) }
+    const controller = canvas?.controller
+    if (!controller) return
+    const prev = controller.onTokenClicked
+    controller.onTokenClicked = (tokenData) => {
+      const actor = controller.actorMap?.get(tokenData?.actorId)
+      if (actor?.actorType === 'loot-pile') { setLootPileId(actor.id); win.open('loot') }
+      else prev?.(tokenData)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [showInventory])
+    return () => { if (canvas?.controller) canvas.controller.onTokenClicked = prev }
+  }, [canvas, win])
 
   /* Sync active tool to canvas controller once canvas is available */
   useEffect(() => {
@@ -819,8 +827,14 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
             Actors
           </button>
-          <button onClick={() => setShowInventory(true)} className="btn btn-sm vtt-action-btn" title="Inventory (I)">
+          <button onClick={() => win.open('inventory')} className="btn btn-sm vtt-action-btn" title="Inventory (I)">
             Inventory
+          </button>
+          <button onClick={() => win.open('loot')} className="btn btn-sm vtt-action-btn" title="Loot (L)">
+            Loot
+          </button>
+          <button onClick={() => win.open('party')} className="btn btn-sm vtt-action-btn" title="Party (P)">
+            Party
           </button>
           <button onClick={onDisconnect} className="btn btn-sm vtt-disconnect-btn">DC</button>
           <a href="/" className="btn btn-sm vtt-leave-btn">Leave</a>
@@ -846,14 +860,22 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         <AddTokenModal canvas={canvas} eventBus={eventBus} onClose={() => setShowAddToken(false)} userId={session?.userId} />
       )}
 
-      {showInventory && (
-        <InventoryScreen
-          controller={canvas?.controller}
-          eventBus={eventBus}
-          session={session}
-          onClose={() => setShowInventory(false)}
-        />
-      )}
+      {win.stack.map(id => {
+        if (id === 'inventory') return (
+          <InventoryScreen key="inventory" controller={canvas?.controller} eventBus={eventBus}
+            session={session} initialActorId={focusActorId} onClose={() => win.close('inventory')} />
+        )
+        if (id === 'loot') return (
+          <LootPanel key="loot" controller={canvas?.controller} eventBus={eventBus}
+            session={session} initialPileId={lootPileId} onClose={() => win.close('loot')} />
+        )
+        if (id === 'party') return (
+          <PartyPanel key="party" controller={canvas?.controller} eventBus={eventBus} session={session}
+            onSelect={(actorId) => { setFocusActorId(actorId); win.open('inventory') }}
+            onClose={() => win.close('party')} />
+        )
+        return null
+      })}
     </>
   )
 }

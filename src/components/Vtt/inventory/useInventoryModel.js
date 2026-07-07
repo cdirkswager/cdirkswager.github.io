@@ -11,9 +11,12 @@ import { carrySummary, indexItems, containerFill } from '../../../vtt/data/weigh
  *
  * Read-only in Phase 3 (no mutations); `canEdit` is exposed for Phase 4.
  */
-export function useInventoryModel({ controller, eventBus, session }) {
+export function useInventoryModel({ controller, eventBus, session, initialActorId }) {
   const [version, bump] = useState(0)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(initialActorId ?? null)
+
+  // Follow an externally-requested focus (e.g. clicking a party member).
+  useEffect(() => { if (initialActorId) setSelectedId(initialActorId) }, [initialActorId])
 
   // Re-read the caches whenever records change.
   useEffect(() => {
@@ -79,6 +82,7 @@ export function useInventoryModel({ controller, eventBus, session }) {
       carry,
       isSharedView: !!gridActor && gridActor === partyStash && !owns,
       currency: gridActor?.attributes?.currency ?? selected?.attributes?.currency ?? null,
+      getItem: (id) => itemMap.get(id),
     }
     // version participates so the memo recomputes on record changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,7 +90,5 @@ export function useInventoryModel({ controller, eventBus, session }) {
 
   const selectActor = useCallback((id) => setSelectedId(id), [])
 
-  const getItem = useCallback((id) => controller?.itemMap?.get(id) ?? null, [controller])
-
-  return { ...model, selectActor, selectedId: model.selected?.id ?? null, getItem }
+  return { ...model, selectActor, selectedId: model.selected?.id ?? null }
 }

@@ -109,6 +109,30 @@ export function createSyncBridge(canvas, eventBus) {
     return opId
   }
 
+  controller.dropItem = (itemId) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    const pile = Actor.createLootPile({ name: `Dropped ${item.name}` })
+    controller.itemMap?.delete(itemId)
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('actor', 'created', pile.toJSON())
+    eventBus.emitRecord('item', 'transfer', { itemId, toActorId: pile.id, toParentItemId: null, quantity: null }, opId)
+    return opId
+  }
+
+  controller.createLootPile = (name, seedItems = []) => {
+    const pile = Actor.createLootPile({ name })
+    eventBus.emitRecord('actor', 'created', pile.toJSON())
+    for (const tpl of seedItems) {
+      const item = new Item({ ...tpl, actorId: pile.id })
+      eventBus.emitRecord('item', 'created', item.toJSON())
+    }
+    return pile.id
+  }
+
   controller.deleteItem = (itemId) => {
     const item = controller.getItem(itemId)
     if (!item) return
@@ -353,6 +377,8 @@ export function createSyncBridge(canvas, eventBus) {
     controller.moveItem = null
     controller.splitStack = null
     controller.deleteItem = null
+    controller.dropItem = null
+    controller.createLootPile = null
     controller.onTokenDragEnd = null
     controller.onWallCreated = null
     controller.onWallDeleted = null

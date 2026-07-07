@@ -1,6 +1,6 @@
 [
   {
-    "id": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "id": "72c1a8de-d436-41fd-a69f-2d72dbd8d225",
     "type": "actor",
     "name": "Lyra",
     "actorType": "character",
@@ -16,11 +16,11 @@
       }
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783393009905,
-    "createdAt": 1783393009905
+    "updatedAt": 1783441705447,
+    "createdAt": 1783441705447
   },
   {
-    "id": "2edc781f-a329-4b97-9a70-06da3eb47760",
+    "id": "05f4b3ec-505d-43c9-9281-131b884db1db",
     "type": "actor",
     "name": "Thane",
     "actorType": "character",
@@ -31,11 +31,11 @@
       }
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783393009906,
-    "createdAt": 1783393009906
+    "updatedAt": 1783441705448,
+    "createdAt": 1783441705448
   },
   {
-    "id": "a1466df9-ba19-45c4-9be9-a82faf27e7c6",
+    "id": "c8a59216-1b1c-4641-b96d-dc84889ad766",
     "type": "actor",
     "name": "Party Stash",
     "actorType": "party-stash",
@@ -44,11 +44,11 @@
       "users": {}
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783393009907,
-    "createdAt": 1783393009907
+    "updatedAt": 1783441705448,
+    "createdAt": 1783441705448
   },
   {
-    "id": "529cc279-9ac4-485d-a72a-8eb2a48f25e1",
+    "id": "a6e8cd24-df9e-4bfd-850a-b07e1c88c917",
     "type": "actor",
     "name": "Chest",
     "actorType": "loot-pile",
@@ -57,7 +57,30 @@
       "users": {}
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783393009907,
-    "createdAt": 1783393009907
+    "updatedAt": 1783441705449,
+    "createdAt": 1783441705449
+  },
+  {
+    "id": "bb8dc97f-6c5d-4a92-8263-bc8ff361bf56",
+    "type": "actor",
+    "name": "DM Loot",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "attributes": {
+      "schema": 1,
+      "currency": {
+        "pp": 0,
+        "gp": 0,
+        "ep": 0,
+        "sp": 0,
+        "cp": 0
+      }
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783441711524,
+    "createdAt": 1783441711524
   }
 ]

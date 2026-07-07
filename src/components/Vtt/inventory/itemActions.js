@@ -23,6 +23,10 @@ export function availableItemActions(item, { owns, canGive, equipment }) {
     actions.push({ label: 'Give to Stash', action: 'give', icon: null })
   }
 
+  if (owns && !item.equipped) {
+    actions.push({ label: 'Drop to Ground', action: 'drop', icon: null })
+  }
+
   if (owns) {
     actions.push({ label: 'Delete', action: 'delete', icon: null, danger: true })
   }

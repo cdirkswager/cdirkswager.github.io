@@ -240,10 +240,44 @@ async function main() {
     if (!deleted.has(gem)) throw new Error('gem not deleted')
   })
 
+  let droppedPileId
+  await test('Drop to ground: Alice creates a loot pile and transfers item to it', async () => {
+    const arrows = await createItem(alice, { name: 'Arrows', itemType: 'ammo', stackable: true, quantity: 10, weight: 0.1, actorId: charA }, [bob, gm])
+    droppedPileId = crypto.randomUUID()
+    send(alice.ws, { type: 'create-record', kind: 'actor', record: { type: 'actor', id: droppedPileId, name: 'Dropped Arrows', actorType: 'loot-pile', ownership: { default: 'owner', users: {} }, attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } } } })
+    await Promise.all([waitFor(alice.ws, 'record-created-ack'), waitFor(bob.ws, 'record-created')])
+    const [ack] = await Promise.all([
+      waitFor(alice.ws, 'transfer-item-ack'),
+      waitFor(bob.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'transfer-item', itemId: arrows, toActorId: droppedPileId, toParentItemId: null, quantity: null })),
+    ])
+    if (ack.moved.actorId !== droppedPileId) throw new Error(`should be on pile, got ${ack.moved.actorId}`)
+    if (ack.moved.equipped !== false) throw new Error('should be unequipped on drop')
+  })
+
+  await test('Player loots from a pile they created (default:owner allows pull)', async () => {
+    const [ack] = await Promise.all([
+      waitFor(alice.ws, 'transfer-item-ack'),
+      waitFor(bob.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'transfer-item', itemId: (await (await fetch(`${BASE}/api/records`)).json()).recordsByType.item.find(i => i.actorId === droppedPileId).id, toActorId: charA, toParentItemId: null, quantity: null })),
+    ])
+    if (ack.moved.actorId !== charA) throw new Error(`should be back on charA, got ${ack.moved.actorId}`)
+  })
+
+  await test('DM creates loot-pile with seed item', async () => {
+    const pileId = crypto.randomUUID()
+    send(gm.ws, { type: 'create-record', kind: 'actor', record: { type: 'actor', id: pileId, name: 'DM Loot', actorType: 'loot-pile', ownership: { default: 'owner', users: {} }, attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } } } })
+    await Promise.all([waitFor(gm.ws, 'record-created-ack'), waitFor(alice.ws, 'record-created')])
+    const ruby = await createItem(gm, { name: 'Ruby', itemType: 'treasure', weight: 0, value: { gp: 500 }, stackable: true, rarity: 'rare', img: '', actorId: pileId }, [alice, bob])
+    const data = await (await fetch(`${BASE}/api/records`)).json()
+    const found = data.recordsByType.item.find(i => i.id === ruby && i.actorId === pileId)
+    if (!found) throw new Error('seed item not on pile')
+  })
+
   await test('Server persisted the item/actor records', async () => {
     const data = await (await fetch(`${BASE}/api/records`)).json()
-    if (!data.recordsByType.actor || data.recordsByType.actor.length < 4) throw new Error('actors missing')
-    if (!data.recordsByType.item || data.recordsByType.item.length < 8) throw new Error('items missing')
+    if (!data.recordsByType.actor || data.recordsByType.actor.length < 6) throw new Error('actors missing')
+    if (!data.recordsByType.item || data.recordsByType.item.length < 10) throw new Error('items missing')
   })
 
   let preArrows
