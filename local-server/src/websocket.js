@@ -106,9 +106,12 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     }))
   }
 
+  let _currentOpId = null
+
   function _deny(ws, message, opId) {
     const payload = { type: 'error', message }
-    if (opId) payload.opId = opId
+    const resolvedOpId = opId || _currentOpId
+    if (resolvedOpId) payload.opId = resolvedOpId
     ws.send(JSON.stringify(payload))
   }
 
@@ -127,6 +130,7 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
   }
 
   function handleMessage(ws, identity, msg) {
+    _currentOpId = msg.opId || null
     switch (msg.type) {
       case 'create-record': {
         const kind = msg.kind || msg.record.type || 'records'
@@ -288,6 +292,15 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           return
         }
 
+        if (kind === 'item' && existing.itemType === 'container' && existing.container) {
+          const allItems = store.getAll('item')
+          const descendants = collectDescendants(existing.id, allItems)
+          for (const d of descendants) {
+            store.remove('item', d.id)
+            broadcast({ type: 'record-deleted', recordId: d.id, kind: 'item', by: identity.username })
+          }
+        }
+
         const removed = store.remove(kind, msg.recordId)
         if (removed) {
           const event = { type: 'record-deleted', recordId: msg.recordId, kind, by: identity.username }
@@ -367,6 +380,33 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           }
           ws.send(JSON.stringify({ type: 'transfer-item-ack', kind: 'item', moved }))
         }
+        break
+      }
+
+      case 'split-stack': {
+        const itemId = msg.itemId
+        const quantity = msg.quantity
+        const item = store.getById('item', itemId)
+        if (!item) { _deny(ws, 'Item not found'); return }
+        if (!item.stackable) { _deny(ws, 'Item is not stackable'); return }
+        if (quantity <= 0 || quantity >= item.quantity) { _deny(ws, 'Invalid split quantity'); return }
+
+        const actor = item.actorId ? store.getById('actor', item.actorId) : null
+        if (!actor) { _deny(ws, 'Actor not found'); return }
+        if (!_checkActorAccess(identity, actor)) { _deny(ws, 'Permission denied'); return }
+
+        const now = Date.now()
+        const source = store.update('item', itemId, { quantity: item.quantity - quantity, updatedBy: identity.userId, updatedAt: now })
+        const split = {
+          ...item,
+          id: crypto.randomUUID(),
+          quantity,
+          createdBy: identity.userId, createdAt: now, updatedAt: now,
+        }
+        store.insert('item', split)
+        broadcast({ type: 'record-updated', record: source, kind: 'item', by: identity.username })
+        broadcast({ type: 'record-created', record: split, kind: 'item', by: identity.username })
+        ws.send(JSON.stringify({ type: 'split-stack-ack', kind: 'item', source, split }))
         break
       }
 

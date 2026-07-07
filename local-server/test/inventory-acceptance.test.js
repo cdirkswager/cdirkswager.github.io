@@ -164,7 +164,7 @@ async function main() {
     await expectError(alice.ws, { type: 'transfer-item', itemId: rapier, toActorId: charB, toParentItemId: null, quantity: null }, 'cannot place into destination')
   })
 
-  await test('Server echoes opId in error response', async () => {
+  await test('Rejections echo the opId (enables client rollback)', async () => {
     const armor = await createItem(alice, { name: 'Scale Mail', itemType: 'armor', slot: 'body', weight: 45, actorId: charA }, [bob, gm])
     const customOpId = 'my-custom-op-123'
     const [err] = await Promise.all([
@@ -198,14 +198,58 @@ async function main() {
     splitId = ack.moved.id
   })
 
+  await test('Same-actor split creates a second stack', async () => {
+    const arrows = await createItem(alice, { name: 'Arrows', itemType: 'ammo', stackable: true, quantity: 20, weight: 0.1, actorId: charA }, [bob, gm])
+    const [ack] = await Promise.all([
+      waitFor(alice.ws, 'split-stack-ack'),
+      waitFor(bob.ws, 'record-created'),
+      Promise.resolve(send(alice.ws, { type: 'split-stack', itemId: arrows, quantity: 8 })),
+    ])
+    if (ack.source.quantity !== 12) throw new Error(`source qty ${ack.source.quantity}`)
+    if (ack.split.quantity !== 8) throw new Error(`split qty ${ack.split.quantity}`)
+    if (ack.split.actorId !== charA) throw new Error('split should stay on same actor')
+  })
+
+  await test('Deleting a container cascades to its contents', async () => {
+    const bigBag = await createItem(alice, { name: 'Big Bag', itemType: 'container', weight: 0.5, actorId: charA, container: { capacity: 50 } }, [bob, gm])
+    const inner = await createItem(alice, { name: 'Inner Pouch', itemType: 'container', weight: 0.2, actorId: charA, container: { capacity: 10 } }, [bob, gm])
+    await Promise.all([
+      waitFor(bob.ws, 'record-updated'),
+      waitFor(alice.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: inner, changes: { parentItemId: bigBag } })),
+    ])
+    const gem = await createItem(alice, { name: 'Gem', itemType: 'treasure', weight: 1, actorId: charA }, [bob, gm])
+    await Promise.all([
+      waitFor(bob.ws, 'record-updated'),
+      waitFor(alice.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: gem, changes: { parentItemId: inner } })),
+    ])
+    const deleted = new Set()
+    const onDel = (raw) => { const m = JSON.parse(raw.toString()); if (m.type === 'record-deleted') deleted.add(m.recordId) }
+    alice.ws.on('message', onDel)
+    bob.ws.on('message', onDel)
+    const [delAck] = await Promise.all([
+      waitFor(alice.ws, 'record-deleted'),
+      Promise.resolve(send(alice.ws, { type: 'delete-record', kind: 'item', recordId: bigBag })),
+    ])
+    await new Promise(r => setTimeout(r, 200))
+    alice.ws.removeListener('message', onDel)
+    bob.ws.removeListener('message', onDel)
+    if (!deleted.has(bigBag)) throw new Error('parent not deleted')
+    if (!deleted.has(inner)) throw new Error('inner pouch not deleted')
+    if (!deleted.has(gem)) throw new Error('gem not deleted')
+  })
+
   await test('Server persisted the item/actor records', async () => {
     const data = await (await fetch(`${BASE}/api/records`)).json()
     if (!data.recordsByType.actor || data.recordsByType.actor.length < 4) throw new Error('actors missing')
-    if (!data.recordsByType.item || data.recordsByType.item.length < 5) throw new Error('items missing')
+    if (!data.recordsByType.item || data.recordsByType.item.length < 8) throw new Error('items missing')
   })
 
+  let preArrows
   const preGold = await (async () => {
     const data = await (await fetch(`${BASE}/api/records`)).json()
+    preArrows = data.recordsByType.item.find(i => i.name === 'Arrows' && i.quantity === 12)
     return data.recordsByType.item.find(i => i.id === gold)
   })()
 
@@ -225,6 +269,9 @@ async function main() {
     if (g.quantity !== preGold.quantity) throw new Error(`qty ${g.quantity} != ${preGold.quantity}`)
     const split = data.recordsByType.item.find(i => i.id === splitId)
     if (!split || split.actorId !== stash) throw new Error('split stack did not persist on stash')
+    const sa = data.recordsByType.item.find(i => i.id === preArrows?.id)
+    if (!sa) throw new Error('split arrows vanished')
+    if (sa.quantity !== 12) throw new Error(`arrows qty ${sa.quantity}`)
   })
 
   console.log(`\nTotal: ${results.passed} passed, ${results.failed} failed`)

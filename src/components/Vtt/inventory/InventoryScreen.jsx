@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin, closestCenter } from '@dnd-kit/core'
 import { useInventoryModel } from './useInventoryModel.js'
 import { getAccessLevel } from '../../../vtt/canvas/ownership.js'
 import { resolveDrop, parseDndId } from './dndIntent.js'
+import { availableItemActions } from './itemActions.js'
+import { ItemContextMenu, SplitModal } from './ItemContextMenu.jsx'
 import PartyRail from './PartyRail.jsx'
 import Paperdoll from './Paperdoll.jsx'
 import CharacterPanel from './CharacterPanel.jsx'
@@ -16,11 +18,18 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
 
   const [activeDrag, setActiveDrag] = useState(null)
   const [toast, setToast] = useState(null)
+  const [ctxItem, setCtxItem] = useState(null)
+  const [ctxPos, setCtxPos] = useState({ x: 0, y: 0 })
+  const [splitItem, setSplitItem] = useState(null)
 
   const showToast = useCallback((msg) => {
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
   }, [])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  )
 
   useEffect(() => {
     if (!eventBus) return
@@ -36,16 +45,16 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
 
   const handleDragStart = useCallback(({ active }) => {
     const itemId = parseDndId(active.id).id
-    const item = controller?.itemMap?.get(itemId)
+    const item = model.getItem(itemId)
     if (item) setActiveDrag(item)
-  }, [controller])
+  }, [model])
 
   const handleDragEnd = useCallback(({ active, over }) => {
     setActiveDrag(null)
     if (!over) return
 
     const intent = resolveDrop(active.id, over.id, {
-      getItem: (id) => controller?.itemMap?.get(id),
+      getItem: (id) => model.getItem(id),
       owns: model.owns,
       gridActorId: model.gridActor?.id,
     })
@@ -71,6 +80,43 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
 
   const handleDragCancel = useCallback(() => setActiveDrag(null), [])
 
+  const handleContextMenu = useCallback((item, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCtxItem(item)
+    setCtxPos({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const runAction = useCallback((action) => {
+    const item = ctxItem
+    setCtxItem(null)
+    if (!item) return
+    switch (action.action) {
+      case 'equip':
+        controller?.equipItem?.(item.id, action.slot)
+        break
+      case 'unequip':
+        controller?.unequipItem?.(item.id)
+        break
+      case 'split':
+        setSplitItem(item)
+        break
+      case 'give':
+        if (model.partyStash) {
+          controller?.transferItem?.({ itemId: item.id, toActorId: model.partyStash.id })
+        }
+        break
+      case 'delete':
+        controller?.deleteItem?.(item.id)
+        break
+    }
+  }, [ctxItem, controller, model.partyStash])
+
+  const handleSplit = useCallback((quantity) => {
+    if (splitItem) controller?.splitStack?.(splitItem.id, quantity)
+    setSplitItem(null)
+  }, [splitItem, controller])
+
   const gp = model.currency?.gp ?? 0
   const carried = model.carry?.carried ?? 0
   const cap = model.carry?.capacity ?? 0
@@ -78,10 +124,11 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
   return (
     <div className="inv-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
       <DndContext
+        sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
-        collisionDetection={pointerWithin}
+        collisionDetection={closestCenter}
       >
         <div className="inv-frame" role="dialog" aria-label="Character and inventory">
           <div className="inv-topbar">
@@ -108,10 +155,14 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
               <CharacterPanel
                 selected={model.selected}
                 derived={model.derived}
-                paperdoll={<Paperdoll selected={model.selected} equipment={model.equipment} locked={!model.owns} />}
+                paperdoll={<Paperdoll selected={model.selected} equipment={model.equipment} locked={!model.owns} onUnequip={(id) => controller?.unequipItem?.(id)} />}
               />
             </div>
-            <ItemGrid model={model} />
+            <ItemGrid
+              model={model}
+              onContextMenu={handleContextMenu}
+              controller={controller}
+            />
           </div>
         </div>
 
@@ -124,6 +175,24 @@ export default function InventoryScreen({ controller, eventBus, session, onClose
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {ctxItem && (
+        <ItemContextMenu
+          item={ctxItem}
+          ctx={{ owns: model.owns, canGive: !!model.partyStash && model.gridActor !== model.partyStash, equipment: model.equipment }}
+          position={ctxPos}
+          onAction={runAction}
+          onClose={() => setCtxItem(null)}
+        />
+      )}
+
+      {splitItem && (
+        <SplitModal
+          item={splitItem}
+          onSplit={handleSplit}
+          onClose={() => setSplitItem(null)}
+        />
+      )}
 
       {toast && (
         <div className="inv-toast" key={toast}>

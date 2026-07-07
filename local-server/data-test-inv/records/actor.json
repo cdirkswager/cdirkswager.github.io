@@ -1,0 +1,63 @@
+[
+  {
+    "id": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "type": "actor",
+    "name": "Lyra",
+    "actorType": "character",
+    "ownership": {
+      "default": "none",
+      "users": {
+        "alice-1": "owner"
+      }
+    },
+    "attributes": {
+      "attunement": {
+        "max": 3
+      }
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783393009905,
+    "createdAt": 1783393009905
+  },
+  {
+    "id": "2edc781f-a329-4b97-9a70-06da3eb47760",
+    "type": "actor",
+    "name": "Thane",
+    "actorType": "character",
+    "ownership": {
+      "default": "none",
+      "users": {
+        "bob-1": "owner"
+      }
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783393009906,
+    "createdAt": 1783393009906
+  },
+  {
+    "id": "a1466df9-ba19-45c4-9be9-a82faf27e7c6",
+    "type": "actor",
+    "name": "Party Stash",
+    "actorType": "party-stash",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783393009907,
+    "createdAt": 1783393009907
+  },
+  {
+    "id": "529cc279-9ac4-485d-a72a-8eb2a48f25e1",
+    "type": "actor",
+    "name": "Chest",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783393009907,
+    "createdAt": 1783393009907
+  }
+]

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { RARITY_LABELS } from '../../../vtt/data/fivee.js'
 import { Draggable, Droppable } from './dnd.jsx'
 import { IconGrid, IconPotion, IconLeaf, IconRing, IconScroll, IconSearch, IconChevron, IconWeight, IconCoin } from './icons.jsx'
@@ -23,21 +23,30 @@ function tooltip(it) {
     it.description].filter(Boolean).join('\n')
 }
 
-function Cell({ item }) {
+function Cell({ item, onContextMenu, onDoubleClick, editable }) {
   if (!item) return <div className="inv-cell empty" />
+  const inner = (
+    <div
+      className="inv-cell filled"
+      title={tooltip(item)}
+      onContextMenu={(e) => onContextMenu?.(item, e)}
+      onDoubleClick={() => onDoubleClick?.(item)}
+    >
+      {item.rarity && item.rarity !== 'common' &&
+        <span className="rar" style={{ background: RARITY_VAR[item.rarity] }} />}
+      <img src={item.img} alt={item.name} draggable={false} />
+      {item.quantity > 1 && <span className="qty">{item.quantity}</span>}
+    </div>
+  )
+  if (!editable) return inner
   return (
     <Draggable id={`item:${item.id}`} data={{ itemId: item.id }}>
-      <div className="inv-cell filled" title={tooltip(item)}>
-        {item.rarity && item.rarity !== 'common' &&
-          <span className="rar" style={{ background: RARITY_VAR[item.rarity] }} />}
-        <img src={item.img} alt={item.name} />
-        {item.quantity > 1 && <span className="qty">{item.quantity}</span>}
-      </div>
+      {inner}
     </Draggable>
   )
 }
 
-function ContainerRow({ container, children, fill }) {
+function ContainerRow({ container, children, fill, onContextMenu, onDoubleClick, editable, childrenOf, fillOf }) {
   const [open, setOpen] = useState(!container.container?.collapsed)
   const cap = container.container?.capacity || 0
   const pct = cap ? Math.min(100, (fill / cap) * 100) : 0
@@ -56,7 +65,11 @@ function ContainerRow({ container, children, fill }) {
           <div className="inv-grid">
             {children.length === 0
               ? <div className="inv-empty" style={{ gridColumn: '1 / -1' }}>Empty</div>
-              : children.map(c => <Cell key={c.id} item={c} />)}
+              : children.map(c =>
+                  c.itemType === 'container'
+                    ? <ContainerRow key={c.id} container={c} children={childrenOf(c.id)} fill={fillOf(c)} onContextMenu={onContextMenu} onDoubleClick={onDoubleClick} editable={editable} childrenOf={childrenOf} fillOf={fillOf} />
+                    : <Cell key={c.id} item={c} onContextMenu={onContextMenu} onDoubleClick={onDoubleClick} editable={editable} />
+                )}
           </div>
         </div>
       )}
@@ -64,10 +77,20 @@ function ContainerRow({ container, children, fill }) {
   )
 }
 
-export default function ItemGrid({ model }) {
+export default function ItemGrid({ model, onContextMenu, controller }) {
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
-  const { loose, containers, childrenOf, fillOf, carry, currency, isSharedView, gridActor } = model
+  const { loose, containers, childrenOf, fillOf, carry, currency, isSharedView, gridActor, gridEditable, owns } = model
+  const editable = gridEditable && owns
+
+  const handleDoubleClick = useCallback((item) => {
+    if (!owns || !controller) return
+    if (item.equipped) {
+      controller.unequipItem?.(item.id)
+    } else if (item.slot) {
+      controller.equipItem?.(item.id, item.slot)
+    }
+  }, [owns, controller])
 
   if (!gridActor) return <div className="inv-right"><div className="inv-empty">No inventory to show</div></div>
 
@@ -102,17 +125,18 @@ export default function ItemGrid({ model }) {
       </div>
 
       {isSharedView && <div className="inv-scope">Shared party stash — you don't control this character</div>}
+      {!owns && !isSharedView && <div className="inv-scope">Read-only view</div>}
 
       <Droppable id="grid" data={{ zone: 'grid' }} className="inv-right-scroll">
         <div className="inv-grid">
-          {looseFiltered.map(it => <Cell key={it.id} item={it} />)}
+          {looseFiltered.map(it => <Cell key={it.id} item={it} onContextMenu={onContextMenu} onDoubleClick={handleDoubleClick} editable={editable} />)}
           {Array.from({ length: empties }).map((_, i) => <Cell key={`e${i}`} item={null} />)}
         </div>
 
         {containers
           .filter(c => !q || c.name.toLowerCase().includes(q.toLowerCase()) || childrenOf(c.id).some(matches))
           .map(c => (
-            <ContainerRow key={c.id} container={c} children={childrenOf(c.id)} fill={fillOf(c)} />
+            <ContainerRow key={c.id} container={c} children={childrenOf(c.id)} fill={fillOf(c)} onContextMenu={onContextMenu} onDoubleClick={handleDoubleClick} editable={editable} childrenOf={childrenOf} fillOf={fillOf} />
           ))}
       </Droppable>
 

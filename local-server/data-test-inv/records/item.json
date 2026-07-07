@@ -1,0 +1,172 @@
+[
+  {
+    "id": "07742a37-d26e-44c2-9a5e-ee6648890d19",
+    "type": "item",
+    "name": "Rapier",
+    "itemType": "weapon",
+    "slot": "mainHand",
+    "weight": 2,
+    "actorId": "a1466df9-ba19-45c4-9be9-a82faf27e7c6",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009915,
+    "createdAt": 1783393009908,
+    "equipped": false,
+    "equippedSlot": null,
+    "updatedBy": "alice-1",
+    "parentItemId": null
+  },
+  {
+    "id": "e3035583-9da5-4df7-8b6f-9c22ac0e8b6c",
+    "type": "item",
+    "name": "Chain Mail",
+    "itemType": "armor",
+    "slot": "body",
+    "weight": 55,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009909,
+    "createdAt": 1783393009909
+  },
+  {
+    "id": "fa57747f-80d5-4fae-b672-3b43e7fbe54d",
+    "type": "item",
+    "name": "Belt Pouch",
+    "itemType": "container",
+    "weight": 1,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "container": {
+      "capacity": 6,
+      "weightless": false
+    },
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009910,
+    "createdAt": 1783393009910
+  },
+  {
+    "id": "70e240fd-c076-47c0-9168-b821dd06e6de",
+    "type": "item",
+    "name": "Anvil Chunk",
+    "itemType": "misc",
+    "weight": 10,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009910,
+    "createdAt": 1783393009910
+  },
+  {
+    "id": "a35747ed-1415-475a-87e9-4941e724a66f",
+    "type": "item",
+    "name": "Gem",
+    "itemType": "treasure",
+    "weight": 2,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009912,
+    "createdAt": 1783393009911,
+    "parentItemId": "fa57747f-80d5-4fae-b672-3b43e7fbe54d",
+    "updatedBy": "alice-1"
+  },
+  {
+    "id": "39c1ece1-2419-4e09-be32-731cb618dbc7",
+    "type": "item",
+    "name": "Gold",
+    "itemType": "currency",
+    "weight": 0.02,
+    "quantity": 30,
+    "stackable": true,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "dm-1",
+    "updatedAt": 1783393009916,
+    "createdAt": 1783393009912,
+    "parentItemId": null,
+    "equipped": false,
+    "equippedSlot": null,
+    "updatedBy": "alice-1"
+  },
+  {
+    "id": "4e0e1a79-1b9d-4fcd-8c3c-ab992370b328",
+    "type": "item",
+    "name": "Scale Mail",
+    "itemType": "armor",
+    "slot": "body",
+    "weight": 45,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009915,
+    "createdAt": 1783393009915
+  },
+  {
+    "id": "2410dc03-7eff-4edf-9ae7-9cc6cce0a8e9",
+    "type": "item",
+    "name": "Gold",
+    "itemType": "currency",
+    "weight": 0.02,
+    "quantity": 20,
+    "stackable": true,
+    "actorId": "a1466df9-ba19-45c4-9be9-a82faf27e7c6",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009916,
+    "createdAt": 1783393009916,
+    "parentItemId": null,
+    "equipped": false,
+    "equippedSlot": null,
+    "updatedBy": "alice-1"
+  },
+  {
+    "id": "3cb48cc3-5bdf-434f-8770-ad6edc760b88",
+    "type": "item",
+    "name": "Arrows",
+    "itemType": "ammo",
+    "stackable": true,
+    "quantity": 12,
+    "weight": 0.1,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009917,
+    "createdAt": 1783393009917,
+    "updatedBy": "alice-1"
+  },
+  {
+    "id": "7a26886a-096e-49ac-bf06-3b200b2461fa",
+    "type": "item",
+    "name": "Arrows",
+    "itemType": "ammo",
+    "stackable": true,
+    "quantity": 8,
+    "weight": 0.1,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009917,
+    "createdAt": 1783393009917
+  },
+  {
+    "id": "7df0e189-d86f-4f3e-ada5-dd443754f0e1",
+    "type": "item",
+    "name": "Big Bag",
+    "itemType": "container",
+    "weight": 0.5,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "container": {
+      "capacity": 50
+    },
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009918,
+    "createdAt": 1783393009918
+  },
+  {
+    "id": "db029f00-8757-4062-a163-0e7fe792a608",
+    "type": "item",
+    "name": "Inner Pouch",
+    "itemType": "container",
+    "weight": 0.2,
+    "actorId": "2803f288-bcca-43fc-b36c-3aa52a5e0e7e",
+    "container": {
+      "capacity": 10
+    },
+    "createdBy": "alice-1",
+    "updatedAt": 1783393009919,
+    "createdAt": 1783393009918,
+    "parentItemId": "7df0e189-d86f-4f3e-ada5-dd443754f0e1",
+    "updatedBy": "alice-1"
+  }
+]

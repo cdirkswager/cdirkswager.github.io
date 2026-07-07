@@ -23,6 +23,7 @@ export function createSyncBridge(canvas, eventBus) {
     if (kind === 'item') {
       const item = controller.itemMap?.get(snapshot.id)
       if (item) Object.assign(item, snapshot)
+      else controller.itemMap?.set(snapshot.id, { ...snapshot })
       eventBus.emit('items-changed', {})
     }
     eventBus.emit('op-rejected', { opId, message })
@@ -93,6 +94,35 @@ export function createSyncBridge(canvas, eventBus) {
   controller.transferItem = ({ itemId, toActorId, toParentItemId = null, quantity = null }) => {
     const opId = _nextOpId()
     eventBus.emitRecord('item', 'transfer', { itemId, toActorId, toParentItemId, quantity }, opId)
+    return opId
+  }
+
+  controller.splitStack = (itemId, quantity) => {
+    const item = controller.getItem(itemId)
+    if (!item || !item.stackable) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    item.quantity -= quantity
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'split-stack', { itemId, quantity }, opId)
+    return opId
+  }
+
+  controller.deleteItem = (itemId) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    controller.itemMap?.delete(itemId)
+    if (item.isContainer) {
+      for (const [, it] of controller.itemMap ?? []) {
+        if (it.parentItemId === itemId) controller.itemMap?.delete(it.id)
+      }
+    }
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'deleted', { id: itemId }, opId)
     return opId
   }
 
@@ -321,6 +351,8 @@ export function createSyncBridge(canvas, eventBus) {
     controller.equipItem = null
     controller.unequipItem = null
     controller.moveItem = null
+    controller.splitStack = null
+    controller.deleteItem = null
     controller.onTokenDragEnd = null
     controller.onWallCreated = null
     controller.onWallDeleted = null

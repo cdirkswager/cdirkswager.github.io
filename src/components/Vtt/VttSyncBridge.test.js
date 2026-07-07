@@ -74,9 +74,38 @@ describe('VttSyncBridge — optimistic item mutations', () => {
     expect(t.data.toActorId).toBe('a2')
   })
 
+  it('splitStack reduces quantity optimistically on the source item', () => {
+    bus.emitRecord('item', 'created', { id: 'i2', actorId: 'a1', name: 'Gold', stackable: true, quantity: 50, equipped: false, equippedSlot: null })
+    const opId = canvas.controller.splitStack('i2', 20)
+    const it = canvas.controller.itemMap.get('i2')
+    expect(it.quantity).toBe(30)
+  })
+
+  it('deleteItem removes the item from the map optimistically', () => {
+    canvas.controller.deleteItem('i1')
+    expect(canvas.controller.itemMap.has('i1')).toBe(false)
+  })
+
+  it('rolls back splitStack when server rejects', () => {
+    bus.emitRecord('item', 'created', { id: 'i3', actorId: 'a1', name: 'Gold', stackable: true, quantity: 50, equipped: false, equippedSlot: null })
+    const opId = canvas.controller.splitStack('i3', 10)
+    expect(canvas.controller.itemMap.get('i3').quantity).toBe(40)
+    bus.emit('sync-error', { opId, message: 'Invalid split' })
+    expect(canvas.controller.itemMap.get('i3').quantity).toBe(50)
+  })
+
+  it('rolls back deleteItem when server rejects', () => {
+    const opId = canvas.controller.deleteItem('i1')
+    expect(canvas.controller.itemMap.has('i1')).toBe(false)
+    bus.emit('sync-error', { opId, message: 'Permission denied' })
+    expect(canvas.controller.itemMap.has('i1')).toBe(true)
+  })
+
   it('cleans up controller methods on destroy', () => {
     destroy()
     expect(canvas.controller.equipItem).toBe(null)
     expect(canvas.controller.transferItem).toBe(null)
+    expect(canvas.controller.splitStack).toBe(null)
+    expect(canvas.controller.deleteItem).toBe(null)
   })
 })
