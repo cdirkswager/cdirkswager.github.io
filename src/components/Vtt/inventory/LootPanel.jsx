@@ -72,7 +72,7 @@ export default function LootPanel({ controller, eventBus, session, initialPileId
     const it = seedItem(name, pile.id)
     if (it) eventBus?.emitRecord('item', 'created', it)
   }
-  const newPile = () => { const id = controller?.createLootPile?.({ name: 'Loot' }); }
+  const newPile = () => controller?.createLootPile?.('Loot')
   const deletePile = () => {
     if (pile) { eventBus?.emitRecord('actor', 'deleted', { id: pile.id }); setSelectedPileId(null) }
   }
