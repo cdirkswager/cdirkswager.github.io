@@ -1,71 +1,56 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { availableItemActions } from './itemActions.js'
+import React, { useEffect, useState } from 'react'
+import { availableItemActions, ACTION_LABELS } from './itemActions.js'
 
-export function ItemContextMenu({ item, ctx, position, onAction, onClose }) {
-  const actions = availableItemActions(item, ctx)
-
+export function ItemContextMenu({ item, x, y, owns, canGive, isDm, onAction, onClose }) {
   useEffect(() => {
-    if (!onClose) return
-    const handler = (e) => { e.stopPropagation(); onClose() }
-    window.addEventListener('click', handler, true)
-    return () => window.removeEventListener('click', handler, true)
+    const close = (e) => { if (e.type === 'keydown' && e.key !== 'Escape') return; onClose() }
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', close)
+    return () => { window.removeEventListener('mousedown', close); window.removeEventListener('keydown', close) }
   }, [onClose])
 
+  const actions = availableItemActions(item, { owns, canGive, isDm })
   if (actions.length === 0) return null
+  const style = { left: Math.min(x, window.innerWidth - 200), top: Math.min(y, window.innerHeight - 40 - actions.length * 30) }
 
   return (
-    <div
-      className="inv-menu"
-      style={{ left: position.x, top: position.y }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {actions.map((a, i) => [
-        i > 0 && actions[i - 1].action === 'delete' ? null : null,
-        <div
-          key={a.action}
-          className={`inv-menu-item${a.danger ? ' danger' : ''}`}
-          onClick={() => { onClose(); onAction(a) }}
+    <div className="inv-menu" style={style} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="inv-menu-title">{item.name}</div>
+      {actions.map(a => (
+        <button
+          key={a}
+          className={`inv-menu-item${a === 'delete' ? ' danger' : ''}`}
+          onClick={() => { onAction(a, item); onClose() }}
         >
-          {a.label}
-        </div>
-      ])}
+          {ACTION_LABELS[a]}
+        </button>
+      ))}
     </div>
   )
 }
 
-export function SplitModal({ item, onSplit, onClose }) {
-  const [qty, setQty] = useState(Math.floor((item?.quantity || 2) / 2))
-  const max = (item?.quantity || 2) - 1
-
-  const handleSplit = useCallback(() => {
-    const n = Math.min(Math.max(1, qty), max)
-    onSplit(n)
-    onClose()
-  }, [qty, max, onSplit, onClose])
+export function SplitModal({ item, onConfirm, onClose }) {
+  const max = (item.quantity ?? 1) - 1
+  const [n, setN] = useState(Math.max(1, Math.floor((item.quantity ?? 1) / 2)))
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter') onConfirm(n) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [n, onClose, onConfirm])
 
   return (
-    <div className="inv-modal-scrim" onClick={onClose}>
-      <div className="inv-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="inv-modal-title">Split {item?.name}</div>
+    <div className="inv-modal-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="inv-modal">
+        <div className="inv-modal-title">Split &ldquo;{item.name}&rdquo;</div>
         <div className="inv-modal-row">
-          <input
-            className="inv-input inv-modal-input"
-            type="range"
-            min={1}
-            max={max}
-            value={qty}
-            onChange={(e) => setQty(Number(e.target.value))}
-          />
-          <span className="inv-split-count">{qty}</span>
+          <input type="range" min={1} max={max} value={n} onChange={e => setN(Number(e.target.value))} />
+          <input type="number" min={1} max={max} value={n}
+            onChange={e => setN(Math.max(1, Math.min(max, Number(e.target.value) || 1)))} />
         </div>
-        {item?.stackable && (
-          <div className="inv-modal-hint">
-            {item.quantity - qty} remaining in original stack
-          </div>
-        )}
+        <div className="inv-modal-hint">Move {n}, leaving {(item.quantity ?? 1) - n}.</div>
         <div className="inv-modal-actions">
           <button className="inv-btn" onClick={onClose}>Cancel</button>
-          <button className="inv-btn primary" onClick={handleSplit}>Split</button>
+          <button className="inv-btn primary" onClick={() => onConfirm(n)}>Split</button>
         </div>
       </div>
     </div>

@@ -1,45 +1,32 @@
-import { slotAcceptsItem, RING_SLOTS } from '../../../vtt/data/fivee.js'
+import { RING_SLOTS } from '../../../vtt/data/fivee.js'
 
-export function availableItemActions(item, { owns, canGive, equipment }) {
+export function availableItemActions(item, { owns, canGive, isDm } = {}) {
   if (!item) return []
-  const actions = []
-
-  if (item.slot && owns) {
-    if (item.equipped) {
-      actions.push({ label: 'Unequip', action: 'unequip', icon: null })
-    } else {
-      const slot = pickEquipSlot(item, equipment)
-      if (slot) {
-        actions.push({ label: 'Equip', action: 'equip', slot })
-      }
-    }
-  }
-
-  if (item.stackable && item.quantity > 1 && owns) {
-    actions.push({ label: 'Split', action: 'split', icon: null })
-  }
-
-  if (canGive) {
-    actions.push({ label: 'Give to Stash', action: 'give', icon: null })
-  }
-
-  if (owns && !item.equipped) {
-    actions.push({ label: 'Drop to Ground', action: 'drop', icon: null })
-  }
-
+  const acts = []
   if (owns) {
-    actions.push({ label: 'Delete', action: 'delete', icon: null, danger: true })
+    if (item.slot && !item.equipped) acts.push('equip')
+    if (item.equipped) acts.push('unequip')
+    if (item.equipped && item.attunement?.required) acts.push(item.attunement.attuned ? 'unattune' : 'attune')
+    if (item.stackable && (item.quantity ?? 1) > 1) acts.push('split')
+    if (canGive && !item.equipped) acts.push('give')
+    if (!item.equipped) acts.push('drop')
   }
-
-  return actions
+  if (isDm) acts.push(item.identified === false ? 'identify' : 'unidentify')
+  if (owns) acts.push('delete')
+  return acts
 }
 
-export function pickEquipSlot(item, equipment) {
-  if (!item || !item.slot) return null
+export const ACTION_LABELS = {
+  equip: 'Equip', unequip: 'Unequip', attune: 'Attune', unattune: 'Break attunement',
+  split: 'Split\u2026', give: 'Give to party stash', drop: 'Drop to ground',
+  identify: 'Identify', unidentify: 'Mark unidentified', delete: 'Delete',
+}
+
+export function pickEquipSlot(item, equipment = {}) {
+  if (!item?.slot) return null
   if (item.slot === 'ring') {
-    const free = RING_SLOTS.find(s => !equipment[s])
-    return free || RING_SLOTS[0]
+    for (const s of RING_SLOTS) if (!equipment[s]) return s
+    return RING_SLOTS[0]
   }
-  if (slotAcceptsItem(item, item.slot)) return item.slot
-  return null
+  return item.slot
 }

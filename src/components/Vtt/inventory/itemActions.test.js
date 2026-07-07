@@ -2,75 +2,54 @@ import { describe, it, expect } from 'vitest'
 import { availableItemActions, pickEquipSlot } from './itemActions.js'
 
 describe('availableItemActions', () => {
-  const equipCtx = { owns: true, canGive: false, equipment: {} }
+  const owns = { owns: true, canGive: true }
 
-  it('returns equip action for unequipped slot item', () => {
-    const item = { slot: 'body', equipped: false }
-    const acts = availableItemActions(item, equipCtx)
-    expect(acts.find(a => a.action === 'equip')).toBeTruthy()
+  it('returns nothing for items you do not own', () => {
+    expect(availableItemActions({ slot: 'body' }, { owns: false, canGive: true })).toEqual([])
   })
 
-  it('returns unequip action for equipped item', () => {
-    const item = { slot: 'mainHand', equipped: true }
-    const acts = availableItemActions(item, equipCtx)
-    expect(acts.find(a => a.action === 'unequip')).toBeTruthy()
+  it('offers equip + give + drop + delete for an unequipped wearable', () => {
+    expect(availableItemActions({ slot: 'body', equipped: false }, owns)).toEqual(['equip', 'give', 'drop', 'delete'])
   })
 
-  it('returns split action for stackable item with quantity > 1', () => {
-    const item = { stackable: true, quantity: 5, slot: null, equipped: false }
-    const acts = availableItemActions(item, equipCtx)
-    expect(acts.find(a => a.action === 'split')).toBeTruthy()
+  it('offers unequip + delete for an equipped item (no give/drop while worn)', () => {
+    expect(availableItemActions({ slot: 'body', equipped: true }, owns)).toEqual(['unequip', 'delete'])
   })
 
-  it('does not return split for single items', () => {
-    const item = { stackable: true, quantity: 1, slot: null, equipped: false }
-    const acts = availableItemActions(item, equipCtx)
-    expect(acts.find(a => a.action === 'split')).toBeFalsy()
+  it('offers split for a stack of more than one', () => {
+    expect(availableItemActions({ stackable: true, quantity: 5 }, owns)).toContain('split')
+    expect(availableItemActions({ stackable: true, quantity: 1 }, owns)).not.toContain('split')
   })
 
-  it('returns give action when canGive is true', () => {
-    const item = { slot: null, equipped: false }
-    const acts = availableItemActions(item, { owns: false, canGive: true, equipment: {} })
-    expect(acts.find(a => a.action === 'give')).toBeTruthy()
+  it('drops to ground even with no stash, but no give', () => {
+    expect(availableItemActions({ itemType: 'misc' }, { owns: true, canGive: false })).toEqual(['drop', 'delete'])
   })
 
-  it('returns delete action when owns', () => {
-    const item = { slot: null, equipped: false }
-    const acts = availableItemActions(item, equipCtx)
-    expect(acts.find(a => a.action === 'delete')).toBeTruthy()
+  it('offers attune for an equipped item that requires attunement', () => {
+    const eq = { slot: 'neck', equipped: true, attunement: { required: true, attuned: false } }
+    expect(availableItemActions(eq, owns)).toContain('attune')
+    const attuned = { ...eq, attunement: { required: true, attuned: true } }
+    expect(availableItemActions(attuned, owns)).toContain('unattune')
   })
 
-  it('marks delete as danger', () => {
-    const item = { slot: null, equipped: false }
-    const acts = availableItemActions(item, equipCtx)
-    const del = acts.find(a => a.action === 'delete')
-    expect(del.danger).toBe(true)
-  })
-
-  it('returns empty array for null item', () => {
-    expect(availableItemActions(null, equipCtx)).toEqual([])
+  it('offers identify/unidentify only to the DM', () => {
+    const item = { itemType: 'misc', identified: false }
+    expect(availableItemActions(item, { owns: false, isDm: true })).toContain('identify')
+    expect(availableItemActions({ itemType: 'misc', identified: true }, { owns: false, isDm: true })).toContain('unidentify')
+    expect(availableItemActions(item, { owns: true, isDm: false })).not.toContain('identify')
   })
 })
 
 describe('pickEquipSlot', () => {
-  it('returns item.slot when slotAcceptsItem matches', () => {
+  it('uses the item slot for non-rings', () => {
     expect(pickEquipSlot({ slot: 'mainHand' }, {})).toBe('mainHand')
   })
-
-  it('returns first free ring slot for ring items', () => {
+  it('rings pick the first free ring slot', () => {
     expect(pickEquipSlot({ slot: 'ring' }, {})).toBe('ring1')
+    expect(pickEquipSlot({ slot: 'ring' }, { ring1: {} })).toBe('ring2')
+    expect(pickEquipSlot({ slot: 'ring' }, { ring1: {}, ring2: {} })).toBe('ring1')
   })
-
-  it('returns second ring slot when first is occupied', () => {
-    expect(pickEquipSlot({ slot: 'ring' }, { ring1: { name: 'Ring of Protection' } })).toBe('ring2')
-  })
-
-  it('returns ring1 when both ring slots are occupied (fallback)', () => {
-    const equipment = { ring1: { name: 'A' }, ring2: { name: 'B' } }
-    expect(pickEquipSlot({ slot: 'ring' }, equipment)).toBe('ring1')
-  })
-
-  it('returns null for items without a slot', () => {
+  it('returns null for non-equippable items', () => {
     expect(pickEquipSlot({ slot: null }, {})).toBe(null)
   })
 })

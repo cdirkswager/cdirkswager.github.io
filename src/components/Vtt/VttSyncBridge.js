@@ -133,6 +133,31 @@ export function createSyncBridge(canvas, eventBus) {
     return pile.id
   }
 
+  controller.setAttunement = (itemId, attuned) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item, attunement: item.attunement ? { ...item.attunement } : null }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    if (!item.attunement) item.attunement = { required: false, attuned: false }
+    item.attunement.attuned = attuned
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'updated', { id: itemId, attunement: { ...item.attunement } }, opId)
+    return opId
+  }
+
+  controller.setIdentified = (itemId, identified) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    item.identified = identified
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'updated', { id: itemId, identified }, opId)
+    return opId
+  }
+
   controller.deleteItem = (itemId) => {
     const item = controller.getItem(itemId)
     if (!item) return
@@ -379,6 +404,8 @@ export function createSyncBridge(canvas, eventBus) {
     controller.deleteItem = null
     controller.dropItem = null
     controller.createLootPile = null
+    controller.setAttunement = null
+    controller.setIdentified = null
     controller.onTokenDragEnd = null
     controller.onWallCreated = null
     controller.onWallDeleted = null

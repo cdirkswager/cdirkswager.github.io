@@ -1,6 +1,10 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import { RARITY_LABELS } from '../../../vtt/data/fivee.js'
 import { Draggable, Droppable } from './dnd.jsx'
+import { ItemContextMenu, SplitModal } from './ItemContextMenu.jsx'
+import { pickEquipSlot } from './itemActions.js'
+import { displayItem, sortItems, SORT_OPTIONS } from './itemDisplay.js'
+import { useHoverCard } from './HoverCard.jsx'
 import { IconGrid, IconPotion, IconLeaf, IconRing, IconScroll, IconSearch, IconChevron, IconWeight, IconCoin } from './icons.jsx'
 
 const RARITY_VAR = {
@@ -17,42 +21,41 @@ const TABS = [
   { id: 'scroll', Icon: IconScroll, match: (t) => t === 'scroll' || t === 'tool' },
 ]
 
-function tooltip(it) {
-  const val = it.value ? Object.entries(it.value).filter(([, v]) => v).map(([k, v]) => `${v}${k}`).join(' ') : ''
-  return [it.name, RARITY_LABELS[it.rarity], it.weight ? `${it.weight} lb` : '', val,
-    it.description].filter(Boolean).join('\n')
-}
-
-function Cell({ item, onContextMenu, onDoubleClick, editable }) {
+function Cell({ item, editable, isDm, handlers }) {
+  const hover = useHoverCard()
   if (!item) return <div className="inv-cell empty" />
+  const disp = displayItem(item, { isDm })
   const inner = (
     <div
-      className="inv-cell filled"
-      title={tooltip(item)}
-      onContextMenu={(e) => onContextMenu?.(item, e)}
-      onDoubleClick={() => onDoubleClick?.(item)}
+      className={`inv-cell filled${disp.unidentified ? ' unidentified' : ''}`}
+      onMouseEnter={(e) => hover.show(item, e.currentTarget.getBoundingClientRect())}
+      onMouseLeave={hover.hide}
+      onContextMenu={handlers ? (e) => { e.preventDefault(); handlers.onContext(item, e) } : undefined}
+      onDoubleClick={editable ? () => handlers.onDouble(item) : undefined}
+      onClick={editable ? (e) => handlers.onClick(item, e) : undefined}
     >
-      {item.rarity && item.rarity !== 'common' &&
+      {item.rarity && item.rarity !== 'common' && disp.showEffects &&
         <span className="rar" style={{ background: RARITY_VAR[item.rarity] }} />}
-      <img src={item.img} alt={item.name} draggable={false} />
+      {item.equipped && item.attunement?.attuned && <span className="attuned" title="Attuned">\u2726</span>}
+      <img src={item.img} alt={disp.name} draggable={false} />
       {item.quantity > 1 && <span className="qty">{item.quantity}</span>}
     </div>
   )
   if (!editable) return inner
-  return (
-    <Draggable id={`item:${item.id}`} data={{ itemId: item.id }}>
-      {inner}
-    </Draggable>
-  )
+  return <Draggable id={`item:${item.id}`} data={{ itemId: item.id }}>{inner}</Draggable>
 }
 
-function ContainerRow({ container, children, fill, onContextMenu, onDoubleClick, editable, childrenOf, fillOf }) {
+function ContainerRow({ container, ctx, depth = 0 }) {
   const [open, setOpen] = useState(!container.container?.collapsed)
+  const kids = ctx.childrenOf(container.id)
+  const kidCells = kids.filter(k => k.itemType !== 'container')
+  const kidContainers = kids.filter(k => k.itemType === 'container')
   const cap = container.container?.capacity || 0
+  const fill = ctx.fillOf(container)
   const pct = cap ? Math.min(100, (fill / cap) * 100) : 0
   const over = cap && fill > cap
   return (
-    <Droppable id={`container:${container.id}`} data={{ containerId: container.id }} className="inv-container">
+    <div className="inv-container" style={{ marginLeft: depth ? 8 : 0 }}>
       <div className={`inv-container-head${open ? '' : ' collapsed'}`} onClick={() => setOpen(o => !o)}>
         <span className="chev"><IconChevron width={16} height={16} /></span>
         <img src={container.img} alt="" />
@@ -62,44 +65,58 @@ function ContainerRow({ container, children, fill, onContextMenu, onDoubleClick,
       </div>
       {open && (
         <div className="inv-container-body">
-          <div className="inv-grid">
-            {children.length === 0
+          <Droppable id={`container:${container.id}`} className="inv-grid" disabled={!ctx.editable}>
+            {kidCells.length === 0 && kidContainers.length === 0
               ? <div className="inv-empty" style={{ gridColumn: '1 / -1' }}>Empty</div>
-              : children.map(c =>
-                  c.itemType === 'container'
-                    ? <ContainerRow key={c.id} container={c} children={childrenOf(c.id)} fill={fillOf(c)} onContextMenu={onContextMenu} onDoubleClick={onDoubleClick} editable={editable} childrenOf={childrenOf} fillOf={fillOf} />
-                    : <Cell key={c.id} item={c} onContextMenu={onContextMenu} onDoubleClick={onDoubleClick} editable={editable} />
-                )}
-          </div>
+              : kidCells.map(c => <Cell key={c.id} item={c} editable={ctx.editable} isDm={ctx.isDm} handlers={ctx.handlers} />)}
+          </Droppable>
+          {kidContainers.map(c => <ContainerRow key={c.id} container={c} ctx={ctx} depth={depth + 1} />)}
         </div>
       )}
-    </Droppable>
+    </div>
   )
 }
 
-export default function ItemGrid({ model, onContextMenu, controller }) {
+export default function ItemGrid({ model, controller, isDm }) {
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
-  const { loose, containers, childrenOf, fillOf, carry, currency, isSharedView, gridActor, gridEditable, owns } = model
-  const editable = gridEditable && owns
-
-  const handleDoubleClick = useCallback((item) => {
-    if (!owns || !controller) return
-    if (item.equipped) {
-      controller.unequipItem?.(item.id)
-    } else if (item.slot) {
-      controller.equipItem?.(item.id, item.slot)
-    }
-  }, [owns, controller])
+  const [sort, setSort] = useState('manual')
+  const [menu, setMenu] = useState(null)
+  const [split, setSplit] = useState(null)
+  const { loose, containers, childrenOf, fillOf, carry, currency, isSharedView, gridActor, gridEditable, partyStash, owns, equipment } = model
+  const editable = !!gridEditable
 
   if (!gridActor) return <div className="inv-right"><div className="inv-empty">No inventory to show</div></div>
 
-  const activeTab = TABS.find(t => t.id === tab)
-  const matches = (it) =>
-    activeTab.match(it.itemType) &&
-    (!q || it.name.toLowerCase().includes(q.toLowerCase()))
+  const canGive = !!partyStash && gridActor.id !== partyStash.id
 
-  const looseFiltered = loose.filter(matches)
+  const runAction = (action, item) => {
+    switch (action) {
+      case 'equip':      controller?.equipItem?.(item.id, pickEquipSlot(item, equipment)); break
+      case 'unequip':    controller?.unequipItem?.(item.id); break
+      case 'attune':     controller?.setAttunement?.(item.id, true); break
+      case 'unattune':   controller?.setAttunement?.(item.id, false); break
+      case 'split':      setSplit({ item }); break
+      case 'give':       if (partyStash) controller?.transferItem?.({ itemId: item.id, toActorId: partyStash.id }); break
+      case 'drop':       controller?.dropItem?.(item.id); break
+      case 'identify':   controller?.setIdentified?.(item.id, true); break
+      case 'unidentify': controller?.setIdentified?.(item.id, false); break
+      case 'delete':     controller?.deleteItem?.(item.id); break
+      default: break
+    }
+  }
+
+  const handlers = {
+    onContext: (item, e) => setMenu({ item, x: e.clientX, y: e.clientY }),
+    onDouble: (item) => { if (!editable) return; if (item.slot && !item.equipped) runAction('equip', item); else if (item.equipped) runAction('unequip', item) },
+    onClick: (item, e) => { if (e.shiftKey && canGive && editable) runAction('give', item) },
+  }
+  const ctx = { childrenOf, fillOf, editable, isDm, handlers }
+
+  const activeTab = TABS.find(t => t.id === tab)
+  const matches = (it) => activeTab.match(it.itemType) && (!q || it.name.toLowerCase().includes(q.toLowerCase()))
+
+  const looseFiltered = sortItems(loose.filter(matches), sort)
   const MIN_CELLS = 40
   const target = Math.max(MIN_CELLS, Math.ceil((looseFiltered.length + 3) / 5) * 5)
   const empties = Math.max(0, target - looseFiltered.length)
@@ -108,6 +125,7 @@ export default function ItemGrid({ model, onContextMenu, controller }) {
   const cap = carry?.capacity ?? 0
   const carried = carry?.carried ?? 0
   const over = carry?.over
+  const enc = carry?.encumbrance
   const pct = cap ? Math.min(100, (carried / cap) * 100) : 0
 
   return (
@@ -122,30 +140,47 @@ export default function ItemGrid({ model, onContextMenu, controller }) {
           <IconSearch />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search items" />
         </div>
+        <select className="inv-sort" value={sort} onChange={e => setSort(e.target.value)} title="Sort">
+          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
       </div>
 
       {isSharedView && <div className="inv-scope">Shared party stash — you don't control this character</div>}
-      {!owns && !isSharedView && <div className="inv-scope">Read-only view</div>}
+      {editable && <div className="inv-hint">Double-click to equip · Shift-click to send to stash · Right-click for more</div>}
 
-      <Droppable id="grid" data={{ zone: 'grid' }} className="inv-right-scroll">
-        <div className="inv-grid">
-          {looseFiltered.map(it => <Cell key={it.id} item={it} onContextMenu={onContextMenu} onDoubleClick={handleDoubleClick} editable={editable} />)}
+      <div className="inv-right-scroll">
+        <Droppable id="grid" className="inv-grid" disabled={!editable}>
+          {looseFiltered.map(it => <Cell key={it.id} item={it} editable={editable} isDm={isDm} handlers={handlers} />)}
           {Array.from({ length: empties }).map((_, i) => <Cell key={`e${i}`} item={null} />)}
-        </div>
+        </Droppable>
 
         {containers
           .filter(c => !q || c.name.toLowerCase().includes(q.toLowerCase()) || childrenOf(c.id).some(matches))
-          .map(c => (
-            <ContainerRow key={c.id} container={c} children={childrenOf(c.id)} fill={fillOf(c)} onContextMenu={onContextMenu} onDoubleClick={handleDoubleClick} editable={editable} childrenOf={childrenOf} fillOf={fillOf} />
-          ))}
-      </Droppable>
+          .map(c => <ContainerRow key={c.id} container={c} ctx={ctx} />)}
+      </div>
 
       <div className={`inv-weight${over ? ' over' : ''}`}>
-        <IconCoin /><span className="inv-weight-num">{gp}</span>
+        <IconCoin /><span className="inv-weight-num">{gp.toLocaleString()}</span>
+        {enc && enc !== 'none' &&
+          <span className="inv-enc" title="Encumbrance">{enc === 'heavilyEncumbered' ? 'Heavily encumbered' : 'Encumbered'}</span>}
         <IconWeight />
         <div className={`inv-weight-bar${over ? ' over' : ''}`}><i style={{ width: `${pct}%` }} /></div>
         <span className={`inv-weight-num${over ? ' over' : ''}`}>{carried} / {cap} lb</span>
       </div>
+
+      {menu && (
+        <ItemContextMenu
+          item={menu.item} x={menu.x} y={menu.y} owns={editable} canGive={canGive} isDm={isDm}
+          onAction={runAction} onClose={() => setMenu(null)}
+        />
+      )}
+      {split && (
+        <SplitModal
+          item={split.item}
+          onConfirm={(n) => { controller?.splitStack?.(split.item.id, n); setSplit(null) }}
+          onClose={() => setSplit(null)}
+        />
+      )}
     </div>
   )
 }

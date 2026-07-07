@@ -1,25 +1,36 @@
 import React from 'react'
 import { SLOT_LABELS } from '../../../vtt/data/fivee.js'
 import { Draggable, Droppable } from './dnd.jsx'
+import { useHoverCard } from './HoverCard.jsx'
 
 const LEFT = ['head', 'body', 'hands', 'feet', 'ring1', 'neck']
 const RIGHT = ['mainHand', 'offHand', 'ranged', 'ammo', 'ring2', 'cloak']
 
 function Slot({ slot, item, locked, onUnequip }) {
-  return (
-    <Droppable id={`slot:${slot}`} className="inv-slot-wrapper" data={{ slot }} disabled={locked}>
-      <div className={`inv-slot${item ? ' filled' : ''}`} title={item ? item.name : SLOT_LABELS[slot]}>
-        {item
-          ? <Draggable id={`equip:${item.id}`} data={{ itemId: item.id }} disabled={locked}>
-              <img src={item.img} alt={item.name} draggable={false} onDoubleClick={() => !locked && onUnequip?.(item.id)} />
-            </Draggable>
-          : <span className="inv-slot-ghost">{SLOT_LABELS[slot]}</span>}
-      </div>
+  const hover = useHoverCard()
+  const body = item
+    ? <img src={item.img} alt={item.name} draggable={false} />
+    : <span className="inv-slot-ghost">{SLOT_LABELS[slot]}</span>
+  const cell = (
+    <Droppable id={`slot:${slot}`} className={`inv-slot${item ? ' filled' : ''}`} disabled={locked}>
+      {item && !locked
+        ? <Draggable id={`equip:${item.id}`} data={{ itemId: item.id }}>{body}</Draggable>
+        : body}
     </Droppable>
+  )
+  return (
+    <div
+      title={item ? `${item.name}${!locked ? ' \u2014 double-click to unequip' : ''}` : SLOT_LABELS[slot]}
+      onMouseEnter={item ? (e) => hover.show(item, e.currentTarget.getBoundingClientRect()) : undefined}
+      onMouseLeave={item ? hover.hide : undefined}
+      onDoubleClick={item && !locked ? () => onUnequip?.(item.id) : undefined}
+    >
+      {cell}
+    </div>
   )
 }
 
-export default function Paperdoll({ selected, equipment, locked, onUnequip }) {
+export default function Paperdoll({ selected, equipment, locked, isDm, onUnequip }) {
   const hero = selected?.attributes?.portrait || selected?.img
   const initial = (selected?.name || '?').charAt(0).toUpperCase()
   return (

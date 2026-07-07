@@ -101,11 +101,44 @@ describe('VttSyncBridge — optimistic item mutations', () => {
     expect(canvas.controller.itemMap.has('i1')).toBe(true)
   })
 
+  it('setAttunement toggles attunement optimistically', () => {
+    bus.emitRecord('item', 'created', { id: 'i4', actorId: 'a1', name: 'Cloak', equipped: true, attunement: { required: true, attuned: false } })
+    canvas.controller.setAttunement('i4', true)
+    expect(canvas.controller.itemMap.get('i4').attunement.attuned).toBe(true)
+    const update = sent.find(e => e.action === 'updated' && e.data.id === 'i4')
+    expect(update.data.attunement.attuned).toBe(true)
+  })
+
+  it('setAttunement rollback restores previous state', () => {
+    bus.emitRecord('item', 'created', { id: 'i5', actorId: 'a1', name: 'Cloak', equipped: true, attunement: { required: true, attuned: false } })
+    const opId = canvas.controller.setAttunement('i5', true)
+    expect(canvas.controller.itemMap.get('i5').attunement.attuned).toBe(true)
+    bus.emit('sync-error', { opId, message: 'Cannot attune' })
+    expect(canvas.controller.itemMap.get('i5').attunement.attuned).toBe(false)
+  })
+
+  it('setIdentified flips the flag optimistically', () => {
+    bus.emitRecord('item', 'created', { id: 'i6', actorId: 'a1', name: 'Mystic Orb', identified: false })
+    canvas.controller.setIdentified('i6', true)
+    expect(canvas.controller.itemMap.get('i6').identified).toBe(true)
+    const update = sent.find(e => e.action === 'updated' && e.data.id === 'i6')
+    expect(update.data.identified).toBe(true)
+  })
+
+  it('creates attunement object when missing on setAttunement', () => {
+    bus.emitRecord('item', 'created', { id: 'i7', actorId: 'a1', name: 'Ring', equipped: true })
+    canvas.controller.setAttunement('i7', true)
+    expect(canvas.controller.itemMap.get('i7').attunement.attuned).toBe(true)
+    expect(canvas.controller.itemMap.get('i7').attunement.required).toBe(false)
+  })
+
   it('cleans up controller methods on destroy', () => {
     destroy()
     expect(canvas.controller.equipItem).toBe(null)
     expect(canvas.controller.transferItem).toBe(null)
     expect(canvas.controller.splitStack).toBe(null)
     expect(canvas.controller.deleteItem).toBe(null)
+    expect(canvas.controller.setAttunement).toBe(null)
+    expect(canvas.controller.setIdentified).toBe(null)
   })
 })

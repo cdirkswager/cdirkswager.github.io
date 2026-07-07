@@ -3,19 +3,13 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestC
 import { useInventoryModel } from './useInventoryModel.js'
 import { getAccessLevel } from '../../../vtt/canvas/ownership.js'
 import { resolveDrop } from './dndIntent.js'
+import { HoverCardProvider } from './HoverCard.jsx'
 import PartyRail from './PartyRail.jsx'
 import Paperdoll from './Paperdoll.jsx'
 import CharacterPanel from './CharacterPanel.jsx'
 import ItemGrid from './ItemGrid.jsx'
 import { IconMenu, IconMap, IconBag, IconBook, IconUser, IconClose, IconCoin, IconWeight } from './icons.jsx'
 
-/**
- * InventoryScreen — full-screen game-like character + inventory overlay with
- * drag-and-drop. Equip (grid→slot), unequip (slot→grid), move (into/out of
- * containers), and transfer (drop on a party portrait). All mutations are
- * optimistic with server-authoritative rollback (see VttSyncBridge). You can
- * only drag items on actors you own; equipped gear of others is locked. Esc closes.
- */
 export default function InventoryScreen({ controller, eventBus, session, initialActorId, onClose }) {
   const model = useInventoryModel({ controller, eventBus, session, initialActorId })
   const user = { userId: session?.userId, role: session?.role }
@@ -25,7 +19,6 @@ export default function InventoryScreen({ controller, eventBus, session, initial
   const [toast, setToast] = useState(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
-  // Surface server rejections (e.g. "Container is full", "Illegal equip slot").
   useEffect(() => {
     if (!eventBus) return
     const off = eventBus.on('op-rejected', ({ message }) => {
@@ -68,6 +61,7 @@ export default function InventoryScreen({ controller, eventBus, session, initial
   return (
     <div className="inv-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+        <HoverCardProvider isDm={session?.role === 'dm'}>
         <div className="inv-frame" role="dialog" aria-label="Character and inventory">
           <div className="inv-topbar">
             <button className="inv-iconbtn" title="Menu"><IconMenu /></button>
@@ -93,14 +87,15 @@ export default function InventoryScreen({ controller, eventBus, session, initial
               <CharacterPanel
                 selected={model.selected}
                 derived={model.derived}
-                paperdoll={<Paperdoll selected={model.selected} equipment={model.equipment} locked={!model.owns} onUnequip={(id) => controller?.unequipItem?.(id)} />}
+                paperdoll={<Paperdoll selected={model.selected} equipment={model.equipment} locked={!model.owns} isDm={session?.role === 'dm'} onUnequip={(id) => controller?.unequipItem?.(id)} />}
               />
             </div>
-            <ItemGrid model={model} controller={controller} />
+            <ItemGrid model={model} controller={controller} isDm={session?.role === 'dm'} />
           </div>
 
           {toast && <div className="inv-toast">{toast}</div>}
         </div>
+        </HoverCardProvider>
 
         <DragOverlay dropAnimation={null}>
           {activeItem
