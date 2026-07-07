@@ -1,10 +1,61 @@
 import { WebSocketServer } from 'ws'
 import crypto from 'node:crypto'
 import { getAccessLevel, hasAccess } from '../../src/vtt/canvas/ownership.js'
+import { indexItems, itemExternalWeight, containerCanAccept, wouldCycle } from '../../src/vtt/data/weight.js'
+import { slotAcceptsItem } from '../../src/vtt/data/fivee.js'
+
+function actorItems(store, actorId) {
+  return store.getAll('item').filter(i => i.actorId === actorId)
+}
+
+function collectDescendants(itemId, items) {
+  const byParent = new Map()
+  for (const it of items) {
+    const k = it.parentItemId ?? null
+    if (!byParent.has(k)) byParent.set(k, [])
+    byParent.get(k).push(it)
+  }
+  const out = []
+  const stack = [itemId]
+  while (stack.length) {
+    for (const child of byParent.get(stack.pop()) || []) { out.push(child); stack.push(child.id) }
+  }
+  return out
+}
+
+function validateEquipChange(store, actor, existing, changes) {
+  if (changes.equipped === true) {
+    const targetSlot = changes.equippedSlot ?? existing.equippedSlot ?? existing.slot
+    if (!slotAcceptsItem(existing, targetSlot)) return 'Illegal equip slot'
+  }
+  const attuning = changes.attunement && changes.attunement.attuned === true
+  if (attuning && existing.attunement?.required) {
+    const max = actor?.attributes?.attunement?.max ?? 3
+    const used = actorItems(store, existing.actorId)
+      .filter(i => i.id !== existing.id && i.attunement?.attuned).length
+    if (used + 1 > max) return 'Attunement limit reached'
+  }
+  return null
+}
+
+function validateContainerMove(store, existing, changes) {
+  if (!('parentItemId' in changes)) return null
+  const newParent = changes.parentItemId
+  if (newParent == null) return null
+  const items = actorItems(store, existing.actorId)
+  const container = items.find(i => i.id === newParent)
+  if (!container || container.itemType !== 'container') return 'Destination is not a container'
+  const idx = indexItems(items)
+  if (wouldCycle(existing.id, newParent, idx)) return 'Cannot place a container inside itself'
+  const incoming = itemExternalWeight(existing, idx)
+  const r = containerCanAccept(container, incoming, idx, existing.id)
+  if (!r.ok) return r.reason === 'over-capacity' ? 'Container is full' : 'Cannot place item here'
+  return null
+}
 
 export function createWebSocketHub(server, authVerifier, store, eventBus) {
   const wss = new WebSocketServer({ server })
-  const connections = new Map() // ws -> { userId, username, role, playerId }
+  const connections = new Map()
 
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost')
@@ -22,11 +73,9 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
 
     connections.set(ws, identity)
 
-    // Send current state grouped by type
     const recordsByType = store.getAllTypes()
     ws.send(JSON.stringify({ type: 'init', identity, recordsByType }))
 
-    // Broadcast presence
     broadcast({ type: 'presence', users: getPresence() })
 
     console.log(`[ws] ${identity.username} (${identity.role}) connected`)
@@ -57,8 +106,10 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     }))
   }
 
-  function _deny(ws, message) {
-    ws.send(JSON.stringify({ type: 'error', message }))
+  function _deny(ws, message, opId) {
+    const payload = { type: 'error', message }
+    if (opId) payload.opId = opId
+    ws.send(JSON.stringify(payload))
   }
 
   function _checkActorAccess(identity, actor) {
@@ -80,7 +131,6 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
       case 'create-record': {
         const kind = msg.kind || msg.record.type || 'records'
 
-        // Permission check for item creation (must own the actor)
         if (kind === 'item') {
           const actorId = msg.record.actorId
           if (!actorId) {
@@ -96,9 +146,20 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
             _deny(ws, 'Permission denied: not the actor owner')
             return
           }
+          if (msg.record.parentItemId) {
+            const items = actorItems(store, actorId)
+            const container = items.find(i => i.id === msg.record.parentItemId)
+            if (!container || container.itemType !== 'container') {
+              _deny(ws, 'Destination is not a container')
+              return
+            }
+            const idx = indexItems(items)
+            const incoming = itemExternalWeight(msg.record, idx)
+            const r = containerCanAccept(container, incoming, idx)
+            if (!r.ok) { _deny(ws, 'Container is full'); return }
+          }
         }
 
-        // Permission check for token creation with actor link
         if (kind === 'token' && msg.record.actorId) {
           const actor = store.getById('actor', msg.record.actorId)
           if (!actor) {
@@ -111,13 +172,11 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           }
         }
 
-        // Only DM may create actors
         if (kind === 'actor' && identity.role !== 'dm') {
           _deny(ws, 'Permission denied: only DM can create actors')
           return
         }
 
-        // Upsert: if a record with this ID already exists, update instead of inserting a duplicate
         const existing = store.getById(kind, msg.record.id)
         if (existing) {
           const updated = store.update(kind, msg.record.id, {
@@ -150,13 +209,13 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
 
       case 'update-record': {
         const kind = msg.kind || 'records'
+        const opId = msg.opId
         const existing = store.getById(kind, msg.recordId)
         if (!existing) {
           _deny(ws, 'Record not found')
           return
         }
 
-        // Permission check: actors, items, and actor-linked tokens use ownership model
         let permitted = false
 
         if (kind === 'actor') {
@@ -168,16 +227,22 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           const actor = _resolveActorForToken(kind, msg.recordId, msg.changes)
           permitted = actor ? _checkActorAccess(identity, actor) : (existing.createdBy === identity.userId || identity.role === 'dm')
         } else {
-          // Fallback to createdBy check for existing record types (wall, template, tile, etc.)
           permitted = !existing.createdBy || existing.createdBy === identity.userId || identity.role === 'dm'
         }
 
         if (!permitted) {
-          _deny(ws, 'Permission denied')
+          _deny(ws, 'Permission denied', opId)
           return
         }
 
-        // For actor updates, prevent non-owners from changing ownership
+        if (kind === 'item') {
+          const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
+          const equipErr = validateEquipChange(store, actor, existing, msg.changes)
+          if (equipErr) { _deny(ws, equipErr, opId); return }
+          const moveErr = validateContainerMove(store, existing, msg.changes)
+          if (moveErr) { _deny(ws, moveErr, opId); return }
+        }
+
         if (kind === 'actor' && msg.changes.ownership) {
           const ownerPermitted = identity.role === 'dm' || hasAccess(identity, existing, 'owner')
           if (!ownerPermitted) {
@@ -231,6 +296,80 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
         break
       }
 
+      case 'transfer-item': {
+        const itemId = msg.itemId
+        const toActorId = msg.toActorId
+        const toParentItemId = msg.toParentItemId ?? null
+        const opId = msg.opId
+        const item = store.getById('item', itemId)
+        if (!item) { _deny(ws, 'Item not found', opId); return }
+
+        const sourceActor = item.actorId ? store.getById('actor', item.actorId) : null
+        const canPull = identity.role === 'dm' || (sourceActor && hasAccess(identity, sourceActor, 'owner'))
+        if (!canPull) { _deny(ws, 'Permission denied: cannot take from source actor', opId); return }
+
+        const destActor = store.getById('actor', toActorId)
+        if (!destActor) { _deny(ws, 'Destination actor not found', opId); return }
+        const canPush = identity.role === 'dm' || hasAccess(identity, destActor, 'owner')
+        if (!canPush) { _deny(ws, 'Permission denied: cannot place into destination actor', opId); return }
+
+        const moveQty = msg.quantity == null ? item.quantity : Math.max(0, Math.min(msg.quantity, item.quantity))
+        if (moveQty <= 0) { _deny(ws, 'Invalid quantity', opId); return }
+        const isPartial = !!item.stackable && moveQty < item.quantity
+
+        const srcItems = actorItems(store, item.actorId)
+        const srcIdx = indexItems(srcItems)
+        const incoming = isPartial ? (Number(item.weight) || 0) * moveQty : itemExternalWeight(item, srcIdx)
+
+        if (toParentItemId) {
+          const destItems = actorItems(store, toActorId)
+          const container = destItems.find(i => i.id === toParentItemId)
+          if (!container || container.itemType !== 'container') { _deny(ws, 'Destination is not a container', opId); return }
+          if (wouldCycle(item.id, toParentItemId, indexItems([...srcItems, ...destItems]))) {
+            _deny(ws, 'Cannot place a container inside itself', opId); return
+          }
+          const r = containerCanAccept(container, incoming, indexItems(destItems), itemId)
+          if (!r.ok) { _deny(ws, 'Container is full', opId); return }
+        }
+
+        const now = Date.now()
+        if (isPartial) {
+          const source = store.update('item', itemId, { quantity: item.quantity - moveQty, updatedBy: identity.userId, updatedAt: now })
+          const moved = {
+            ...item,
+            id: crypto.randomUUID(),
+            actorId: toActorId,
+            parentItemId: toParentItemId,
+            quantity: moveQty,
+            equipped: false,
+            equippedSlot: null,
+            attunement: item.attunement ? { ...item.attunement, attuned: false } : item.attunement,
+            createdBy: identity.userId, createdAt: now, updatedAt: now,
+          }
+          store.insert('item', moved)
+          broadcast({ type: 'record-updated', record: source, kind: 'item', by: identity.username })
+          broadcast({ type: 'record-created', record: moved, kind: 'item', by: identity.username })
+          ws.send(JSON.stringify({ type: 'transfer-item-ack', kind: 'item', source, moved }))
+        } else {
+          const descendants = collectDescendants(itemId, srcItems)
+          const moved = store.update('item', itemId, {
+            actorId: toActorId,
+            parentItemId: toParentItemId,
+            equipped: false,
+            equippedSlot: null,
+            attunement: item.attunement ? { ...item.attunement, attuned: false } : item.attunement,
+            updatedBy: identity.userId, updatedAt: now,
+          })
+          broadcast({ type: 'record-updated', record: moved, kind: 'item', by: identity.username })
+          for (const d of descendants) {
+            const du = store.update('item', d.id, { actorId: toActorId, updatedBy: identity.userId, updatedAt: now })
+            broadcast({ type: 'record-updated', record: du, kind: 'item', by: identity.username })
+          }
+          ws.send(JSON.stringify({ type: 'transfer-item-ack', kind: 'item', moved }))
+        }
+        break
+      }
+
       case 'ephemeral': {
         const event = { type: 'ephemeral', payload: msg.payload, by: identity.username, userId: identity.userId }
         broadcast(event, ws)
@@ -251,7 +390,6 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     }
   }
 
-  // Subscribe to internal events
   eventBus.on('broadcast', (message) => broadcast(message))
 
   return { wss, getPresence }

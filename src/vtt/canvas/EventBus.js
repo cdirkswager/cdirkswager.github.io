@@ -43,9 +43,9 @@ export class EventBus {
    * Emits both a specific event (e.g. 'template:created') and a generic
    * 'record:changed' for broad listeners.
    */
-  emitRecord(resource, action, data) {
+  emitRecord(resource, action, data, opId) {
     this.emit(`${resource}:${action}`, data)
-    this.emit('record:changed', { resource, action, data })
+    this.emit('record:changed', { resource, action, data, opId })
   }
 
   /**

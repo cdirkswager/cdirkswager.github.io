@@ -174,13 +174,22 @@ export class VttSyncClient {
 
       case 'record-created-ack':
       case 'record-updated-ack':
+      case 'transfer-item-ack':
+        break
+
+      case 'sync-error':
+        this.eventBus.emit('sync-error', msg)
         break
 
       case 'error':
-        // Auth failure — do NOT reconnect; surface the error
-        console.error('[VttSyncClient] Server error:', msg.message)
-        this._authFailed = true
-        if (this.onAuthError) this.onAuthError(msg.message)
+        if (msg.opId) {
+          this.eventBus.emit('sync-error', msg)
+        } else {
+          // Auth failure — do NOT reconnect; surface the error
+          console.error('[VttSyncClient] Server error:', msg.message)
+          this._authFailed = true
+          if (this.onAuthError) this.onAuthError(msg.message)
+        }
         break
     }
   }
@@ -190,15 +199,26 @@ export class VttSyncClient {
     const msg = { resource: e.resource, action: e.action, data: e.data }
     switch (e.action) {
       case 'created':
-        this.ws.send(JSON.stringify({ type: 'create-record', kind: e.resource, record: { ...e.data } }))
+        this.ws.send(JSON.stringify({ type: 'create-record', kind: e.resource, record: { ...e.data }, opId: e.opId }))
         break
 
       case 'updated':
-        this.ws.send(JSON.stringify({ type: 'update-record', kind: e.resource, recordId: e.data.id, changes: e.data }))
+        this.ws.send(JSON.stringify({ type: 'update-record', kind: e.resource, recordId: e.data.id, changes: e.data, opId: e.opId }))
         break
 
       case 'deleted':
-        this.ws.send(JSON.stringify({ type: 'delete-record', kind: e.resource, recordId: e.data.id }))
+        this.ws.send(JSON.stringify({ type: 'delete-record', kind: e.resource, recordId: e.data.id, opId: e.opId }))
+        break
+
+      case 'transfer':
+        this.ws.send(JSON.stringify({
+          type: 'transfer-item',
+          itemId: e.data.itemId,
+          toActorId: e.data.toActorId,
+          toParentItemId: e.data.toParentItemId ?? null,
+          quantity: e.data.quantity ?? null,
+          opId: e.opId,
+        }))
         break
     }
   }

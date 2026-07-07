@@ -10,6 +10,91 @@ export function createSyncBridge(canvas, eventBus) {
   const scene = canvas.scene
   const renderer = canvas.renderer
   const unsubs = []
+  const _pendingOps = new Map()
+  let _opSeq = 0
+
+  function _nextOpId() { return `op_${++_opSeq}_${Date.now()}` }
+
+  function rollback(opId, message) {
+    const pending = _pendingOps.get(opId)
+    if (!pending) return
+    _pendingOps.delete(opId)
+    const { kind, snapshot } = pending
+    if (kind === 'item') {
+      const item = controller.itemMap?.get(snapshot.id)
+      if (item) Object.assign(item, snapshot)
+      eventBus.emit('items-changed', {})
+    }
+    eventBus.emit('op-rejected', { opId, message })
+  }
+
+  unsubs.push(eventBus.on('sync-error', (err) => {
+    if (err.opId) rollback(err.opId, err.message)
+  }))
+
+  controller.getItem = (id) => controller.itemMap?.get(id) ?? null
+
+  controller.equipItem = (itemId, slot) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+
+    if (controller.itemMap) {
+      for (const [, it] of controller.itemMap) {
+        if (it.actorId === item.actorId && it.equipped && it.equippedSlot === slot && it.id !== itemId) {
+          it.equipped = false
+          it.equippedSlot = null
+        }
+      }
+    }
+
+    item.equipped = true
+    item.equippedSlot = slot
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'updated', { id: itemId, equipped: true, equippedSlot: slot }, opId)
+    return opId
+  }
+
+  controller.unequipItem = (itemId) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    item.equipped = false
+    item.equippedSlot = null
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'updated', { id: itemId, equipped: false, equippedSlot: null }, opId)
+    return opId
+  }
+
+  controller.moveItem = (itemId, parentItemId, opts = {}) => {
+    const item = controller.getItem(itemId)
+    if (!item) return
+    const opId = _nextOpId()
+    const snapshot = { ...item }
+    _pendingOps.set(opId, { kind: 'item', snapshot })
+    if (opts.unequip) {
+      item.equipped = false
+      item.equippedSlot = null
+    }
+    item.parentItemId = parentItemId
+    eventBus.emit('items-changed', {})
+    eventBus.emitRecord('item', 'updated', {
+      id: itemId,
+      parentItemId,
+      ...(opts.unequip ? { equipped: false, equippedSlot: null } : {}),
+    }, opId)
+    return opId
+  }
+
+  controller.transferItem = ({ itemId, toActorId, toParentItemId = null, quantity = null }) => {
+    const opId = _nextOpId()
+    eventBus.emitRecord('item', 'transfer', { itemId, toActorId, toParentItemId, quantity }, opId)
+    return opId
+  }
 
   function removeTokenFromCanvas(id) {
     const existing = scene.getToken(id)
@@ -19,7 +104,6 @@ export function createSyncBridge(canvas, eventBus) {
     controller.invalidateLighting()
   }
 
-  /* ---------- Incoming record handlers ---------- */
   unsubs.push(eventBus.on('token:created', (data) => {
     if (scene.getToken(data.id)) return
     const token = new Token(data)
@@ -124,9 +208,7 @@ export function createSyncBridge(canvas, eventBus) {
     renderer.loadScene(scene)
   }))
 
-  /* ---------- Scene record updates (lighting settings persistence) ---------- */
   unsubs.push(eventBus.on('scene:created', (data) => {
-    /* Apply persisted scene settings on init replay */
     const scene = canvas.scene
     if (!scene) return
     if ('lightingEnabled' in data) {
@@ -153,7 +235,6 @@ export function createSyncBridge(canvas, eventBus) {
     }
   }))
 
-  /* ---------- Actor/Item record handlers (game-level, no renderer impact) ---------- */
   unsubs.push(eventBus.on('actor:created', (data) => {
     if (controller.actorMap) controller.actorMap.set(data.id, data)
     eventBus.emit('actors-changed', {})
@@ -179,19 +260,24 @@ export function createSyncBridge(canvas, eventBus) {
     controller.syncViewpointToAllVisionTokens()
   }))
 
+  if (!controller.itemMap) controller.itemMap = new Map()
+
   unsubs.push(eventBus.on('item:created', (data) => {
+    controller.itemMap.set(data.id, data)
     eventBus.emit('items-changed', {})
   }))
 
   unsubs.push(eventBus.on('item:updated', (data) => {
+    const existing = controller.itemMap.get(data.id)
+    if (existing) controller.itemMap.set(data.id, { ...existing, ...data })
+    else controller.itemMap.set(data.id, data)
     eventBus.emit('items-changed', {})
   }))
 
   unsubs.push(eventBus.on('item:deleted', (data) => {
+    controller.itemMap.delete(data.id)
     eventBus.emit('items-changed', {})
   }))
-
-  /* ---------- Outgoing: wire canvas callbacks to emit sync events ---------- */
 
   controller.onTokenDragEnd = (token) => {
     const data = token.toJSON ? token.toJSON() : token
@@ -222,23 +308,19 @@ export function createSyncBridge(canvas, eventBus) {
     eventBus.emitRecord('wall', 'updated', { id: wall.id, doorState: newState })
   }
 
-  /* Signal the sync client that the bridge is ready for init record replay.
-     Replay must run before scene:created is emitted so the scene is populated
-     before we snapshot its state to the server. */
   eventBus.emit('sync-bridge:ready', {})
 
-  /* Post-replay finalization: recompute shared viewpoint from loaded vision
-     tokens, then rebuild spatial index and refresh lighting.  This guarantees
-     loaded walls are indexed and vision tokens drive vision regardless of the
-     order in which init records were replayed. */
   controller.syncViewpointToAllVisionTokens()
   controller._spatialIndex.invalidate()
   controller.refreshLighting()
 
-  /* Ensure the scene exists as a server record so lighting/ambient updates don't fail */
   eventBus.emitRecord('scene', 'created', canvas.scene.toJSON())
 
   return function destroySyncBridge() {
+    controller.getItem = null
+    controller.equipItem = null
+    controller.unequipItem = null
+    controller.moveItem = null
     controller.onTokenDragEnd = null
     controller.onWallCreated = null
     controller.onWallDeleted = null
@@ -246,6 +328,8 @@ export function createSyncBridge(canvas, eventBus) {
     controller.onTemplateMoved = null
     controller.onTemplateDeleted = null
     controller.onDoorToggled = null
+    controller.transferItem = null
+    _pendingOps.clear()
     for (const unsub of unsubs) unsub()
   }
 }

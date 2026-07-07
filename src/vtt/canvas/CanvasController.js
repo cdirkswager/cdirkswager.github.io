@@ -50,8 +50,10 @@ export class CanvasController {
     this.userId = null
     this.isDm = false
     this.actorMap = new Map()
+    this.itemMap = new Map()
 
     this.onTokenMoved = null
+    this.onTokenDragEnd = null
     this.onTokenClicked = null
     this.onSceneClicked = null
     this.onWallCreated = null
