@@ -7,23 +7,11 @@ import InventoryScreen from './inventory/InventoryScreen.jsx'
 import LootPanel from './inventory/LootPanel.jsx'
 import PartyPanel from './inventory/PartyPanel.jsx'
 import { useWindowStack, useVttHotkeys } from './inventory/windowStack.js'
+import VttTopBar from './VttTopBar.jsx'
+import VttHud from './VttHud.jsx'
 import './vtt-theme.css'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
-
-/* ── Tool button ───────────────────────────────────────────── */
-function ToolBtn({ label, tool, activeTool, dmOnly, isDm, onSelect }) {
-  if (dmOnly && !isDm) return null
-  return (
-    <button
-      className={`vtt-tool-btn ${activeTool === tool ? 'active' : ''}`}
-      onClick={() => onSelect(tool)}
-      title={label}
-    >
-      {label}
-    </button>
-  )
-}
 
 /* ── Add Token modal ───────────────────────────────────────── */
 function AddTokenModal({ canvas, eventBus, onClose, userId }) {
@@ -734,22 +722,6 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
   )
 }
 
-/* ── Presence display ─────────────────────────────────────── */
-function PresenceBar({ connectedUsers, session }) {
-  return (
-    <div className="vtt-presence-bar">
-      <span className="vtt-presence-dot" />
-      <span>Connected</span>
-      {connectedUsers.map((u, i) => (
-        <span key={u.userId ?? i} className="vtt-presence-user">
-          {u.username ?? u.userId}
-          {u.role === 'dm' ? ' ⚔️' : ' 🎭'}
-        </span>
-      ))}
-    </div>
-  )
-}
-
 /* ── Main cockpit ──────────────────────────────────────────── */
 export default function VttCockpit({ canvas, eventBus, scene, isDm, session, connectedUsers, onDisconnect }) {
   const [activeTool, setActiveTool] = useState('pan')
@@ -758,6 +730,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [showActorPanel, setShowActorPanel] = useState(false)
   const [showBgPanel, setShowBgPanel] = useState(false)
   const [showLighting, setShowLighting] = useState(false)
+  const [activeWidgets, setActiveWidgets] = useState([])
 
   /* Game-like window shell: one stack, one Esc handler (see windowStack.js).
      I = inventory · L = loot · P = party · Esc = close the top overlay. */
@@ -790,68 +763,57 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
     setActiveTool(prev => prev === tool && tool === 'token' ? 'pan' : tool)
   }, [])
 
+  const handleTopBarAction = useCallback((id) => {
+    switch (id) {
+      case 'inventory': win.open('inventory'); break
+      case 'loot': win.open('loot'); break
+      case 'party': win.open('party'); break
+      case 'add-token': setShowAddToken(true); break
+      case 'tokens-panel': setShowTokenPanel(p => !p); break
+      case 'actors-panel': setShowActorPanel(p => !p); break
+      case 'bg': setShowBgPanel(p => !p); break
+      case 'lighting': setShowLighting(p => !p); break
+      case 'disconnect': onDisconnect?.(); break
+      case 'home': window.location.href = '/'; break
+      default: break
+    }
+  }, [win, onDisconnect])
+
+  const handleOpenScreen = useCallback((id) => {
+    win.open(id)
+  }, [win])
+
   return (
     <>
-      <div className="vtt-cockpit-toolbar">
-        <div className="vtt-tool-group">
-          <ToolBtn label="✋ Pan" tool="pan" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="◎ Token" tool="token" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="▬ Wall" tool="wall-draw" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="↗ Wall Sel" tool="wall-select" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="📏 Ruler" tool="ruler" activeTool={activeTool} isDm={isDm} onSelect={handleToolSelect} />
-          <ToolBtn label="⬠ Template" tool="template" activeTool={activeTool} dmOnly isDm={isDm} onSelect={handleToolSelect} />
-        </div>
+      <VttTopBar
+        isDm={isDm}
+        onAction={handleTopBarAction}
+        onToolSelect={handleToolSelect}
+        activeTool={activeTool}
+        activeWidgets={activeWidgets}
+        onWidgetsChange={setActiveWidgets}
+      />
 
-        <PresenceBar connectedUsers={connectedUsers} session={session} />
-
-        <div className="vtt-tool-group">
-          {isDm && (
-            <>
-              <button onClick={() => setShowAddToken(true)} className="btn btn-sm vtt-action-btn" disabled={!canvas}>
-                + Token
-              </button>
-              <button onClick={() => setShowTokenPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showTokenPanel ? 'active' : ''}`}>
-                Tokens
-              </button>
-              <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
-                Actors
-              </button>
-              <button onClick={() => setShowBgPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showBgPanel ? 'active' : ''}`}>
-                Map BG
-              </button>
-              <button onClick={() => setShowLighting(p => !p)} className={`btn btn-sm vtt-action-btn ${showLighting ? 'active' : ''}`}>
-                Light
-              </button>
-            </>
-          )}
-          <button onClick={() => setShowActorPanel(p => !p)} className={`btn btn-sm vtt-action-btn ${showActorPanel ? 'active' : ''}`}>
-            Actors
-          </button>
-          <button onClick={() => win.open('inventory')} className="btn btn-sm vtt-action-btn" title="Inventory (I)">
-            Inventory
-          </button>
-          <button onClick={() => win.open('loot')} className="btn btn-sm vtt-action-btn" title="Loot (L)">
-            Loot
-          </button>
-          <button onClick={() => win.open('party')} className="btn btn-sm vtt-action-btn" title="Party (P)">
-            Party
-          </button>
-          <button onClick={onDisconnect} className="btn btn-sm vtt-disconnect-btn">DC</button>
-          <a href="/" className="btn btn-sm vtt-leave-btn">Leave</a>
-        </div>
-      </div>
+      <VttHud
+        canvas={canvas}
+        eventBus={eventBus}
+        scene={scene}
+        isDm={isDm}
+        win={win}
+        onOpenScreen={handleOpenScreen}
+      />
 
       <div className="vtt-panels-container">
-        {showTokenPanel && (
+        {(activeWidgets.includes('tokens') || showTokenPanel) && (
           <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
         )}
-        {showActorPanel && (
+        {(activeWidgets.includes('actors') || showActorPanel) && (
           <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} connectedUsers={connectedUsers} />
         )}
-        {showBgPanel && (
+        {(activeWidgets.includes('bg') || showBgPanel) && (
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />
         )}
-        {showLighting && (
+        {(activeWidgets.includes('lighting') || showLighting) && (
           <LightingPanel canvas={canvas} isDm={isDm} eventBus={eventBus} />
         )}
       </div>

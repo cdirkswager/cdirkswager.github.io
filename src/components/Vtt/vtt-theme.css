@@ -454,13 +454,117 @@
 .vtt-presence-dot { background: var(--vtt-hp) !important }
 
 /* ========================================================================
+   HUD — BG3-style right-side overlay (minimap, actions, actor preview, end turn)
+   ====================================================================== */
+
+.vtt-hud {
+  position: absolute; top: var(--vtt-topbar-height, 32px); right: 10px; z-index: 15;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  pointer-events: none;
+}
+.vtt-hud > * { pointer-events: auto }
+.vtt-hud-section { display: flex; flex-direction: column; align-items: flex-end; gap: 4px }
+
+/* minimap */
+.vtt-minimap {
+  width: 200px; height: 150px; border-radius: 6px; cursor: crosshair;
+  border: 1px solid var(--vtt-frame-lit); box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  display: block;
+}
+
+/* action buttons below minimap */
+.vtt-hud-actions { display: flex; flex-direction: row; gap: 6px }
+.vtt-hud-btn {
+  width: 36px; height: 36px; border-radius: 6px; display: grid; place-items: center;
+  background: var(--vtt-panel); border: 1px solid var(--vtt-frame);
+  color: var(--vtt-muted); cursor: pointer; transition: .12s;
+}
+.vtt-hud-btn:hover { color: var(--vtt-gold); border-color: var(--vtt-gold-dim);
+  background: var(--vtt-panel-2) }
+
+/* actor preview */
+.vtt-actor-preview {
+  min-width: 180px; background: linear-gradient(180deg, var(--vtt-panel), rgba(0,0,0,.7));
+  border: 1px solid var(--vtt-frame); border-radius: 6px; padding: 8px 10px;
+  font-family: var(--vtt-ui); color: var(--vtt-text);
+}
+.vtt-ap-name { font-family: var(--vtt-serif); font-size: 14px; color: var(--vtt-gold-soft);
+  margin-bottom: 4px }
+.vtt-ap-hp { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--vtt-muted) }
+.vtt-ap-hpbar { flex: 1; height: 6px; border-radius: 3px; background: #241c14;
+  border: 1px solid var(--vtt-frame); overflow: hidden }
+.vtt-ap-hpbar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--vtt-hp), #3d6329) }
+
+/* end turn button */
+.vtt-hud-endturn { margin-top: 4px }
+.vtt-hud-endturn-btn {
+  width: 160px; height: 40px; border-radius: 6px; font-family: var(--vtt-serif);
+  font-size: 14px; font-weight: 700; letter-spacing: 2px; cursor: not-allowed;
+  background: linear-gradient(180deg, #2a1f14, #140f0a);
+  border: 1px solid var(--vtt-frame); color: var(--vtt-faint); opacity: .5;
+  transition: .12s;
+}
+.vtt-hud-endturn-btn:disabled { cursor: not-allowed }
+
+/* ========================================================================
+   TOP BAR — thin BG3-style bar replacing the old cockpit toolbar
+   ====================================================================== */
+:root { --vtt-topbar-height: 32px }
+.vtt-topbar {
+  height: var(--vtt-topbar-height); min-height: var(--vtt-topbar-height);
+  display: flex; align-items: center; padding: 0 10px; gap: 6px;
+  background: linear-gradient(180deg, rgba(23,18,13,.96), rgba(13,11,9,.96));
+  border-bottom: 1px solid var(--vtt-frame); flex-shrink: 0; z-index: 20;
+  backdrop-filter: blur(4px); position: relative;
+}
+.vtt-topbar-left, .vtt-topbar-right { display: flex; align-items: center; position: relative }
+.vtt-topbar-center { flex: 1 }
+.vtt-topbar-btn {
+  width: 28px; height: 28px; border-radius: 4px; display: grid; place-items: center;
+  background: none; border: 1px solid transparent; color: var(--vtt-muted);
+  cursor: pointer; transition: .12s;
+}
+.vtt-topbar-btn:hover { color: var(--vtt-gold); border-color: var(--vtt-frame) }
+
+/* tool buttons in center of top bar */
+.vtt-topbar-tools { display: flex; align-items: center; gap: 2px }
+.vtt-topbar-tool {
+  width: 28px; height: 26px; border-radius: 4px; display: grid; place-items: center;
+  background: none; border: 1px solid transparent; color: var(--vtt-faint);
+  font-size: 15px; cursor: pointer; transition: .12s;
+}
+.vtt-topbar-tool:hover { color: var(--vtt-text); border-color: var(--vtt-frame) }
+.vtt-topbar-tool.active { color: var(--vtt-gold); border-color: var(--vtt-gold-dim);
+  background: rgba(201,168,76,.1) }
+
+/* dropdowns */
+.vtt-topbar-dropdown { position: absolute; top: 100%; margin-top: 4px; z-index: 30;
+  min-width: 180px; background: linear-gradient(180deg, var(--vtt-panel), var(--vtt-bg));
+  border: 1px solid var(--vtt-frame-lit); border-radius: 6px; padding: 4px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.6); font-family: var(--vtt-ui); font-size: 13px;
+  animation: inv-fade .1s ease-out; left: 0;
+}
+.vtt-topbar-dropdown-right { left: auto; right: 0 }
+.vtt-dd-section { font-size: 11px; color: var(--vtt-gold-dim); letter-spacing: .5px;
+  padding: 5px 8px 3px; text-transform: uppercase; font-weight: 600 }
+.vtt-dd-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+  color: var(--vtt-text); cursor: pointer; border-radius: 4px; white-space: nowrap }
+.vtt-dd-item:hover { background: var(--vtt-panel-2); color: var(--vtt-gold) }
+.vtt-dd-item input[type="checkbox"] { accent-color: var(--vtt-gold) }
+.vtt-dd-action { width: 100%; text-align: left; background: none; border: none; font-size: 13px }
+.vtt-dd-kbd { margin-left: auto; font-family: var(--vtt-ui); font-size: 11px;
+  color: var(--vtt-faint); border: 1px solid var(--vtt-frame); border-radius: 3px;
+  padding: 0 5px; line-height: 18px }
+.vtt-dd-divider { height: 1px; background: var(--vtt-frame); margin: 4px 0 }
+
+/* ========================================================================
    PHASE 9 — full restyle of the remaining legacy cockpit chrome.
    Maps the old purple panels/modals/toggles onto the gold theme and tightens
    the bulky spacing. !important beats VttPage.css regardless of import order.
    ====================================================================== */
 
 /* floating DM panels */
-.vtt-panels-container { top: 52px !important; left: 10px !important; gap: 10px !important }
+.vtt-panels-container { top: 40px !important; left: 10px !important; gap: 10px !important }
 .vtt-panel {
   background: linear-gradient(180deg, var(--vtt-panel), var(--vtt-bg)) !important;
   border: 1px solid var(--vtt-frame) !important;

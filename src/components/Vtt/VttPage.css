@@ -140,100 +140,22 @@
   position: relative;
 }
 
-/* ── Cockpit toolbar ─────────────────────────────────────── */
-.vtt-cockpit-toolbar {
+/* ── Top bar (replaces old cockpit toolbar) ──────────────── */
+.vtt-topbar {
+  height: var(--vtt-topbar-height, 32px);
+  min-height: var(--vtt-topbar-height, 32px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 8px;
-  background: #1a1a2e;
-  border-bottom: 1px solid #333;
-  min-height: 40px;
+  padding: 0 10px;
+  gap: 6px;
   flex-shrink: 0;
-  z-index: 10;
-}
-
-.vtt-tool-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.vtt-tool-btn {
-  background: #2a2a4e;
-  color: #ccc;
-  border: 1px solid #444;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-}
-
-.vtt-tool-btn:hover {
-  background: #3a3a5e;
-  color: #fff;
-}
-
-.vtt-tool-btn.active {
-  background: #6c63ff;
-  color: #fff;
-  border-color: #6c63ff;
-}
-
-.vtt-action-btn {
-  background: #333;
-  color: #ccc;
-  border: 1px solid #555;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.vtt-action-btn:hover {
-  background: #444;
-  color: #fff;
-}
-
-.vtt-action-btn.active {
-  background: #6c63ff;
-  color: #fff;
-  border-color: #6c63ff;
-}
-
-.vtt-disconnect-btn {
-  background: #dc3545;
-  color: #fff;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.vtt-leave-btn {
-  background: #333;
-  color: #aaa;
-  text-decoration: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  border: 1px solid #555;
-}
-
-.vtt-leave-btn:hover {
-  color: #fff;
-  background: #444;
+  z-index: 20;
 }
 
 /* ── Panels (overlay on canvas) ──────────────────────────── */
 .vtt-panels-container {
   position: absolute;
-  top: 48px;
+  top: 40px;
   left: 8px;
   z-index: 20;
   display: flex;
