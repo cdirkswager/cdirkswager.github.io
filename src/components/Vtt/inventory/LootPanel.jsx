@@ -103,7 +103,7 @@ export default function LootPanel({ controller, eventBus, session, initialPileId
               const count = [...(controller?.itemMap?.values() || [])].filter(i => i.actorId === p.id).length
               return (
                 <button key={p.id} className={`loot-pile-btn${p.id === (pile?.id) ? ' active' : ''}`} onClick={() => setSelectedPileId(p.id)}>
-                  <IconBag /><span>{p.name}</span><em>{count}</em>
+                  <IconBag /><span>{String(p.name ?? '')}</span><em>{count}</em>
                 </button>
               )
             })}
@@ -114,7 +114,7 @@ export default function LootPanel({ controller, eventBus, session, initialPileId
             {!pile ? <div className="inv-empty">Select or create a loot pile</div> : (
               <>
                 <div className="loot-main-head">
-                  <div className="loot-title">{pile.name}</div>
+                  <div className="loot-title">{String(pile.name ?? '')}</div>
                   <div className="loot-actions">
                     {isDm && <button className="inv-btn" onClick={() => setPicker(true)}>Add items</button>}
                     {pileItems.length > 0 && <button className="inv-btn primary" onClick={lootAll} disabled={!target}>Loot all</button>}
