@@ -417,6 +417,15 @@ export function createSyncBridge(canvas, eventBus) {
     }
   }
 
+  /* If no server scenes exist and we're the DM, sync the local 
+     default scene to the server so it can be updated (lighting, etc.). */
+  if (!_hadServerScenes && controller.isDm && sceneManager) {
+    const localDefault = sceneManager.scenes.find(s => s._isLocalDefault)
+    if (localDefault) {
+      eventBus.emitRecord('scene', 'created', localDefault.toJSON())
+    }
+  }
+
   /* Switch to the server's active scene after init replay */
   unsubs.push(eventBus.on('scene:init-active', ({ sceneId }) => {
     if (sceneManager && sceneId && sceneManager._scenes.has(sceneId)) {

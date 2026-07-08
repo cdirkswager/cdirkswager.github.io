@@ -752,11 +752,6 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
 export default function VttCockpit({ canvas, eventBus, scene, isDm, session, connectedUsers, onDisconnect }) {
   const [activeTool, setActiveTool] = useState('pan')
   const [showAddToken, setShowAddToken] = useState(false)
-  const [showTokenPanel, setShowTokenPanel] = useState(false)
-  const [showScenePanel, setShowScenePanel] = useState(false)
-  const [showActorPanel, setShowActorPanel] = useState(false)
-  const [showBgPanel, setShowBgPanel] = useState(false)
-  const [showLighting, setShowLighting] = useState(false)
   const [activeWidgets, setActiveWidgets] = useState([])
 
   /* Game-like window shell: one stack, one Esc handler (see windowStack.js).
@@ -833,22 +828,35 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
     setActiveTool(prev => prev === tool && tool === 'token' ? 'pan' : tool)
   }, [])
 
+  const toggleWidget = useCallback((widgetId) => {
+    setActiveWidgets(prev => prev.includes(widgetId)
+      ? prev.filter(id => id !== widgetId)
+      : [...prev, widgetId])
+  }, [])
+
+  const WIDGET_MAP = {
+    'tokens-panel': 'tokens',
+    'scenes': 'scenes',
+    'actors-panel': 'actors',
+    'bg': 'bg',
+    'lighting': 'lighting',
+  }
+
   const handleTopBarAction = useCallback((id) => {
+    if (id in WIDGET_MAP) {
+      toggleWidget(WIDGET_MAP[id])
+      return
+    }
     switch (id) {
       case 'inventory': win.open('inventory'); break
       case 'loot': win.open('loot'); break
       case 'party': win.open('party'); break
       case 'add-token': setShowAddToken(true); break
-      case 'tokens-panel': setShowTokenPanel(p => !p); break
-      case 'scenes': setShowScenePanel(p => !p); break
-      case 'actors-panel': setShowActorPanel(p => !p); break
-      case 'bg': setShowBgPanel(p => !p); break
-      case 'lighting': setShowLighting(p => !p); break
       case 'disconnect': onDisconnect?.(); break
       case 'home': window.location.href = '/'; break
       default: break
     }
-  }, [win, onDisconnect])
+  }, [toggleWidget, win, onDisconnect])
 
   const handleOpenScreen = useCallback((id) => {
     win.open(id)
@@ -875,19 +883,19 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       />
 
       <div className="vtt-panels-container">
-        {(activeWidgets.includes('tokens') || showTokenPanel) && (
+        {activeWidgets.includes('tokens') && (
           <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
         )}
-        {(activeWidgets.includes('scenes') || showScenePanel) && (
+        {activeWidgets.includes('scenes') && (
           <VttScenePanel canvas={canvas} eventBus={eventBus} connectedUsers={connectedUsers} isDm={isDm} />
         )}
-        {(activeWidgets.includes('actors') || showActorPanel) && (
+        {activeWidgets.includes('actors') && (
           <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} connectedUsers={connectedUsers} />
         )}
-        {(activeWidgets.includes('bg') || showBgPanel) && (
+        {activeWidgets.includes('bg') && (
           <BackgroundPanel canvas={canvas} eventBus={eventBus} scene={scene} />
         )}
-        {(activeWidgets.includes('lighting') || showLighting) && (
+        {activeWidgets.includes('lighting') && (
           <LightingPanel canvas={canvas} isDm={isDm} eventBus={eventBus} />
         )}
       </div>
