@@ -74,7 +74,7 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     connections.set(ws, identity)
 
     const recordsByType = store.getAllTypes()
-    ws.send(JSON.stringify({ type: 'init', identity, recordsByType }))
+    ws.send(JSON.stringify({ type: 'init', identity, recordsByType, activeSceneId: _activeSceneId }))
 
     broadcast({ type: 'presence', users: getPresence() })
 
@@ -97,6 +97,8 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
 
     ws.on('error', () => connections.delete(ws))
   })
+
+  let _activeSceneId = null
 
   function getPresence() {
     return [...connections.values()].map(u => ({
@@ -162,6 +164,10 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
             const r = containerCanAccept(container, incoming, idx)
             if (!r.ok) { _deny(ws, 'Container is full'); return }
           }
+          if ((actor.actorType === 'loot-pile' || actor.actorType === 'party-stash') && identity.role !== 'dm') {
+            _deny(ws, 'Only the DM can add new items here')
+            return
+          }
         }
 
         if (kind === 'token' && msg.record.actorId) {
@@ -174,6 +180,11 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
             _deny(ws, 'Permission denied: not the actor owner')
             return
           }
+        }
+
+        if (kind === 'scene' && identity.role !== 'dm') {
+          _deny(ws, 'Permission denied: only the DM can create scenes')
+          return
         }
 
         if (kind === 'actor' && identity.role !== 'dm') {
@@ -222,7 +233,9 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
 
         let permitted = false
 
-        if (kind === 'actor') {
+        if (kind === 'scene') {
+          permitted = identity.role === 'dm'
+        } else if (kind === 'actor') {
           permitted = _checkActorAccess(identity, existing)
         } else if (kind === 'item') {
           const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
@@ -275,7 +288,9 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
 
         let permitted = false
 
-        if (kind === 'actor') {
+        if (kind === 'scene') {
+          permitted = identity.role === 'dm'
+        } else if (kind === 'actor') {
           permitted = _checkActorAccess(identity, existing)
         } else if (kind === 'item') {
           const actor = existing.actorId ? store.getById('actor', existing.actorId) : null
@@ -298,6 +313,19 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           for (const d of descendants) {
             store.remove('item', d.id)
             broadcast({ type: 'record-deleted', recordId: d.id, kind: 'item', by: identity.username })
+          }
+        }
+
+        if (kind === 'actor') {
+          for (const it of store.getAll('item').filter(i => i.actorId === msg.recordId)) {
+            if (store.remove('item', it.id)) {
+              broadcast({ type: 'record-deleted', recordId: it.id, kind: 'item', by: identity.username })
+            }
+          }
+          for (const tk of store.getAll('token').filter(t => t.actorId === msg.recordId)) {
+            if (store.remove('token', tk.id)) {
+              broadcast({ type: 'record-deleted', recordId: tk.id, kind: 'token', by: identity.username })
+            }
           }
         }
 
@@ -411,33 +439,93 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
       }
 
       case 'create-loot-pile': {
-        if (identity.role !== 'dm') { _deny(ws, 'Only DM can create loot piles'); return }
+        const x = Number(msg.x) || 0
+        const y = Number(msg.y) || 0
         const now = Date.now()
-        const pile = {
-          type: 'actor',
-          id: msg.id || crypto.randomUUID(),
-          name: msg.name || 'Loot',
-          actorType: 'loot-pile',
-          ownership: { default: 'owner', users: {} },
-          attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } },
-          createdBy: identity.userId,
-          updatedAt: now, createdAt: now,
+
+        let seed = null
+        if (msg.fromItemId) {
+          seed = store.getById('item', msg.fromItemId)
+          if (!seed) { _deny(ws, 'Item not found'); return }
+          const src = seed.actorId ? store.getById('actor', seed.actorId) : null
+          const canPull = identity.role === 'dm' || (src && hasAccess(identity, src, 'owner'))
+          if (!canPull) { _deny(ws, 'Permission denied: cannot drop this item'); return }
         }
-        store.insert('actor', pile)
+
+        const pileId = crypto.randomUUID()
+        const pile = store.insert('actor', {
+          type: 'actor', id: pileId, name: msg.name || 'Loot',
+          actorType: 'loot-pile', ownership: { default: 'owner', users: {} },
+          attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } },
+          createdBy: identity.userId, createdAt: now, updatedAt: now,
+        })
+        const iconType = seed && seed.itemType === 'currency' ? 'coins' : 'chest'
+        const tokenId = crypto.randomUUID()
+        const token = store.insert('token', {
+          type: 'token', id: tokenId, actorId: pileId, name: pile.name,
+          x, y, width: msg.width || 70, height: msg.height || 70,
+          src: msg.tokenSrc || '', iconType,
+          createdBy: identity.userId, createdAt: now, updatedAt: now,
+        })
         broadcast({ type: 'record-created', record: pile, kind: 'actor', by: identity.username })
-        ws.send(JSON.stringify({ type: 'record-created-ack', record: pile, kind: 'actor' }))
-        if (msg.seedItems && Array.isArray(msg.seedItems)) {
-          for (const tpl of msg.seedItems) {
-            const item = { ...tpl, id: tpl.id || crypto.randomUUID(), actorId: pile.id, createdBy: identity.userId, updatedAt: now, createdAt: now }
-            store.insert('item', item)
-            broadcast({ type: 'record-created', record: item, kind: 'item', by: identity.username })
-            ws.send(JSON.stringify({ type: 'record-created-ack', record: item, kind: 'item' }))
+        broadcast({ type: 'record-created', record: token, kind: 'token', by: identity.username })
+
+        if (seed) {
+          const moveQty = msg.quantity == null ? seed.quantity : Math.max(1, Math.min(msg.quantity, seed.quantity))
+          const isPartial = !!seed.stackable && moveQty < seed.quantity
+          if (isPartial) {
+            const source = store.update('item', seed.id, { quantity: seed.quantity - moveQty, updatedBy: identity.userId, updatedAt: now })
+            const moved = { ...seed, id: crypto.randomUUID(), actorId: pileId, parentItemId: null, quantity: moveQty,
+              equipped: false, equippedSlot: null,
+              attunement: seed.attunement ? { ...seed.attunement, attuned: false } : seed.attunement,
+              createdBy: identity.userId, createdAt: now, updatedAt: now }
+            store.insert('item', moved)
+            broadcast({ type: 'record-updated', record: source, kind: 'item', by: identity.username })
+            broadcast({ type: 'record-created', record: moved, kind: 'item', by: identity.username })
+          } else {
+            const moved = store.update('item', seed.id, { actorId: pileId, parentItemId: null,
+              equipped: false, equippedSlot: null,
+              attunement: seed.attunement ? { ...seed.attunement, attuned: false } : seed.attunement,
+              updatedBy: identity.userId, updatedAt: now })
+            broadcast({ type: 'record-updated', record: moved, kind: 'item', by: identity.username })
           }
         }
+
+        ws.send(JSON.stringify({ type: 'create-loot-pile-ack', pileId, tokenId }))
+        break
+      }
+
+      case 'split-stack': {
+        const itemId = msg.itemId
+        const quantity = msg.quantity
+        const item = store.getById('item', itemId)
+        if (!item) { _deny(ws, 'Item not found'); return }
+        if (!item.stackable) { _deny(ws, 'Item is not stackable'); return }
+        if (quantity <= 0 || quantity >= item.quantity) { _deny(ws, 'Invalid split quantity'); return }
+
+        const actor = item.actorId ? store.getById('actor', item.actorId) : null
+        if (!actor) { _deny(ws, 'Actor not found'); return }
+        if (!_checkActorAccess(identity, actor)) { _deny(ws, 'Permission denied'); return }
+
+        const now = Date.now()
+        const source = store.update('item', itemId, { quantity: item.quantity - quantity, updatedBy: identity.userId, updatedAt: now })
+        const split = {
+          ...item,
+          id: crypto.randomUUID(),
+          quantity,
+          createdBy: identity.userId, createdAt: now, updatedAt: now,
+        }
+        store.insert('item', split)
+        broadcast({ type: 'record-updated', record: source, kind: 'item', by: identity.username })
+        broadcast({ type: 'record-created', record: split, kind: 'item', by: identity.username })
+        ws.send(JSON.stringify({ type: 'split-stack-ack', kind: 'item', source, split }))
         break
       }
 
       case 'ephemeral': {
+        if (msg.payload?.type === 'scene:switched' && msg.payload?.sceneId) {
+          _activeSceneId = msg.payload.sceneId
+        }
         const event = { type: 'ephemeral', payload: msg.payload, by: identity.username, userId: identity.userId }
         broadcast(event, ws)
         break

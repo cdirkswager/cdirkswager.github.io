@@ -764,16 +764,38 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const win = useWindowStack()
   const [lootPileId, setLootPileId] = useState(null)
   const [focusActorId, setFocusActorId] = useState(null)
-  useVttHotkeys({ dispatch: win.dispatch, hasTop: !!win.top })
+  const [placement, setPlacement] = useState(null)
+  const placementRef = useRef(null)
+  useEffect(() => { placementRef.current = placement }, [placement])
+  useVttHotkeys({ dispatch: win.dispatch, hasTop: !!win.top, enabled: !placement })
 
-  /* Clicking a loot-pile token opens the loot panel.
-     Clicking a scene-portal token switches to the linked scene. */
+  // Begin drop-to-ground: close overlays, then the next map click places the pile.
+  const startPlacement = useCallback((item) => {
+    setPlacement({ itemId: item.id, name: item.name })
+    win.dispatch({ type: 'closeAll' })
+  }, [win])
+
+  // Cancel placement on Escape.
+  useEffect(() => {
+    if (!placement) return
+    const onKey = (e) => { if (e.key === 'Escape') setPlacement(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [placement])
+
+  /* Clicking a loot-pile token opens the loot panel; while placing, the next
+     empty-map click drops the pending item as a pile there. */
   useEffect(() => {
     const controller = canvas?.controller
     if (!controller) return
-    const prev = controller.onTokenClicked
+    const prevToken = controller.onTokenClicked
+    const prevScene = controller.onSceneClicked
     controller.onTokenClicked = (tokenData) => {
       const actor = controller.actorMap?.get(tokenData?.actorId)
+      const p = placementRef.current
+      if (p && actor?.actorType === 'loot-pile') {
+        controller.transferItem?.({ itemId: p.itemId, toActorId: actor.id }); setPlacement(null); return
+      }
       if (actor?.actorType === 'loot-pile') { setLootPileId(actor.id); win.open('loot') }
       else if (actor?.actorType === 'scene-portal') {
         const sceneId = actor.attributes?.sceneId
@@ -782,9 +804,22 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           sm.switchScene(sceneId)
         }
       }
-      else prev?.(tokenData)
+      else prevToken?.(tokenData)
     }
-    return () => { if (canvas?.controller) canvas.controller.onTokenClicked = prev }
+    controller.onSceneClicked = (x, y) => {
+      const p = placementRef.current
+      if (p) {
+        controller.createLootPile?.({ x: x - 35, y: y - 35, fromItemId: p.itemId, name: p.name })
+        setPlacement(null); return
+      }
+      prevScene?.(x, y)
+    }
+    return () => {
+      if (canvas?.controller) {
+        canvas.controller.onTokenClicked = prevToken
+        canvas.controller.onSceneClicked = prevScene
+      }
+    }
   }, [canvas, win])
 
   /* Sync active tool to canvas controller once canvas is available */
@@ -864,7 +899,8 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       {win.stack.map(id => {
         if (id === 'inventory') return (
           <InventoryScreen key="inventory" controller={canvas?.controller} eventBus={eventBus}
-            session={session} initialActorId={focusActorId} onClose={() => win.close('inventory')} />
+            session={session} initialActorId={focusActorId} onDropToGround={startPlacement}
+            onClose={() => win.close('inventory')} />
         )
         if (id === 'loot') return (
           <LootPanel key="loot" controller={canvas?.controller} eventBus={eventBus}
@@ -877,6 +913,12 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         )
         return null
       })}
+      {placement && (
+        <div className="vtt-place-banner">
+          <span>Click the map to drop <b>{placement.name}</b>, or a loot pile to add it</span>
+          <button className="inv-btn" onClick={() => setPlacement(null)}>Cancel (Esc)</button>
+        </div>
+      )}
     </>
   )
 }

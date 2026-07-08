@@ -129,6 +129,10 @@ export class VttSyncClient {
       }
     }
     this._sending = false
+    if (this._initActiveSceneId) {
+      this.eventBus.emit('scene:init-active', { sceneId: this._initActiveSceneId })
+      this._initActiveSceneId = null
+    }
   }
 
   _unsubscribe() {
@@ -146,6 +150,7 @@ export class VttSyncClient {
 
         // Store records for replay; the sync bridge may not be ready yet
         this._initRecords = msg.recordsByType || {}
+        this._initActiveSceneId = msg.activeSceneId ?? null
 
         if (this.onAuthenticated) this.onAuthenticated()
         break

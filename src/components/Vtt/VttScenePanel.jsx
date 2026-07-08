@@ -36,7 +36,7 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
   const handleSwitch = useCallback((sceneId) => {
     if (!sceneManager || !eventBus) return
     sceneManager.switchScene(sceneId)
-    eventBus.emitRecord('scene', 'switched', { sceneId })
+    eventBus.emitEphemeral('scene:switched', { sceneId })
   }, [sceneManager, eventBus])
 
   const handleCreate = useCallback(() => {

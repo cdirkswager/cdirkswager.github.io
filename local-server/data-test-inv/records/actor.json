@@ -1,6 +1,6 @@
 [
   {
-    "id": "72c1a8de-d436-41fd-a69f-2d72dbd8d225",
+    "id": "e5d9b683-d485-4d5b-b210-5c502c58335c",
     "type": "actor",
     "name": "Lyra",
     "actorType": "character",
@@ -16,11 +16,11 @@
       }
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783441705447,
-    "createdAt": 1783441705447
+    "updatedAt": 1783484463991,
+    "createdAt": 1783484463991
   },
   {
-    "id": "05f4b3ec-505d-43c9-9281-131b884db1db",
+    "id": "a07c6d3e-26de-4bf2-b318-159168aeeadf",
     "type": "actor",
     "name": "Thane",
     "actorType": "character",
@@ -31,11 +31,11 @@
       }
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783441705448,
-    "createdAt": 1783441705448
+    "updatedAt": 1783484463992,
+    "createdAt": 1783484463992
   },
   {
-    "id": "c8a59216-1b1c-4641-b96d-dc84889ad766",
+    "id": "3e61cb58-5fdc-4c52-8dba-e4f0716fe2a1",
     "type": "actor",
     "name": "Party Stash",
     "actorType": "party-stash",
@@ -44,11 +44,11 @@
       "users": {}
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783441705448,
-    "createdAt": 1783441705448
+    "updatedAt": 1783484463992,
+    "createdAt": 1783484463992
   },
   {
-    "id": "a6e8cd24-df9e-4bfd-850a-b07e1c88c917",
+    "id": "0931d292-6cc0-4fef-9548-d2471684d1ac",
     "type": "actor",
     "name": "Chest",
     "actorType": "loot-pile",
@@ -57,13 +57,13 @@
       "users": {}
     },
     "createdBy": "dm-1",
-    "updatedAt": 1783441705449,
-    "createdAt": 1783441705449
+    "updatedAt": 1783484463993,
+    "createdAt": 1783484463993
   },
   {
-    "id": "bb8dc97f-6c5d-4a92-8263-bc8ff361bf56",
     "type": "actor",
-    "name": "DM Loot",
+    "id": "a81dd565-fc4a-4aa2-97e1-4c0e4f149725",
+    "name": "Dropped",
     "actorType": "loot-pile",
     "ownership": {
       "default": "owner",
@@ -79,8 +79,31 @@
         "cp": 0
       }
     },
-    "createdBy": "dm-1",
-    "updatedAt": 1783441711524,
-    "createdAt": 1783441711524
+    "createdBy": "alice-1",
+    "createdAt": 1783484464118,
+    "updatedAt": 1783484464118
+  },
+  {
+    "type": "actor",
+    "id": "3b850f2b-2381-4246-a9eb-1128c79e97e7",
+    "name": "Coins",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "attributes": {
+      "schema": 1,
+      "currency": {
+        "pp": 0,
+        "gp": 0,
+        "ep": 0,
+        "sp": 0,
+        "cp": 0
+      }
+    },
+    "createdBy": "alice-1",
+    "createdAt": 1783484464121,
+    "updatedAt": 1783484464121
   }
 ]

@@ -14,6 +14,7 @@ export function createSyncBridge(canvas, eventBus) {
   const unsubs = []
   const _pendingOps = new Map()
   let _opSeq = 0
+  let _hadServerScenes = false
 
   function _nextOpId() { return `op_${++_opSeq}_${Date.now()}` }
 
@@ -332,6 +333,11 @@ export function createSyncBridge(canvas, eventBus) {
     controller.syncViewpointToAllVisionTokens()
   }))
 
+  // Let the renderer resolve a token's default glyph from its linked actor type.
+  if (canvas.renderer) {
+    canvas.renderer.getActorType = (actorId) => controller.actorMap?.get(actorId)?.actorType
+  }
+
   if (!controller.itemMap) controller.itemMap = new Map()
 
   unsubs.push(eventBus.on('item:created', (data) => {
@@ -386,15 +392,42 @@ export function createSyncBridge(canvas, eventBus) {
   controller._spatialIndex.invalidate()
   controller.refreshLighting()
 
-  /* Emit all existing scenes on init */
+  /* Emit all existing scenes on init — only if no server scenes were replayed */
   if (sceneManager) {
-    for (const s of sceneManager.scenes) {
-      eventBus.emitRecord('scene', 'created', s.toJSON())
+    if (!_hadServerScenes) {
+      for (const s of sceneManager.scenes) {
+        eventBus.emitRecord('scene', 'created', s.toJSON())
+      }
     }
     for (const [userId, sceneId] of sceneManager.userScenes) {
       eventBus.emitEphemeral('scene:user-presence', { userId, sceneId })
     }
   }
+
+  /* After init replay, if server scenes exist, remove the local default
+     scene and switch to the first server scene so new clients don't
+     see a blank temporary scene. */
+  if (_hadServerScenes && sceneManager) {
+    const localDefaults = sceneManager.scenes.filter(s => s._isLocalDefault)
+    for (const d of localDefaults) {
+      if (d.id !== sceneManager.activeScene?.id) {
+        sceneManager.remove(d.id)
+      } else {
+        const serverScene = sceneManager.scenes.find(s => !s._isLocalDefault)
+        if (serverScene) {
+          sceneManager.switchScene(serverScene.id)
+          sceneManager.remove(d.id)
+        }
+      }
+    }
+  }
+
+  /* Switch to the server's active scene after init replay */
+  unsubs.push(eventBus.on('scene:init-active', ({ sceneId }) => {
+    if (sceneManager && sceneId && sceneManager._scenes.has(sceneId)) {
+      sceneManager.switchScene(sceneId)
+    }
+  }))
 
   /* Scene switching — DM calls sceneManager.switchScene, remote clients receive event */
   unsubs.push(eventBus.on('scene:switched', (data) => {
@@ -410,9 +443,17 @@ export function createSyncBridge(canvas, eventBus) {
     }
   }))
 
+  /* Scene switching from remote clients */
+  unsubs.push(eventBus.on('ephemeral', (data) => {
+    if (data.type === 'scene:switched' && sceneManager && data.sceneId) {
+      sceneManager.switchScene(data.sceneId)
+    }
+  }))
+
   /* New scene created remotely */
   unsubs.push(eventBus.on('scene:created', (data) => {
     if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
+    _hadServerScenes = true
     const s = Scene.fromJSON(data)
     sceneManager.add(s)
   }))

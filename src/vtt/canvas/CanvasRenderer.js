@@ -1,4 +1,5 @@
 import { Application, Container, Sprite, Graphics, Texture, Rectangle } from 'pixi.js'
+import { resolveTokenIconType, ICON_COLORS } from '../data/defaultIcons.js'
 import { Grid } from './Grid.js'
 import { WallLayer } from './WallLayer.js'
 import { LightingOverlay } from './LightingOverlay.js'
@@ -24,6 +25,7 @@ export class CanvasRenderer {
     this._vpIndicator = null
     this.onTokenDragStart = null
     this.onTokenDragEnd = null
+    this.getActorType = null
   }
 
   async init(mountEl, width, height) {
@@ -233,11 +235,36 @@ export class CanvasRenderer {
   }
 
   _makePlaceholderTex(token) {
+    const type = resolveTokenIconType(token, this.getActorType?.(token.actorId))
+    const C = ICON_COLORS
+    const w = token.width, h = token.height
+    const cx = w / 2, cy = h / 2
+    const r = Math.min(w, h) / 2 - 3
+    const ring = (C.ring && C.ring[type]) || C.gold
     const g = new Graphics()
-    g.rect(0, 0, token.width, token.height)
-    g.fill({ color: 0x4a6fa5 })
-    g.rect(8, 8, token.width - 16, token.height - 16)
-    g.fill({ color: 0x3a5a8a })
+    g.circle(cx, cy, r).fill({ color: C.dark })
+    g.circle(cx, cy, r).stroke({ width: Math.max(2, r * 0.08), color: ring })
+    const s = r / 60
+    const gold = { color: C.gold }
+    const strokeGold = { width: 4.5 * s, color: C.gold, cap: 'round', join: 'round' }
+    if (type === 'coins') {
+      for (let i = 0; i < 3; i++) g.ellipse(cx - 8 * s, cy + (16 - i * 8) * s, 22 * s, 9 * s).stroke(strokeGold)
+      g.circle(cx + 20 * s, cy - 6 * s, 16 * s).stroke(strokeGold)
+    } else if (type === 'chest') {
+      g.roundRect(cx - 28 * s, cy - 10 * s, 56 * s, 34 * s, 4 * s).stroke(strokeGold)
+      g.moveTo(cx - 28 * s, cy + 2 * s).lineTo(cx + 28 * s, cy + 2 * s).stroke(strokeGold)
+      g.roundRect(cx - 6 * s, cy - 2 * s, 12 * s, 10 * s, 2 * s).fill(gold)
+    } else if (type === 'monster') {
+      g.moveTo(cx - 24 * s, cy - 18 * s).lineTo(cx - 14 * s, cy - 6 * s).lineTo(cx, cy - 20 * s)
+        .lineTo(cx + 14 * s, cy - 6 * s).lineTo(cx + 24 * s, cy - 18 * s).stroke(strokeGold)
+      g.circle(cx - 12 * s, cy + 6 * s, 5 * s).fill(gold)
+      g.circle(cx + 12 * s, cy + 6 * s, 5 * s).fill(gold)
+    } else {
+      g.circle(cx, cy - 14 * s, 16 * s).fill({ color: type === 'player' ? C.parch : C.goldDim })
+      g.moveTo(cx - 28 * s, cy + 30 * s)
+        .arc(cx, cy + 30 * s, 28 * s, Math.PI, 0, true)
+        .fill({ color: type === 'player' ? C.parch : C.goldDim })
+    }
     return this.app.renderer.generateTexture(g)
   }
 

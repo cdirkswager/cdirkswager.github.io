@@ -46,6 +46,7 @@ export async function createVttCanvas(mountEl, options = {}) {
     gridSize: options.gridSize ?? 100,
     backgroundColor: options.backgroundColor ?? '#2a2a2a',
   })
+  scene._isLocalDefault = true
 
   const sceneManager = new SceneManager({ renderer, controller, eventBus })
   sceneManager.add(scene)

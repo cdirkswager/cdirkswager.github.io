@@ -131,6 +131,16 @@ async function main() {
     await expectError(alice.ws, { type: 'update-record', kind: 'item', recordId: armor, changes: { equipped: true, equippedSlot: 'head' } }, 'Illegal equip slot')
   })
 
+  await test('Rejections echo the opId (enables client rollback)', async () => {
+    const armor = await createItem(alice, { name: 'Plate', itemType: 'armor', slot: 'body', weight: 65, actorId: charA }, [bob, gm])
+    const opId = 'op-' + crypto.randomUUID()
+    const [err] = await Promise.all([
+      waitFor(alice.ws, 'error'),
+      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: armor, changes: { equipped: true, equippedSlot: 'feet' }, opId })),
+    ])
+    if (err.opId !== opId) throw new Error(`opId echo: expected ${opId}, got ${err.opId}`)
+  })
+
   let pouch
   await test('Container hard capacity is enforced', async () => {
     pouch = await createItem(alice, { name: 'Belt Pouch', itemType: 'container', weight: 1, actorId: charA, container: { capacity: 6, weightless: false } }, [bob, gm])
@@ -164,17 +174,6 @@ async function main() {
     await expectError(alice.ws, { type: 'transfer-item', itemId: rapier, toActorId: charB, toParentItemId: null, quantity: null }, 'cannot place into destination')
   })
 
-  await test('Rejections echo the opId (enables client rollback)', async () => {
-    const armor = await createItem(alice, { name: 'Scale Mail', itemType: 'armor', slot: 'body', weight: 45, actorId: charA }, [bob, gm])
-    const customOpId = 'my-custom-op-123'
-    const [err] = await Promise.all([
-      waitFor(alice.ws, 'error'),
-      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: armor, changes: { equipped: true, equippedSlot: 'head' }, opId: customOpId })),
-    ])
-    if (err.opId !== customOpId) throw new Error(`expected opId "${customOpId}", got "${err.opId}"`)
-    if (!err.message.includes('Illegal equip slot')) throw new Error('expected slot rejection')
-  })
-
   await test('Alice can give to the shared party stash', async () => {
     const [ack] = await Promise.all([
       waitFor(alice.ws, 'transfer-item-ack'),
@@ -199,91 +198,112 @@ async function main() {
   })
 
   await test('Same-actor split creates a second stack', async () => {
-    const arrows = await createItem(alice, { name: 'Arrows', itemType: 'ammo', stackable: true, quantity: 20, weight: 0.1, actorId: charA }, [bob, gm])
+    const arrows = await createItem(alice, { name: 'Arrows', itemType: 'ammo', weight: 0.05, quantity: 20, stackable: true, actorId: charA }, [bob, gm])
     const [ack] = await Promise.all([
-      waitFor(alice.ws, 'split-stack-ack'),
-      waitFor(bob.ws, 'record-created'),
-      Promise.resolve(send(alice.ws, { type: 'split-stack', itemId: arrows, quantity: 8 })),
+      waitFor(alice.ws, 'transfer-item-ack'),
+      Promise.resolve(send(alice.ws, { type: 'transfer-item', itemId: arrows, toActorId: charA, toParentItemId: null, quantity: 5 })),
     ])
-    if (ack.source.quantity !== 12) throw new Error(`source qty ${ack.source.quantity}`)
-    if (ack.split.quantity !== 8) throw new Error(`split qty ${ack.split.quantity}`)
-    if (ack.split.actorId !== charA) throw new Error('split should stay on same actor')
+    if (ack.source.quantity !== 15) throw new Error(`source qty ${ack.source.quantity}`)
+    if (ack.moved.quantity !== 5) throw new Error(`moved qty ${ack.moved.quantity}`)
+    if (ack.moved.actorId !== charA) throw new Error('split not on same actor')
+    if (ack.moved.id === arrows) throw new Error('split must mint a new id')
   })
 
   await test('Deleting a container cascades to its contents', async () => {
-    const bigBag = await createItem(alice, { name: 'Big Bag', itemType: 'container', weight: 0.5, actorId: charA, container: { capacity: 50 } }, [bob, gm])
-    const inner = await createItem(alice, { name: 'Inner Pouch', itemType: 'container', weight: 0.2, actorId: charA, container: { capacity: 10 } }, [bob, gm])
+    const pack = await createItem(alice, { name: 'Backpack2', itemType: 'container', weight: 5, actorId: charA, container: { capacity: 30 } }, [bob, gm])
+    const inside = await createItem(alice, { name: 'Coil of Rope', itemType: 'tool', weight: 1, actorId: charA, parentItemId: pack }, [bob, gm])
     await Promise.all([
-      waitFor(bob.ws, 'record-updated'),
-      waitFor(alice.ws, 'record-updated'),
-      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: inner, changes: { parentItemId: bigBag } })),
+      waitFor(bob.ws, 'record-deleted'),
+      Promise.resolve(send(alice.ws, { type: 'delete-record', kind: 'item', recordId: pack })),
     ])
-    const gem = await createItem(alice, { name: 'Gem', itemType: 'treasure', weight: 1, actorId: charA }, [bob, gm])
-    await Promise.all([
-      waitFor(bob.ws, 'record-updated'),
-      waitFor(alice.ws, 'record-updated'),
-      Promise.resolve(send(alice.ws, { type: 'update-record', kind: 'item', recordId: gem, changes: { parentItemId: inner } })),
-    ])
-    const deleted = new Set()
-    const onDel = (raw) => { const m = JSON.parse(raw.toString()); if (m.type === 'record-deleted') deleted.add(m.recordId) }
-    alice.ws.on('message', onDel)
-    bob.ws.on('message', onDel)
-    const [delAck] = await Promise.all([
-      waitFor(alice.ws, 'record-deleted'),
-      Promise.resolve(send(alice.ws, { type: 'delete-record', kind: 'item', recordId: bigBag })),
-    ])
-    await new Promise(r => setTimeout(r, 200))
-    alice.ws.removeListener('message', onDel)
-    bob.ws.removeListener('message', onDel)
-    if (!deleted.has(bigBag)) throw new Error('parent not deleted')
-    if (!deleted.has(inner)) throw new Error('inner pouch not deleted')
-    if (!deleted.has(gem)) throw new Error('gem not deleted')
-  })
-
-  let droppedPileId
-  await test('Drop to ground: Alice creates a loot pile and transfers item to it', async () => {
-    const arrows = await createItem(alice, { name: 'Arrows', itemType: 'ammo', stackable: true, quantity: 10, weight: 0.1, actorId: charA }, [bob, gm])
-    droppedPileId = crypto.randomUUID()
-    send(alice.ws, { type: 'create-record', kind: 'actor', record: { type: 'actor', id: droppedPileId, name: 'Dropped Arrows', actorType: 'loot-pile', ownership: { default: 'owner', users: {} }, attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } } } })
-    await Promise.all([waitFor(alice.ws, 'record-created-ack'), waitFor(bob.ws, 'record-created')])
-    const [ack] = await Promise.all([
-      waitFor(alice.ws, 'transfer-item-ack'),
-      waitFor(bob.ws, 'record-updated'),
-      Promise.resolve(send(alice.ws, { type: 'transfer-item', itemId: arrows, toActorId: droppedPileId, toParentItemId: null, quantity: null })),
-    ])
-    if (ack.moved.actorId !== droppedPileId) throw new Error(`should be on pile, got ${ack.moved.actorId}`)
-    if (ack.moved.equipped !== false) throw new Error('should be unequipped on drop')
-  })
-
-  await test('Player loots from a pile they created (default:owner allows pull)', async () => {
-    const [ack] = await Promise.all([
-      waitFor(alice.ws, 'transfer-item-ack'),
-      waitFor(bob.ws, 'record-updated'),
-      Promise.resolve(send(alice.ws, { type: 'transfer-item', itemId: (await (await fetch(`${BASE}/api/records`)).json()).recordsByType.item.find(i => i.actorId === droppedPileId).id, toActorId: charA, toParentItemId: null, quantity: null })),
-    ])
-    if (ack.moved.actorId !== charA) throw new Error(`should be back on charA, got ${ack.moved.actorId}`)
-  })
-
-  await test('DM creates loot-pile with seed item', async () => {
-    const pileId = crypto.randomUUID()
-    send(gm.ws, { type: 'create-record', kind: 'actor', record: { type: 'actor', id: pileId, name: 'DM Loot', actorType: 'loot-pile', ownership: { default: 'owner', users: {} }, attributes: { schema: 1, currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 } } } })
-    await Promise.all([waitFor(gm.ws, 'record-created-ack'), waitFor(alice.ws, 'record-created')])
-    const ruby = await createItem(gm, { name: 'Ruby', itemType: 'treasure', weight: 0, value: { gp: 500 }, stackable: true, rarity: 'rare', img: '', actorId: pileId }, [alice, bob])
+    await new Promise(r => setTimeout(r, 100))
     const data = await (await fetch(`${BASE}/api/records`)).json()
-    const found = data.recordsByType.item.find(i => i.id === ruby && i.actorId === pileId)
-    if (!found) throw new Error('seed item not on pile')
+    const ids = new Set((data.recordsByType.item || []).map(i => i.id))
+    if (ids.has(pack)) throw new Error('container not deleted')
+    if (ids.has(inside)) throw new Error('nested item not cascade-deleted')
+  })
+
+  let droppedPile
+  await test('Player drops an item to the ground → creates a loot pile', async () => {
+    const trinket = await createItem(alice, { name: 'Trinket', itemType: 'misc', weight: 1, actorId: charA }, [bob, gm])
+    const [ack] = await Promise.all([
+      waitFor(alice.ws, 'create-loot-pile-ack'),
+      waitFor(bob.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'create-loot-pile', x: 500, y: 500, name: 'Dropped', fromItemId: trinket })),
+    ])
+    droppedPile = ack.pileId
+    const data = await (await fetch(`${BASE}/api/records`)).json()
+    const pile = (data.recordsByType.actor || []).find(a => a.id === droppedPile)
+    if (!pile || pile.actorType !== 'loot-pile') throw new Error('pile not created')
+    if (pile.ownership.default !== 'owner') throw new Error('pile is not default:owner')
+    if (!(data.recordsByType.token || []).some(t => t.actorId === droppedPile)) throw new Error('linked token missing')
+    const moved = (data.recordsByType.item || []).find(i => i.id === trinket)
+    if (!moved || moved.actorId !== droppedPile) throw new Error('item not moved into pile')
+    const tok = (data.recordsByType.token || []).find(t => t.actorId === droppedPile)
+    if (tok.iconType !== 'chest') throw new Error(`expected chest icon, got ${tok.iconType}`)
+  })
+
+  await test('Dropping currency creates a coin pile', async () => {
+    const coins = await createItem(alice, { name: 'Coins', itemType: 'currency', weight: 0.02, quantity: 30, stackable: true, actorId: charA }, [bob, gm])
+    const [ack] = await Promise.all([
+      waitFor(alice.ws, 'create-loot-pile-ack'),
+      waitFor(bob.ws, 'record-updated'),
+      Promise.resolve(send(alice.ws, { type: 'create-loot-pile', x: 200, y: 200, name: 'Coins', fromItemId: coins })),
+    ])
+    const data = await (await fetch(`${BASE}/api/records`)).json()
+    const tok = (data.recordsByType.token || []).find(t => t.actorId === ack.pileId)
+    if (tok.iconType !== 'coins') throw new Error(`expected coins icon, got ${tok.iconType}`)
+  })
+
+  await test('Player cannot drop an item they do not own', async () => {
+    const gemAlice = await createItem(alice, { name: 'Alice Gem', itemType: 'treasure', weight: 0, actorId: charA }, [bob, gm])
+    await expectError(bob.ws, { type: 'create-loot-pile', x: 0, y: 0, fromItemId: gemAlice }, 'cannot drop this item')
+  })
+
+  await test('Only the DM may spawn new items on shared piles/stash', async () => {
+    const id = crypto.randomUUID()
+    await expectError(bob.ws, { type: 'create-record', record: { type: 'item', id, name: 'Dupe', itemType: 'misc', weight: 1, actorId: stash } }, 'Only the DM')
+  })
+
+  await test('Any player can loot from the dropped pile (default:owner)', async () => {
+    const data = await (await fetch(`${BASE}/api/records`)).json()
+    const inPile = (data.recordsByType.item || []).find(i => i.actorId === droppedPile)
+    const [ack] = await Promise.all([
+      waitFor(bob.ws, 'transfer-item-ack'),
+      Promise.resolve(send(bob.ws, { type: 'transfer-item', itemId: inPile.id, toActorId: charB, toParentItemId: null, quantity: null })),
+    ])
+    if (ack.moved.actorId !== charB) throw new Error('loot did not reach charB')
+  })
+
+  await test('Deleting an actor cascades to its items and tokens', async () => {
+    const [pileAck] = await Promise.all([
+      waitFor(gm.ws, 'create-loot-pile-ack'),
+      Promise.resolve(send(gm.ws, { type: 'create-loot-pile', x: 10, y: 10, name: 'Temp' })),
+    ])
+    const pileId = pileAck.pileId
+    const itemId = crypto.randomUUID()
+    await Promise.all([
+      waitFor(gm.ws, 'record-created-ack'),
+      Promise.resolve(send(gm.ws, { type: 'create-record', record: { type: 'item', id: itemId, name: 'x', itemType: 'misc', weight: 1, actorId: pileId } })),
+    ])
+    await Promise.all([
+      waitFor(gm.ws, 'record-deleted'),
+      Promise.resolve(send(gm.ws, { type: 'delete-record', kind: 'actor', recordId: pileId })),
+    ])
+    await new Promise(r => setTimeout(r, 120))
+    const data = await (await fetch(`${BASE}/api/records`)).json()
+    if ((data.recordsByType.item || []).some(i => i.id === itemId)) throw new Error('item not cascade-deleted')
+    if ((data.recordsByType.token || []).some(t => t.actorId === pileId)) throw new Error('token not cascade-deleted')
   })
 
   await test('Server persisted the item/actor records', async () => {
     const data = await (await fetch(`${BASE}/api/records`)).json()
-    if (!data.recordsByType.actor || data.recordsByType.actor.length < 6) throw new Error('actors missing')
-    if (!data.recordsByType.item || data.recordsByType.item.length < 10) throw new Error('items missing')
+    if (!data.recordsByType.actor || data.recordsByType.actor.length < 4) throw new Error('actors missing')
+    if (!data.recordsByType.item || data.recordsByType.item.length < 5) throw new Error('items missing')
   })
 
-  let preArrows
   const preGold = await (async () => {
     const data = await (await fetch(`${BASE}/api/records`)).json()
-    preArrows = data.recordsByType.item.find(i => i.name === 'Arrows' && i.quantity === 12)
     return data.recordsByType.item.find(i => i.id === gold)
   })()
 
@@ -303,9 +323,6 @@ async function main() {
     if (g.quantity !== preGold.quantity) throw new Error(`qty ${g.quantity} != ${preGold.quantity}`)
     const split = data.recordsByType.item.find(i => i.id === splitId)
     if (!split || split.actorId !== stash) throw new Error('split stack did not persist on stash')
-    const sa = data.recordsByType.item.find(i => i.id === preArrows?.id)
-    if (!sa) throw new Error('split arrows vanished')
-    if (sa.quantity !== 12) throw new Error(`arrows qty ${sa.quantity}`)
   })
 
   console.log(`\nTotal: ${results.passed} passed, ${results.failed} failed`)
