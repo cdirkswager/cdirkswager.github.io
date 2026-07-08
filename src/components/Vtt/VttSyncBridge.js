@@ -392,13 +392,8 @@ export function createSyncBridge(canvas, eventBus) {
   controller._spatialIndex.invalidate()
   controller.refreshLighting()
 
-  /* Emit all existing scenes on init — only if no server scenes were replayed */
+  /* Emit user presence on init */
   if (sceneManager) {
-    if (!_hadServerScenes) {
-      for (const s of sceneManager.scenes) {
-        eventBus.emitRecord('scene', 'created', s.toJSON())
-      }
-    }
     for (const [userId, sceneId] of sceneManager.userScenes) {
       eventBus.emitEphemeral('scene:user-presence', { userId, sceneId })
     }

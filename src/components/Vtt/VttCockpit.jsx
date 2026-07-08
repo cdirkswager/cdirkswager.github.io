@@ -879,7 +879,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
           <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
         )}
         {(activeWidgets.includes('scenes') || showScenePanel) && (
-          <VttScenePanel canvas={canvas} eventBus={eventBus} connectedUsers={connectedUsers} />
+          <VttScenePanel canvas={canvas} eventBus={eventBus} connectedUsers={connectedUsers} isDm={isDm} />
         )}
         {(activeWidgets.includes('actors') || showActorPanel) && (
           <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} connectedUsers={connectedUsers} />

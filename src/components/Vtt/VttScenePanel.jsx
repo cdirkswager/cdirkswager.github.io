@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Scene } from '../../vtt/canvas/Scene.js'
 
-export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
+export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }) {
   const sceneManager = canvas?.sceneManager
   const [scenes, setScenes] = useState(sceneManager ? [...sceneManager.scenes] : [])
   const [activeId, setActiveId] = useState(sceneManager?.activeScene?.id ?? null)
@@ -62,7 +62,7 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
   return (
     <div className="vtt-panel vtt-scene-panel">
       <h4>Scenes ({scenes.length})</h4>
-      <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Scene</button>
+      {isDm && <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Scene</button>}
       <div className="vtt-scene-list">
         {scenes.map(s => {
           const sw = Math.round(s.width / s.gridSize)
@@ -89,7 +89,7 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
                   ))}
                 </div>
               )}
-              {s.id !== activeId && (
+              {isDm && s.id !== activeId && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(s.id) }}
                   className="btn btn-sm vtt-disconnect-btn"
@@ -100,7 +100,7 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
           )
         })}
       </div>
-      {activeId && (
+      {isDm && activeId && (
         <button onClick={handleMoveAll} className="btn btn-sm vtt-action-btn" style={{ marginTop: 8, width: '100%' }}>
           Move all users to current scene
         </button>
