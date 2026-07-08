@@ -7,6 +7,16 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
   const [activeId, setActiveId] = useState(sceneManager?.activeScene?.id ?? null)
   const [userScenes, setUserScenes] = useState(new Map(sceneManager?.userScenes ?? []))
 
+  /* Lighting & Vision state */
+  const [lighting, setLighting] = useState(canvas?.scene?.lightingEnabled ?? false)
+  const [ambient, setAmbient] = useState(canvas?.scene?.ambientLight ?? 0)
+  const [gridUnit, setGridUnit] = useState(canvas?.scene?.gridUnit ?? 5)
+  const [gridUnitLabel, setGridUnitLabel] = useState(canvas?.scene?.gridUnitLabel ?? 'ft')
+  const [viewAll, setViewAll] = useState(canvas?.controller?.viewAll ?? false)
+  const [viewpointId, setViewpointId] = useState(canvas?.controller?._viewpointTokenIds?.[0] ?? '')
+  const [tokens, setTokens] = useState(canvas?.scene ? [...canvas.scene.tokens] : [])
+  const [sceneName, setSceneName] = useState(canvas?.scene?.name ?? '')
+
   useEffect(() => {
     if (!sceneManager) return
     function refresh() {
@@ -33,6 +43,43 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     }
   }, [sceneManager, connectedUsers])
 
+  /* Sync token list when tokens change */
+  useEffect(() => {
+    if (!eventBus || !canvas?.scene) return
+    const sync = () => setTokens([...canvas.scene.tokens])
+    sync()
+    const unsub1 = eventBus.on('token:created', sync)
+    const unsub2 = eventBus.on('token:updated', sync)
+    const unsub3 = eventBus.on('token:deleted', sync)
+    return () => { unsub1(); unsub2(); unsub3() }
+  }, [eventBus, canvas])
+
+  /* Sync lighting state from scene record changes */
+  useEffect(() => {
+    if (!eventBus || !canvas?.scene) return
+    const refresh = () => {
+      setLighting(canvas.scene.lightingEnabled)
+      setAmbient(canvas.scene.ambientLight ?? 0)
+      setSceneName(canvas.scene.name)
+      setGridUnit(canvas.scene.gridUnit ?? 5)
+      setGridUnitLabel(canvas.scene.gridUnitLabel ?? 'ft')
+    }
+    const unsub1 = eventBus.on('scene:updated', refresh)
+    const unsub2 = eventBus.on('scene:switched', () => {
+      refresh()
+      setTokens([...canvas.scene.tokens])
+      setViewAll(canvas.controller?.viewAll ?? false)
+      setViewpointId(canvas.controller?._viewpointTokenIds?.[0] ?? '')
+    })
+    return () => { unsub1(); unsub2() }
+  }, [eventBus, canvas])
+
+  const maybeEmitSceneUpdate = useCallback((changes) => {
+    if (!canvas?.scene || !eventBus) return
+    Object.assign(canvas.scene, changes)
+    eventBus.emitRecord('scene', 'updated', { id: canvas.scene.id, ...changes })
+  }, [canvas, eventBus])
+
   const handleSwitch = useCallback((sceneId) => {
     if (!sceneManager || !eventBus) return
     sceneManager.switchScene(sceneId)
@@ -56,6 +103,74 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     if (!sceneManager || !activeId) return
     sceneManager.moveAllUsersToScene(activeId)
   }, [sceneManager, activeId])
+
+  /* Lighting & Vision handlers */
+  const handleToggleLighting = useCallback(() => {
+    const next = !lighting
+    setLighting(next)
+    canvas.setLightingEnabled(next)
+    canvas.scene.lightingEnabled = next
+    maybeEmitSceneUpdate({ lightingEnabled: next })
+    if (next) canvas.refreshLighting()
+  }, [canvas, lighting, maybeEmitSceneUpdate])
+
+  const handleSetAmbient = useCallback((e) => {
+    const val = Number(e.target.value)
+    setAmbient(val)
+    canvas.scene.ambientLight = val
+    maybeEmitSceneUpdate({ ambientLight: val })
+    canvas.refreshLighting()
+  }, [canvas, maybeEmitSceneUpdate])
+
+  const handleGridUnitChange = useCallback((e) => {
+    const val = Number(e.target.value)
+    setGridUnit(val)
+    if (canvas?.scene) {
+      canvas.scene.gridUnit = val
+      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, val, canvas.scene.gridUnitLabel)
+    }
+  }, [canvas])
+
+  const handleGridUnitLabelChange = useCallback((e) => {
+    const val = e.target.value
+    setGridUnitLabel(val)
+    if (canvas?.scene) {
+      canvas.scene.gridUnitLabel = val
+      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, canvas.scene.gridUnit, val)
+    }
+  }, [canvas])
+
+  const handleToggleViewAll = useCallback(() => {
+    const next = !viewAll
+    setViewAll(next)
+    if (canvas?.controller) {
+      canvas.controller.viewAll = next
+      canvas.refreshLighting()
+    }
+  }, [canvas, viewAll])
+
+  const handleViewpointSelect = useCallback((e) => {
+    const id = e.target.value
+    setViewpointId(id)
+    if (!canvas?.controller) return
+    if (id) {
+      canvas.controller.viewAll = false
+      setViewAll(false)
+      canvas.setViewpoint(id)
+    } else {
+      canvas.controller.setViewpoint([])
+      canvas.controller.viewAll = true
+      setViewAll(true)
+      canvas.refreshLighting()
+    }
+  }, [canvas])
+
+  const handleNameChange = useCallback((e) => {
+    const val = e.target.value
+    setSceneName(val)
+    canvas.scene.name = val
+    maybeEmitSceneUpdate({ name: val })
+  }, [canvas, maybeEmitSceneUpdate])
 
   const userLookup = new Map((connectedUsers ?? []).map(u => [u.userId, u.username ?? u.userId]))
 
@@ -104,6 +219,57 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
         <button onClick={handleMoveAll} className="btn btn-sm vtt-action-btn" style={{ marginTop: 8, width: '100%' }}>
           Move all users to current scene
         </button>
+      )}
+
+      <hr className="vtt-divider" />
+
+      {canvas?.scene && (
+        <div className="vtt-scene-settings">
+          <h4>Active Scene Settings</h4>
+
+          {isDm && (
+            <label>Name
+              <input type="text" value={sceneName} onChange={handleNameChange} className="vtt-input" />
+            </label>
+          )}
+
+          <label className="vtt-toggle">
+            <input type="checkbox" checked={lighting} onChange={handleToggleLighting} />
+            Lighting
+          </label>
+
+          <label>Ambient Light (0-1)
+            <input type="range" min="0" max="1" step="0.05" value={ambient} onChange={handleSetAmbient} className="vtt-range" />
+          </label>
+
+          {isDm && (
+            <>
+              <label className="vtt-toggle">
+                <input type="checkbox" checked={viewAll} onChange={handleToggleViewAll} />
+                GM View All
+              </label>
+
+              <label>View from token
+                <select value={viewpointId} onChange={handleViewpointSelect} className="vtt-input">
+                  <option value="">— None (view all) —</option>
+                  {tokens.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <hr className="vtt-divider" />
+
+              <h4>Grid & Ruler</h4>
+              <label>Unit per grid cell
+                <input type="number" min="0.1" step="1" value={gridUnit} onChange={handleGridUnitChange} className="vtt-input" />
+              </label>
+              <label>Unit label
+                <input type="text" value={gridUnitLabel} onChange={handleGridUnitLabelChange} className="vtt-input" placeholder="e.g. ft, m" />
+              </label>
+            </>
+          )}
+        </div>
       )}
     </div>
   )

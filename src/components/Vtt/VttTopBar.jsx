@@ -5,7 +5,6 @@ const WIDGETS = [
   { id: 'tokens', label: 'Tokens', dmOnly: true },
   { id: 'actors', label: 'Actors', dmOnly: false },
   { id: 'bg', label: 'Map BG', dmOnly: true },
-  { id: 'lighting', label: 'Lighting', dmOnly: true },
 ]
 
 const TOOLS = [
@@ -45,7 +44,6 @@ export default function VttTopBar({ isDm, onAction, onToolSelect, activeTool, ac
     { id: 'tokens-panel', label: 'Tokens Panel', hotkey: null, dmOnly: true },
     { id: 'actors-panel', label: 'Actors Panel', hotkey: null },
     { id: 'bg', label: 'Background Map', hotkey: null, dmOnly: true },
-    { id: 'lighting', label: 'Lighting & Vision', hotkey: null, dmOnly: true },
     { type: 'divider' },
     { id: 'disconnect', label: 'Disconnect', hotkey: null },
     { id: 'home', label: 'Leave to Home', hotkey: null },

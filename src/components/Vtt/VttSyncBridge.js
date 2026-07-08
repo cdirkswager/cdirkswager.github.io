@@ -452,14 +452,33 @@ export function createSyncBridge(canvas, eventBus) {
     if (data.type === 'scene:switched' && sceneManager && data.sceneId) {
       sceneManager.switchScene(data.sceneId)
     }
+    if (data.type === 'scene:move-all-users' && sceneManager && data.sceneId) {
+      for (const userId of sceneManager.userScenes.keys()) {
+        sceneManager.setUserScene(userId, data.sceneId)
+      }
+    }
   }))
 
   /* New scene created remotely */
   unsubs.push(eventBus.on('scene:created', (data) => {
     if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
+    const hadServerScenes = _hadServerScenes
     _hadServerScenes = true
     const s = Scene.fromJSON(data)
     sceneManager.add(s)
+    /* First server scene: switch away from the local default so the
+       active scene ID matches the DM's scene (needed for lighting sync). */
+    if (!hadServerScenes) {
+      const localDefaults = sceneManager.scenes.filter(sc => sc._isLocalDefault)
+      for (const d of localDefaults) {
+        if (d.id !== sceneManager.activeScene?.id) {
+          sceneManager.remove(d.id)
+        } else {
+          sceneManager.switchScene(s.id)
+          sceneManager.remove(d.id)
+        }
+      }
+    }
   }))
 
   /* Scene deleted remotely */
@@ -467,12 +486,12 @@ export function createSyncBridge(canvas, eventBus) {
     if (sceneManager) sceneManager.remove(data.id)
   }))
 
-  /* Wire moveAllUsersToScene to emit record */
+  /* Wire moveAllUsersToScene to emit ephemeral (syncs to all clients) */
   const origMoveAll = sceneManager?.moveAllUsersToScene
   if (sceneManager) {
     sceneManager.moveAllUsersToScene = (sceneId) => {
       origMoveAll.call(sceneManager, sceneId)
-      eventBus.emitRecord('scene', 'move-all-users', { sceneId })
+      eventBus.emitEphemeral('scene:move-all-users', { sceneId })
     }
   }
 
