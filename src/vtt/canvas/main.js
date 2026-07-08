@@ -90,7 +90,7 @@ export async function createVttCanvas(mountEl, options = {}) {
     },
     addToken: (tokenOpts) => {
       const s = sceneManager.activeScene
-      const token = new Token(tokenOpts)
+      const token = new Token({ ...tokenOpts, sceneId: s.id })
       s.addToken(token)
       renderer.addToken(token)
       return token

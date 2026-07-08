@@ -110,7 +110,7 @@ export class Scene {
   static fromJSON(data) {
     const scene = new Scene(data)
     scene.tiles = (data.tiles ?? []).map(td => Object.assign(new Tile(), td))
-    scene.tokens = (data.tokens ?? []).map(td => Object.assign(new Token(), td))
+    scene.tokens = (data.tokens ?? []).map(td => Object.assign(new Token({ sceneId: data.id }), td))
     scene.walls = (data.walls ?? []).map(wd => new Wall(wd))
     scene.templates = (data.templates ?? []).map(td => Object.assign(new Template(), td))
     return scene

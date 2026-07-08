@@ -188,6 +188,7 @@ export function createSyncBridge(canvas, eventBus) {
 
   unsubs.push(eventBus.on('token:created', (data) => {
     if (scene().getToken(data.id)) return
+    if (data.sceneId && data.sceneId !== sceneManager.activeScene?.id) return
     const token = new Token(data)
     canvas.addToken(token)
     controller.invalidateLighting()
@@ -196,31 +197,29 @@ export function createSyncBridge(canvas, eventBus) {
   }))
 
   unsubs.push(eventBus.on('token:updated', (data) => {
+    if (data.sceneId && data.sceneId !== sceneManager.activeScene?.id) return
     const token = scene().getToken(data.id)
-    if (token) {
-      const prevUserId = token.userId
-      token.name = data.name ?? token.name
-      token.src = data.src ?? token.src
-      token.x = data.x ?? token.x
-      token.y = data.y ?? token.y
-      token.width = data.width ?? token.width
-      token.height = data.height ?? token.height
-      token.locked = data.locked ?? token.locked
-      token.visible = data.visible ?? token.visible
-      token.elevation = data.elevation ?? token.elevation
-      token.visionEnabled = data.visionEnabled ?? token.visionEnabled
-      token.darkvisionRange = data.darkvisionRange ?? token.darkvisionRange
-      token.lightRadius = data.lightRadius ?? token.lightRadius
-      token.lightColor = data.lightColor ?? token.lightColor
-      token.lightIntensity = data.lightIntensity ?? token.lightIntensity
-      if ('actorId' in data) token.actorId = data.actorId
-      renderer.updateTokenPosition(token.id, token.x, token.y)
-      if ('userId' in data && data.userId !== prevUserId) {
-        controller.syncViewpointToOwnedTokens()
-        controller.syncViewpointToAllVisionTokens()
-      }
-    } else {
-      canvas.addToken(new Token(data))
+    if (!token) return
+    const prevUserId = token.userId
+    token.name = data.name ?? token.name
+    token.src = data.src ?? token.src
+    token.x = data.x ?? token.x
+    token.y = data.y ?? token.y
+    token.width = data.width ?? token.width
+    token.height = data.height ?? token.height
+    token.locked = data.locked ?? token.locked
+    token.visible = data.visible ?? token.visible
+    token.elevation = data.elevation ?? token.elevation
+    token.visionEnabled = data.visionEnabled ?? token.visionEnabled
+    token.darkvisionRange = data.darkvisionRange ?? token.darkvisionRange
+    token.lightRadius = data.lightRadius ?? token.lightRadius
+    token.lightColor = data.lightColor ?? token.lightColor
+    token.lightIntensity = data.lightIntensity ?? token.lightIntensity
+    if ('actorId' in data) token.actorId = data.actorId
+    renderer.updateTokenPosition(token.id, token.x, token.y)
+    if ('userId' in data && data.userId !== prevUserId) {
+      controller.syncViewpointToOwnedTokens()
+      controller.syncViewpointToAllVisionTokens()
     }
     controller.invalidateLighting()
   }))
@@ -418,7 +417,7 @@ export function createSyncBridge(canvas, eventBus) {
       for (const userId of sceneManager.userScenes.keys()) {
         sceneManager.userScenes.set(userId, data.sceneId)
       }
-      eventBus.emit('scenes-changed', {})
+      sceneManager.switchScene(data.sceneId)
     }
   }))
 

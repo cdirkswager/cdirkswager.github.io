@@ -147,7 +147,7 @@ function TokenPanel({ canvas, eventBus, scene, isDm, session }) {
     if (!sel || !canvas || !eventBus || !scene) return
     scene.updateToken(sel.id, changes)
     canvas.renderer.loadScene(scene)
-    eventBus.emitRecord('token', 'updated', { id: sel.id, ...changes })
+    eventBus.emitRecord('token', 'updated', { id: sel.id, sceneId: sel.sceneId, ...changes })
     canvas.refreshLighting()
   }, [sel, canvas, eventBus, scene])
 
@@ -660,6 +660,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         const sm = canvas?.sceneManager
         if (sceneId && sm?.scenes.some(s => s.id === sceneId)) {
           sm.switchScene(sceneId)
+          eventBus?.emitEphemeral?.('scene:switched', { sceneId })
         }
       }
       else prevToken?.(tokenData)
@@ -678,7 +679,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
         canvas.controller.onSceneClicked = prevScene
       }
     }
-  }, [canvas, win])
+  }, [canvas, win, eventBus])
 
   /* Sync active tool to canvas controller once canvas is available */
   useEffect(() => {

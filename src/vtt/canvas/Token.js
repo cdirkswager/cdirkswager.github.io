@@ -1,5 +1,5 @@
 export class Token {
-  constructor({ id, name, src, x, y, width, height, rotation, locked, visible, elevation, sightRange, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity, userId, actorId, iconType } = {}) {
+  constructor({ id, name, src, x, y, width, height, rotation, locked, visible, elevation, sightRange, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity, userId, actorId, iconType, sceneId } = {}) {
     this.id = id ?? crypto.randomUUID()
     this.name = name ?? 'Token'
     this.src = src ?? ''
@@ -20,6 +20,7 @@ export class Token {
     this.userId = userId ?? null
     this.actorId = actorId ?? null
     this.iconType = iconType ?? null
+    this.sceneId = sceneId ?? null
   }
 
   get centerX() { return this.x + this.width / 2 }
@@ -47,6 +48,7 @@ export class Token {
       userId: this.userId,
       actorId: this.actorId,
       iconType: this.iconType,
+      sceneId: this.sceneId,
     }
   }
 }
