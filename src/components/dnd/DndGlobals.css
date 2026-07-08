@@ -1,0 +1,72 @@
+@tailwind utilities;
+@tailwind components;
+
+:root {
+  --ink: #0b0d10;
+  --panel: #14181d;
+  --panel-2: #1b2128;
+  --line: #2a313a;
+  --dim: #707d8a;
+  --fg: #e7ebee;
+  --accent: #e8a23d;
+  --accent-soft: #e8a23d22;
+  --ok: #56d77f;
+  --warn: #f2d04b;
+  --risk: #f59e42;
+  --crit: #ef5350;
+  --player: #5aa9f0;
+}
+
+.dnd-layout ::-webkit-scrollbar { width: 10px; height: 10px; }
+.dnd-layout ::-webkit-scrollbar-track { background: var(--ink); }
+.dnd-layout ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+.dnd-layout ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+.dnd-layout .mono { font-family: var(--font-mono), ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.dnd-layout .display { font-family: var(--font-display), serif; }
+
+.dnd-layout input, .dnd-layout button, .dnd-layout textarea, .dnd-layout select {
+  font-family: inherit;
+  color: inherit;
+}
+
+.dnd-layout button:not([class*="border"]) {
+  border: 1px solid var(--line);
+}
+.dnd-layout input.hp-input {
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: center;
+  outline: none;
+}
+.dnd-layout input.hp-input:focus { border-color: var(--accent); }
+
+@keyframes turnpulse {
+  0%, 100% { box-shadow: -3px 0 0 0 var(--accent); }
+  50% { box-shadow: -3px 0 0 0 var(--accent), 0 0 18px -2px var(--accent-soft); }
+}
+.dnd-layout .turn-active { animation: turnpulse 2.2s ease-in-out infinite; }
+
+@keyframes fadeup { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.dnd-layout .fadeup { animation: fadeup 0.25s ease both; }
+
+.dnd-layout .gauge-fill { transition: width 0.5s cubic-bezier(.2,.7,.2,1), background-color 0.5s ease; }
+
+.dnd-layout button.heal-toggle {
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  width: fit-content;
+  border: none;
+  background: none;
+  color: transparent;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  text-shadow: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.dnd-layout button.heal-toggle:hover { color: var(--dim); }
+.dnd-layout button.heal-toggle.active { color: var(--ok); }

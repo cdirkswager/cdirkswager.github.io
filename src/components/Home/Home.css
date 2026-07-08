@@ -1,0 +1,207 @@
+.home {
+  width: 100%;
+}
+
+.hero {
+  position: relative;
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(201, 168, 76, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(106, 76, 201, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 0, 0, 0.4) 0%, transparent 60%);
+  z-index: 0;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/images/hunt_banner.png') center / cover no-repeat;
+  opacity: 0.35;
+  z-index: -1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 60px 0;
+}
+
+.hero-text {
+  flex: 1;
+  background: linear-gradient(
+    135deg,
+    rgba(10, 10, 10, 0.65) 0%,
+    rgba(26, 22, 18, 0.45) 100%
+  );
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(90, 74, 42, 0.25);
+  border-radius: var(--radius-lg);
+  padding: clamp(24px, 3vw, 40px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(201, 168, 76, 0.06);
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  color: var(--accent-gold);
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.8),
+    0 0 40px rgba(201, 168, 76, 0.25);
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+.hero-subtitle {
+  font-family: var(--font-medieval);
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.hero-desc {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  max-width: 500px;
+  line-height: 1.7;
+  margin-bottom: 24px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.genie-stage {
+  --ink: #8a7a5a;
+  flex-shrink: 0;
+  width: clamp(120px, 20vw, 200px);
+  filter: drop-shadow(0 18px 22px rgba(120, 80, 20, 0.20));
+}
+
+#genie-lamp {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+#lamp        { transform-box: fill-box; transform-origin: 50% 100%; }
+#eyes        { transform-box: fill-box; transform-origin: 50% 50%; }
+#hand-left   { transform-box: fill-box; transform-origin: 50% 86%; }
+#hand-right  { transform-box: fill-box; transform-origin: 50% 86%; }
+.sparkle     { transform-box: fill-box; transform-origin: 50% 50%; }
+#shadow      { transform-box: fill-box; transform-origin: 50% 50%; }
+#lev-glow    { transform-box: fill-box; transform-origin: 50% 50%; }
+.lev-ring    { transform-box: fill-box; transform-origin: 50% 50%; }
+.lev-dust    { transform-box: fill-box; transform-origin: 50% 50%; }
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px !important;
+  transition: all 0.3s ease;
+  color: var(--text-primary) !important;
+}
+
+.player-card:hover {
+  border-color: var(--accent-gold) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(201, 168, 76, 0.15);
+}
+
+.player-card-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-gold-dark), var(--accent-gold));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.player-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-card-name {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.player-card-class {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.player-card-title {
+  font-size: 0.85rem;
+  font-family: var(--font-medieval);
+  margin-top: 2px;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: 50vh;
+  }
+
+  .hero-content {
+    flex-direction: column-reverse;
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .hero-text {
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .hero-desc {
+    max-width: 100%;
+  }
+
+  .hero-actions {
+    justify-content: center;
+  }
+
+  .emblem-ring {
+    width: 100px;
+    height: 100px;
+  }
+
+  .emblem-icon {
+    font-size: 2.5rem;
+  }
+}

@@ -1,0 +1,409 @@
+.vtt-page {
+  width: 100%;
+  height: calc(100vh - var(--nav-height));
+  display: flex;
+  flex-direction: column;
+}
+
+/* Disconnected state — center the connect panel */
+.vtt-page:not(:has(.vtt-canvas-area)) {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* Connect Panel */
+.vtt-connect-panel {
+  max-width: 560px;
+  margin: 40px auto;
+  padding: 32px;
+  background: #1a1a2e;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.vtt-connect-panel h2 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.vtt-subtitle {
+  color: #aaa;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.vtt-connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.vtt-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vtt-input-group label {
+  color: #ccc;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.vtt-input {
+  padding: 10px 12px;
+  background: #0f0f23;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.vtt-input:focus {
+  border-color: #6c63ff;
+}
+
+.vtt-connect-btn {
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.vtt-connect-btn:hover {
+  background: #5a52e0;
+}
+
+.vtt-register-btn {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.vtt-register-btn:hover {
+  background: #218838;
+}
+
+.vtt-status {
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.vtt-status-error {
+  background: #3d1111;
+  color: #ff6b6b;
+  border: 1px solid #ff4444;
+}
+
+.vtt-help {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+
+.vtt-help h3 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+
+.vtt-help ol {
+  color: #aaa;
+  padding-left: 20px;
+  margin: 0;
+  line-height: 1.8;
+  font-size: 0.9rem;
+}
+
+/* Canvas Area */
+.vtt-canvas-area {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Top bar (replaces old cockpit toolbar) ──────────────── */
+.vtt-topbar {
+  height: var(--vtt-topbar-height, 32px);
+  min-height: var(--vtt-topbar-height, 32px);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 6px;
+  flex-shrink: 0;
+  z-index: 25;
+}
+
+/* ── Panels (overlay on canvas) ──────────────────────────── */
+.vtt-panels-container {
+  position: absolute;
+  top: 40px;
+  left: 8px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100% - 56px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.vtt-panels-container > * {
+  pointer-events: auto;
+}
+
+.vtt-panel {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 12px;
+  width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.vtt-panel h4 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+
+/* ── Token panel ─────────────────────────────────────────── */
+.vtt-token-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #2a2a2a;
+  font-size: 0.82rem;
+}
+
+.vtt-token-name {
+  flex: 1;
+  color: #eee;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vtt-token-name:hover {
+  color: #6c63ff;
+}
+
+.vtt-token-pos {
+  color: #888;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.vtt-token-item.selected {
+  background: #2a2a3a;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+}
+
+.vtt-token-props h4 {
+  margin-top: 4px;
+}
+
+.vtt-token-prop-form label {
+  display: block;
+  color: #ccc;
+  font-size: 0.82rem;
+  margin: 6px 0;
+}
+
+.vtt-inline-input {
+  flex: 1;
+  padding: 2px 6px;
+  font-size: 0.82rem;
+}
+
+/* ── Lighting panel ──────────────────────────────────────── */
+.vtt-lighting-panel label {
+  display: block;
+  color: #ccc;
+  font-size: 0.82rem;
+  margin: 6px 0;
+}
+
+.vtt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.vtt-toggle input[type="checkbox"] {
+  accent-color: #6c63ff;
+}
+
+.vtt-range {
+  width: 100%;
+  margin: 4px 0;
+}
+
+/* ── Background panel ────────────────────────────────────── */
+.vtt-bg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vtt-file-input {
+  color: #ccc;
+  font-size: 0.82rem;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.vtt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.vtt-modal {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.vtt-modal h3 {
+  margin: 0 0 16px;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.vtt-modal label {
+  display: block;
+  color: #ccc;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.vtt-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+/* ── Presence display ────────────────────────────────────── */
+.vtt-presence-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #aaa;
+  font-size: 0.78rem;
+}
+
+.vtt-presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #28a745;
+  display: inline-block;
+}
+
+.vtt-presence-user {
+  color: #ccc;
+  padding: 2px 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+/* Canvas Mount */
+.vtt-canvas-mount {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vtt-error {
+  padding: 32px;
+  text-align: center;
+  color: #ff6b6b;
+  background: #1a1a2e;
+  border-radius: 8px;
+  margin: 40px auto;
+  max-width: 560px;
+}
+
+.vtt-error button {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Error Boundary */
+.vtt-error-boundary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  background: #1a1a2e;
+  color: #ff6b6b;
+  font-size: 1rem;
+}
+
+/* Divider */
+.vtt-divider {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 12px 0;
+}
+
+/* Hint text */
+.vtt-hint {
+  color: #888;
+  font-size: 0.78rem;
+  margin: 4px 0 8px;
+  line-height: 1.4;
+}
+
+/* Viewpoint info */
+.vtt-viewpoint-info {
+  color: #00ffcc;
+  font-size: 0.78rem;
+  margin: 4px 0 0;
+}

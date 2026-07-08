@@ -1,0 +1,406 @@
+import { Application, Container, Sprite, Graphics, Texture, Rectangle } from 'pixi.js'
+import { resolveTokenIconType, ICON_COLORS } from '../data/defaultIcons.js'
+import { Grid } from './Grid.js'
+import { WallLayer } from './WallLayer.js'
+import { LightingOverlay } from './LightingOverlay.js'
+import { TemplateLayer } from './TemplateLayer.js'
+import { RulerLayer } from './RulerLayer.js'
+import { PingLayer } from './PingLayer.js'
+
+export class CanvasRenderer {
+  constructor() {
+    this.app = null
+    this.sceneContainer = null
+    this.tileContainer = null
+    this.tokenContainer = null
+    this.gridLayer = null
+    this.wallLayer = null
+    this.templateLayer = null
+    this.rulerLayer = null
+    this.lightingOverlay = null
+    this.gizmoContainer = null
+    this.pingLayer = null
+    this.currentScene = null
+    this.spriteMap = new Map()
+    this._vpIndicator = null
+    this.onTokenDragStart = null
+    this.onTokenDragEnd = null
+    this.getActorType = null
+  }
+
+  async init(mountEl, width, height) {
+    this.app = new Application()
+    await this.app.init({
+      width: width ?? mountEl.clientWidth,
+      height: height ?? mountEl.clientHeight,
+      backgroundColor: 0x1a1a1a,
+      antialias: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+    })
+
+    /* Style the canvas so it fills its container without affecting layout.
+       This prevents the canvas from pushing mountEl larger (which would
+       cause a ResizeObserver feedback loop). */
+    this.app.canvas.style.position = 'absolute'
+    this.app.canvas.style.top = '0'
+    this.app.canvas.style.left = '0'
+    this.app.canvas.style.width = '100%'
+    this.app.canvas.style.height = '100%'
+    this.app.canvas.style.display = 'block'
+
+    mountEl.appendChild(this.app.canvas)
+
+    this.sceneContainer = new Container()
+    this.tileContainer = new Container()
+    this.gridLayer = new Container()
+    this.wallLayer = new WallLayer()
+    this.tokenContainer = new Container()
+    this.gizmoContainer = new Container()
+    this.templateLayer = new TemplateLayer()
+    this.rulerLayer = new RulerLayer()
+    this.overlayContainer = new Container()
+    this.lightingOverlay = new LightingOverlay(this)
+    this.lightingOverlay.enabled = false
+
+    /* Order in sceneContainer (bottom to top):
+       tiles → grid → template fills → walls → tokens → template outlines → gizmos */
+    this.app.stage.addChild(this.sceneContainer)
+    this.sceneContainer.addChild(this.tileContainer)
+    this.sceneContainer.addChild(this.gridLayer)
+    this.sceneContainer.addChild(this.templateLayer.fillContainer)
+    this.sceneContainer.addChild(this.wallLayer.container)
+    this.sceneContainer.addChild(this.tokenContainer)
+    this.sceneContainer.addChild(this.templateLayer.outlineContainer)
+    this.sceneContainer.addChild(this.gizmoContainer)
+    /* Ruler lives in the gizmo container (top-most transient overlay) */
+    this.gizmoContainer.addChild(this.rulerLayer.container)
+
+    /* Ping layer renders above all scene containers */
+    this.pingLayer = new PingLayer()
+    this.sceneContainer.addChild(this.pingLayer.container)
+
+    /* Overlay renders on top of all scene content — moved INSIDE
+       sceneContainer so its world-space Graphics automatically tracks
+       pan/zoom without re-render. */
+    this.sceneContainer.addChild(this.overlayContainer)
+    this.overlayContainer.addChild(this.lightingOverlay.container)
+
+    this._setupResize(mountEl, mountEl.parentElement)
+  }
+
+  _setupResize(mountEl, parentEl) {
+    /* Observe the PARENT container, not mountEl itself.
+       Resizing the canvas inside mountEl must never change what we observe —
+       that is the root cause of the infinite grow loop. */
+    const target = parentEl || mountEl
+
+    this._pendingResize = false
+    this._lastWidth = -1
+    this._lastHeight = -1
+
+    this._resizeObserver = new ResizeObserver(() => {
+      if (!this.app?.renderer) return
+      /* Debounce: coalesce multiple fires into one rAF tick */
+      if (this._pendingResize) return
+      this._pendingResize = true
+      requestAnimationFrame(() => {
+        this._pendingResize = false
+        const w = Math.round(target.clientWidth)
+        const h = Math.round(target.clientHeight)
+        /* Ignore zero/degenerate sizes */
+        if (w < 1 || h < 1) return
+        /* Only resize when integer dimensions actually changed */
+        if (w === this._lastWidth && h === this._lastHeight) return
+        this._lastWidth = w
+        this._lastHeight = h
+        this.app.renderer.resize(w, h)
+      })
+    })
+    this._resizeObserver.observe(target)
+  }
+
+  loadScene(scene) {
+    this.currentScene = scene
+    this._clearContainers()
+
+    const grid = new Grid(scene)
+    grid.draw()
+    this.gridLayer.addChild(grid.container)
+    this._currentGrid = grid
+
+    for (const tile of scene.tiles) {
+      this._addTileSprite(tile)
+    }
+
+    this.wallLayer.draw(scene.walls)
+    this.templateLayer.draw(scene)
+
+    for (const token of scene.tokens) {
+      this._addTokenSprite(token)
+    }
+
+    /* Re-add ruler container (cleared by _clearContainers) */
+    this.gizmoContainer.addChild(this.rulerLayer.container)
+
+    /* Update ruler grid info */
+    this.rulerLayer.setGrid(scene.gridSize, scene.gridType, scene.gridUnit, scene.gridUnitLabel)
+  }
+
+  redrawWalls() {
+    if (this.currentScene) {
+      this.wallLayer.draw(this.currentScene.walls)
+    }
+  }
+
+  _clearContainers() {
+    this.tileContainer.removeChildren()
+    this.tokenContainer.removeChildren()
+    this.gizmoContainer.removeChildren()
+    this.gridLayer.removeChildren()
+    if (this.wallLayer) {
+      this.sceneContainer.removeChild(this.wallLayer.container)
+      this.wallLayer.destroy()
+    }
+    this.wallLayer = new WallLayer()
+    this.sceneContainer.addChildAt(this.wallLayer.container, this.sceneContainer.getChildIndex(this.gridLayer) + 1)
+    this.templateLayer?._clear()
+    this.spriteMap.clear()
+    this._currentGrid?.destroy()
+    this._currentGrid = null
+    this._vpIndicator = null
+  }
+
+  getViewBounds() {
+    const w = this.app.renderer.width
+    const h = this.app.renderer.height
+    return { x: 0, y: 0, width: w, height: h, world: this.screenToWorld(0, 0) }
+  }
+
+  updateLighting(visionData) {
+    if (!this.lightingOverlay?.enabled) return
+    const bounds = this.getViewBounds()
+    const ambient = this.currentScene?.ambientLight ?? 0
+    this.lightingOverlay.update(bounds, visionData, ambient)
+  }
+
+  setLightingEnabled(enabled) {
+    if (this.lightingOverlay) {
+      this.lightingOverlay.enabled = enabled
+      if (!enabled) this.lightingOverlay._clear()
+    }
+  }
+
+  async _addTileSprite(tile) {
+    const sprite = Sprite.from(tile.src)
+    sprite.x = tile.x
+    sprite.y = tile.y
+    sprite.width = tile.width
+    sprite.height = tile.height
+    sprite.rotation = tile.rotation
+    sprite.eventMode = 'none'
+    this.tileContainer.addChild(sprite)
+    this.spriteMap.set(`tile-${tile.id}`, { type: 'tile', data: tile, sprite })
+  }
+
+  /** Incremental tile add — avoids the full loadScene teardown/rebuild
+      (grid, walls, all tokens, lighting) that adding one tile used to cost. */
+  addTile(tile) {
+    if (this.spriteMap.has(`tile-${tile.id}`)) return
+    this._addTileSprite(tile)
+    /* Background tiles sit under everything else. */
+    if (tile.isBackground || tile.zIndex < 0) {
+      const entry = this.spriteMap.get(`tile-${tile.id}`)
+      if (entry?.sprite) this.tileContainer.setChildIndex(entry.sprite, 0)
+    }
+  }
+
+  /** Incremental tile removal. */
+  removeTile(tileId) {
+    const entry = this.spriteMap.get(`tile-${tileId}`)
+    if (!entry) return
+    this.tileContainer.removeChild(entry.sprite)
+    entry.sprite.destroy()
+    this.spriteMap.delete(`tile-${tileId}`)
+  }
+
+  async _addTokenSprite(token) {
+    const tex = token.src ? await Texture.from(token.src) : this._makePlaceholderTex(token)
+    const sprite = new Sprite(tex)
+    sprite.width = token.width
+    sprite.height = token.height
+    sprite.rotation = token.rotation
+    sprite.alpha = token.visible ? 1 : 0.3
+    sprite.eventMode = 'static'
+    sprite.cursor = token.locked ? 'default' : 'grab'
+    sprite.label = token.name
+
+    const outline = new Graphics()
+    outline.rect(0, 0, token.width, token.height)
+    outline.fill({ color: 0x00aaff, alpha: 0 })
+    outline.setStrokeStyle({ width: 2, color: 0xffffff, alpha: 0.5 })
+    outline.stroke()
+    outline.eventMode = 'none'
+
+    const wrapper = new Container()
+    wrapper.addChild(outline)
+    wrapper.addChild(sprite)
+    wrapper.x = token.x
+    wrapper.y = token.y
+    wrapper.eventMode = 'static'
+    wrapper.cursor = token.locked ? 'default' : 'grab'
+    wrapper.hitArea = new Rectangle(0, 0, token.width, token.height)
+
+    this.tokenContainer.addChild(wrapper)
+    this.spriteMap.set(`token-${token.id}`, { type: 'token', data: token, sprite, wrapper, outline })
+  }
+
+  _makePlaceholderTex(token) {
+    const type = resolveTokenIconType(token, this.getActorType?.(token.actorId))
+    const C = ICON_COLORS
+    const w = token.width, h = token.height
+    const cx = w / 2, cy = h / 2
+    const r = Math.min(w, h) / 2 - 3
+    const ring = (C.ring && C.ring[type]) || C.gold
+    const g = new Graphics()
+    g.circle(cx, cy, r).fill({ color: C.dark })
+    g.circle(cx, cy, r).stroke({ width: Math.max(2, r * 0.08), color: ring })
+    const s = r / 60
+    const gold = { color: C.gold }
+    const strokeGold = { width: 4.5 * s, color: C.gold, cap: 'round', join: 'round' }
+    if (type === 'coins') {
+      for (let i = 0; i < 3; i++) g.ellipse(cx - 8 * s, cy + (16 - i * 8) * s, 22 * s, 9 * s).stroke(strokeGold)
+      g.circle(cx + 20 * s, cy - 6 * s, 16 * s).stroke(strokeGold)
+    } else if (type === 'chest') {
+      g.roundRect(cx - 28 * s, cy - 10 * s, 56 * s, 34 * s, 4 * s).stroke(strokeGold)
+      g.moveTo(cx - 28 * s, cy + 2 * s).lineTo(cx + 28 * s, cy + 2 * s).stroke(strokeGold)
+      g.roundRect(cx - 6 * s, cy - 2 * s, 12 * s, 10 * s, 2 * s).fill(gold)
+    } else if (type === 'monster') {
+      g.moveTo(cx - 24 * s, cy - 18 * s).lineTo(cx - 14 * s, cy - 6 * s).lineTo(cx, cy - 20 * s)
+        .lineTo(cx + 14 * s, cy - 6 * s).lineTo(cx + 24 * s, cy - 18 * s).stroke(strokeGold)
+      g.circle(cx - 12 * s, cy + 6 * s, 5 * s).fill(gold)
+      g.circle(cx + 12 * s, cy + 6 * s, 5 * s).fill(gold)
+    } else {
+      g.circle(cx, cy - 14 * s, 16 * s).fill({ color: type === 'player' ? C.parch : C.goldDim })
+      g.moveTo(cx - 28 * s, cy + 30 * s)
+        .arc(cx, cy + 30 * s, 28 * s, Math.PI, 0, true)
+        .fill({ color: type === 'player' ? C.parch : C.goldDim })
+    }
+    return this.app.renderer.generateTexture(g)
+  }
+
+  addToken(token) {
+    this._addTokenSprite(token)
+  }
+
+  removeToken(tokenId) {
+    const entry = this.spriteMap.get(`token-${tokenId}`)
+    if (entry) {
+      this.tokenContainer.removeChild(entry.wrapper)
+      entry.wrapper.destroy({ children: true })
+      this.spriteMap.delete(`token-${tokenId}`)
+    }
+  }
+
+  updateTokenPosition(tokenId, x, y) {
+    const entry = this.spriteMap.get(`token-${tokenId}`)
+    if (!entry) return
+    entry.data.x = x
+    entry.data.y = y
+    entry.wrapper.x = x
+    entry.wrapper.y = y
+  }
+
+  pan(dx, dy) {
+    this.sceneContainer.x += dx
+    this.sceneContainer.y += dy
+  }
+
+  clientToCanvas(clientX, clientY) {
+    const rect = this.app.canvas.getBoundingClientRect()
+    return { x: clientX - rect.left, y: clientY - rect.top }
+  }
+
+  zoom(delta, cx, cy) {
+    const { x: canvasX, y: canvasY } = this.clientToCanvas(cx, cy)
+    const oldScale = this.sceneContainer.scale.x
+    const newScale = Math.max(0.1, Math.min(5, oldScale * (delta > 0 ? 1.1 : 0.9)))
+    if (newScale === oldScale) return
+
+    const worldPos = this._screenToWorld(canvasX, canvasY)
+    this.sceneContainer.scale.set(newScale)
+    const newScreen = this._worldToScreen(worldPos.x, worldPos.y)
+    this.sceneContainer.x += canvasX - newScreen.x
+    this.sceneContainer.y += canvasY - newScreen.y
+  }
+
+  screenToWorld(sx, sy) {
+    return this._screenToWorld(sx, sy)
+  }
+
+  _screenToWorld(sx, sy) {
+    const inv = this.sceneContainer.worldTransform.clone().invert()
+    return inv.apply({ x: sx, y: sy })
+  }
+
+  worldToScreen(wx, wy) {
+    return this._worldToScreen(wx, wy)
+  }
+
+  _worldToScreen(wx, wy) {
+    return this.sceneContainer.worldTransform.apply({ x: wx, y: wy })
+  }
+
+  snap(x, y) {
+    return this._currentGrid ? this._currentGrid.snap(x, y) : { x, y }
+  }
+
+  resize() {
+    if (!this.app || !this._resizeObserver) return
+    /* Invalidate the cached size so the next rAF tick will actually resize */
+    this._lastWidth = -1
+    this._lastHeight = -1
+    const w = Math.round(this.app.canvas.parentElement.clientWidth)
+    const h = Math.round(this.app.canvas.parentElement.clientHeight)
+    if (w > 0 && h > 0) {
+      this.app.renderer.resize(w, h)
+    }
+  }
+
+  setViewpointToken(tokenId) {
+    /* Remove old indicator */
+    if (this._vpIndicator) {
+      this.gizmoContainer.removeChild(this._vpIndicator)
+      this._vpIndicator.destroy()
+      this._vpIndicator = null
+    }
+
+    if (!tokenId) return
+
+    const entry = this.spriteMap.get(`token-${tokenId}`)
+    if (!entry) return
+
+    const g = new Graphics()
+    g.setStrokeStyle({ width: 2, color: 0x00ffcc, alpha: 1 })
+    g.roundRect(-4, -4, entry.data.width + 8, entry.data.height + 8, 4)
+    g.stroke()
+    g.setStrokeStyle({ width: 1, color: 0xffffff, alpha: 0.6 })
+    g.roundRect(-2, -2, entry.data.width + 4, entry.data.height + 4, 2)
+    g.stroke()
+    g.eventMode = 'none'
+
+    entry.wrapper.addChild(g)
+    this._vpIndicator = g
+  }
+
+  destroy() {
+    this._resizeObserver?.disconnect()
+    this._currentGrid?.destroy()
+    this.wallLayer?.destroy()
+    this.templateLayer?.destroy()
+    this.rulerLayer?.destroy()
+    this.pingLayer?.destroy()
+    this.lightingOverlay?.destroy()
+    this.app?.destroy(true)
+  }
+}
