@@ -1,6 +1,7 @@
 import { CanvasRenderer } from './CanvasRenderer.js'
 import { CanvasController } from './CanvasController.js'
 import { Scene } from './Scene.js'
+import { SceneManager } from './SceneManager.js'
 import { Token } from './Token.js'
 import { Tile } from './Tile.js'
 import { Wall, WALL_TYPES } from './Wall.js'
@@ -17,7 +18,7 @@ import { registerRule, getRule, listRules, setActive, getActive, measure } from 
 import { getCoveredCells } from './CellCoverage.js'
 
 export {
-  CanvasRenderer, CanvasController, Scene,
+  CanvasRenderer, CanvasController, Scene, SceneManager,
   Token, Tile, WALL_TYPES, Wall, WallLayer,
   Template, TEMPLATE_TYPES, TemplateLayer, RulerLayer, PingLayer,
   LightingOverlay,
@@ -35,6 +36,8 @@ export async function createVttCanvas(mountEl, options = {}) {
   const controller = new CanvasController(renderer)
   controller.enable()
 
+  const eventBus = options.eventBus ?? new EventBus()
+
   const scene = new Scene({
     name: options.sceneName ?? 'New Map',
     width: options.width ?? 4000,
@@ -44,9 +47,23 @@ export async function createVttCanvas(mountEl, options = {}) {
     backgroundColor: options.backgroundColor ?? '#2a2a2a',
   })
 
-  const eventBus = options.eventBus ?? new EventBus()
+  const sceneManager = new SceneManager({ renderer, controller, eventBus })
+  sceneManager.add(scene)
 
-  renderer.loadScene(scene)
+  if (options.sceneManagerData) {
+    const restored = SceneManager.fromJSON(options.sceneManagerData, { renderer, controller, eventBus })
+    for (const s of restored.scenes) {
+      if (!sceneManager._scenes.has(s.id)) sceneManager.add(s)
+    }
+    if (restored._activeSceneId && restored._scenes.has(restored._activeSceneId)) {
+      sceneManager._activeSceneId = restored._activeSceneId
+    }
+    for (const [userId, sceneId] of restored._userScenes) {
+      sceneManager._userScenes.set(userId, sceneId)
+    }
+  }
+
+  renderer.loadScene(sceneManager.activeScene)
   /* Ensure spatial index is rebuilt for any pre-existing scene walls */
   controller._spatialIndex.invalidate()
   controller.refreshLighting()
@@ -61,42 +78,49 @@ export async function createVttCanvas(mountEl, options = {}) {
     renderer,
     controller,
     scene,
+    sceneManager,
     eventBus,
     addTile: (tileOpts) => {
+      const s = sceneManager.activeScene
       const tile = new Tile(tileOpts)
-      scene.addTile(tile)
-      renderer.loadScene(scene)
+      s.addTile(tile)
+      renderer.loadScene(s)
       return tile
     },
     addToken: (tokenOpts) => {
+      const s = sceneManager.activeScene
       const token = new Token(tokenOpts)
-      scene.addToken(token)
+      s.addToken(token)
       renderer.addToken(token)
       return token
     },
     removeToken: (id) => renderer.removeToken(id),
     addWall: (wallOpts) => {
+      const s = sceneManager.activeScene
       if (wallOpts instanceof Wall) {
-        scene.addWall(wallOpts)
+        s.addWall(wallOpts)
       } else {
-        scene.addWall(new Wall(wallOpts))
+        s.addWall(new Wall(wallOpts))
       }
       renderer.redrawWalls()
-      return scene.walls[scene.walls.length - 1]
+      return s.walls[s.walls.length - 1]
     },
     removeWall: (id) => {
-      scene.removeWall(id)
+      const s = sceneManager.activeScene
+      s.removeWall(id)
       renderer.redrawWalls()
     },
     addTemplate: (tmplOpts) => {
+      const s = sceneManager.activeScene
       const tmpl = tmplOpts instanceof Template ? tmplOpts : new Template(tmplOpts)
-      scene.addTemplate(tmpl)
-      renderer.templateLayer.draw(scene)
+      s.addTemplate(tmpl)
+      renderer.templateLayer.draw(s)
       return tmpl
     },
     removeTemplate: (id) => {
-      scene.removeTemplate(id)
-      renderer.templateLayer.draw(scene)
+      const s = sceneManager.activeScene
+      s.removeTemplate(id)
+      renderer.templateLayer.draw(s)
     },
     placeTemplate: (type, opts) => controller.placeTemplate(type, opts),
     clearRuler: () => controller.clearRuler(),
@@ -110,5 +134,6 @@ export async function createVttCanvas(mountEl, options = {}) {
       renderer.destroy()
       eventBus.destroy()
     },
+    switchScene: (sceneId) => sceneManager.switchScene(sceneId),
   }
 }

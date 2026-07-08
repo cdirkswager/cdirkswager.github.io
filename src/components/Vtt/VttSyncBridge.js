@@ -4,10 +4,12 @@ import { Template } from '../../vtt/canvas/Template.js'
 import { Tile } from '../../vtt/canvas/Tile.js'
 import { Actor } from '../../vtt/canvas/Actor.js'
 import { Item } from '../../vtt/canvas/Item.js'
+import { Scene } from '../../vtt/canvas/Scene.js'
 
 export function createSyncBridge(canvas, eventBus) {
   const controller = canvas.controller
-  const scene = canvas.scene
+  const sceneManager = canvas.sceneManager
+  const scene = () => sceneManager.activeScene
   const renderer = canvas.renderer
   const unsubs = []
   const _pendingOps = new Map()
@@ -176,15 +178,15 @@ export function createSyncBridge(canvas, eventBus) {
   }
 
   function removeTokenFromCanvas(id) {
-    const existing = scene.getToken(id)
+    const existing = scene().getToken(id)
     if (!existing) return
     renderer.removeToken(id)
-    scene.removeToken(id)
+    scene().removeToken(id)
     controller.invalidateLighting()
   }
 
   unsubs.push(eventBus.on('token:created', (data) => {
-    if (scene.getToken(data.id)) return
+    if (scene().getToken(data.id)) return
     const token = new Token(data)
     canvas.addToken(token)
     controller.invalidateLighting()
@@ -193,7 +195,7 @@ export function createSyncBridge(canvas, eventBus) {
   }))
 
   unsubs.push(eventBus.on('token:updated', (data) => {
-    const token = scene.getToken(data.id)
+    const token = scene().getToken(data.id)
     if (token) {
       const prevUserId = token.userId
       token.name = data.name ?? token.name
@@ -229,17 +231,19 @@ export function createSyncBridge(canvas, eventBus) {
   }))
 
   unsubs.push(eventBus.on('wall:created', (data) => {
-    if (scene.getWall(data.id)) return
-    scene.addWall(data instanceof Wall ? data : new Wall(data))
+    const s = scene()
+    if (s.getWall(data.id)) return
+    s.addWall(data instanceof Wall ? data : new Wall(data))
     renderer.redrawWalls()
     controller._spatialIndex.invalidate()
     controller.invalidateLighting()
   }))
 
   unsubs.push(eventBus.on('wall:updated', (data) => {
-    const existing = scene.getWall(data.id)
+    const s = scene()
+    const existing = s.getWall(data.id)
     if (existing) {
-      scene.updateWall(data.id, data)
+      s.updateWall(data.id, data)
       renderer.redrawWalls()
       controller._spatialIndex.invalidate()
       controller.invalidateLighting()
@@ -247,69 +251,58 @@ export function createSyncBridge(canvas, eventBus) {
   }))
 
   unsubs.push(eventBus.on('wall:deleted', (data) => {
-    scene.removeWall(data.id)
+    scene().removeWall(data.id)
     renderer.redrawWalls()
     controller._spatialIndex.invalidate()
     controller.invalidateLighting()
   }))
 
   unsubs.push(eventBus.on('template:created', (data) => {
-    if (scene.getTemplate(data.id)) return
+    const s = scene()
+    if (s.getTemplate(data.id)) return
     const tmpl = data instanceof Template ? data : new Template(data)
-    scene.addTemplate(tmpl)
-    renderer.templateLayer.draw(scene)
+    s.addTemplate(tmpl)
+    renderer.templateLayer.draw(s)
   }))
 
   unsubs.push(eventBus.on('template:updated', (data) => {
-    const existing = scene.getTemplate(data.id)
+    const s = scene()
+    const existing = s.getTemplate(data.id)
     if (existing) {
       Object.assign(existing, data)
-      renderer.templateLayer.draw(scene)
+      renderer.templateLayer.draw(s)
     } else {
-      scene.addTemplate(new Template(data))
-      renderer.templateLayer.draw(scene)
+      s.addTemplate(new Template(data))
+      renderer.templateLayer.draw(s)
     }
   }))
 
   unsubs.push(eventBus.on('template:deleted', (data) => {
-    scene.removeTemplate(data.id)
-    renderer.templateLayer.draw(scene)
+    scene().removeTemplate(data.id)
+    renderer.templateLayer.draw(scene())
   }))
 
   unsubs.push(eventBus.on('tile:created', (data) => {
-    if (scene.tiles.some(t => t.id === data.id)) return
-    scene.addTile(new Tile(data))
-    renderer.loadScene(scene)
+    if (scene().tiles.some(t => t.id === data.id)) return
+    scene().addTile(new Tile(data))
+    renderer.loadScene(scene())
   }))
 
   unsubs.push(eventBus.on('tile:deleted', (data) => {
-    scene.removeTile(data.id)
-    renderer.loadScene(scene)
-  }))
-
-  unsubs.push(eventBus.on('scene:created', (data) => {
-    const scene = canvas.scene
-    if (!scene) return
-    if ('lightingEnabled' in data) {
-      scene.lightingEnabled = data.lightingEnabled
-      renderer.setLightingEnabled(data.lightingEnabled)
-    }
-    if ('ambientLight' in data) {
-      scene.ambientLight = data.ambientLight
-    }
-    if (data.lightingEnabled || data.ambientLight) controller.refreshLighting()
+    scene().removeTile(data.id)
+    renderer.loadScene(scene())
   }))
 
   unsubs.push(eventBus.on('scene:updated', (data) => {
-    const scene = canvas.scene
-    if (!scene || data.id !== scene.id) return
+    const s = scene()
+    if (!s || data.id !== s.id) return
     if ('lightingEnabled' in data) {
-      scene.lightingEnabled = data.lightingEnabled
+      s.lightingEnabled = data.lightingEnabled
       renderer.setLightingEnabled(data.lightingEnabled)
       if (data.lightingEnabled) controller.refreshLighting()
     }
     if ('ambientLight' in data) {
-      scene.ambientLight = data.ambientLight
+      s.ambientLight = data.ambientLight
       controller.refreshLighting()
     }
   }))
@@ -393,7 +386,50 @@ export function createSyncBridge(canvas, eventBus) {
   controller._spatialIndex.invalidate()
   controller.refreshLighting()
 
-  eventBus.emitRecord('scene', 'created', canvas.scene.toJSON())
+  /* Emit all existing scenes on init */
+  if (sceneManager) {
+    for (const s of sceneManager.scenes) {
+      eventBus.emitRecord('scene', 'created', s.toJSON())
+    }
+    for (const [userId, sceneId] of sceneManager.userScenes) {
+      eventBus.emitEphemeral('scene:user-presence', { userId, sceneId })
+    }
+  }
+
+  /* Scene switching — DM calls sceneManager.switchScene, remote clients receive event */
+  unsubs.push(eventBus.on('scene:switched', (data) => {
+    if (sceneManager && data.sceneId) {
+      sceneManager.switchScene(data.sceneId)
+    }
+  }))
+
+  /* User presence updates */
+  unsubs.push(eventBus.on('scene:user-presence', (data) => {
+    if (sceneManager && data.userId && data.sceneId) {
+      sceneManager.setUserScene(data.userId, data.sceneId)
+    }
+  }))
+
+  /* New scene created remotely */
+  unsubs.push(eventBus.on('scene:created', (data) => {
+    if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
+    const s = Scene.fromJSON(data)
+    sceneManager.add(s)
+  }))
+
+  /* Scene deleted remotely */
+  unsubs.push(eventBus.on('scene:deleted', (data) => {
+    if (sceneManager) sceneManager.remove(data.id)
+  }))
+
+  /* Wire moveAllUsersToScene to emit record */
+  const origMoveAll = sceneManager?.moveAllUsersToScene
+  if (sceneManager) {
+    sceneManager.moveAllUsersToScene = (sceneId) => {
+      origMoveAll.call(sceneManager, sceneId)
+      eventBus.emitRecord('scene', 'move-all-users', { sceneId })
+    }
+  }
 
   return function destroySyncBridge() {
     controller.getItem = null
@@ -414,6 +450,9 @@ export function createSyncBridge(canvas, eventBus) {
     controller.onTemplateDeleted = null
     controller.onDoorToggled = null
     controller.transferItem = null
+    if (sceneManager) {
+      sceneManager.moveAllUsersToScene = origMoveAll
+    }
     _pendingOps.clear()
     for (const unsub of unsubs) unsub()
   }

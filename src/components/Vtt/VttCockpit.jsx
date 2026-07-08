@@ -9,6 +9,7 @@ import PartyPanel from './inventory/PartyPanel.jsx'
 import { useWindowStack, useVttHotkeys } from './inventory/windowStack.js'
 import VttTopBar from './VttTopBar.jsx'
 import VttHud from './VttHud.jsx'
+import VttScenePanel from './VttScenePanel.jsx'
 import './vtt-theme.css'
 
 const TOOLS = { PAN: 'pan', TOKEN: 'token', WALL_DRAW: 'wall-draw', WALL_SELECT: 'wall-select', RULER: 'ruler', TEMPLATE: 'template' }
@@ -75,10 +76,12 @@ function AddTokenModal({ canvas, eventBus, onClose, userId }) {
         {visionEnabled && (
           <label>Darkvision Range
             <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+            <span className="vtt-unit-hint">{canvas?.scene?.gridSize ? `${Math.round(darkvisionRange / canvas.scene.gridSize)} sq` : ''}</span>
           </label>
         )}
         <label>Light Radius
           <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
+          <span className="vtt-unit-hint">{canvas?.scene?.gridSize ? `${Math.round(lightRadius / canvas.scene.gridSize)} sq` : ''}</span>
         </label>
         {lightRadius > 0 && (
           <>
@@ -171,14 +174,14 @@ function TokenPanel({ canvas, eventBus, scene, isDm, session }) {
         <div className="vtt-token-props">
           <hr className="vtt-divider" />
           <h4>Properties — {sel.name}</h4>
-          <TokenPropEditor token={sel} onSave={handleSave} actors={actors} />
+          <TokenPropEditor token={sel} onSave={handleSave} actors={actors} canvas={canvas} />
         </div>
       )}
     </div>
   )
 }
 
-function TokenPropEditor({ token, onSave, actors }) {
+function TokenPropEditor({ token, onSave, actors, canvas }) {
   const [name, setName] = useState(token.name)
   const [w, setW] = useState(token.width)
   const [h, setH] = useState(token.height)
@@ -254,10 +257,12 @@ function TokenPropEditor({ token, onSave, actors }) {
       {visionEnabled && (
         <label>Darkvision Range
           <input type="number" value={darkvisionRange} onChange={e => setDarkvisionRange(Number(e.target.value))} className="vtt-input" min={0} />
+          <span className="vtt-unit-hint">{canvas?.scene?.gridSize ? `${Math.round(darkvisionRange / canvas.scene.gridSize)} sq` : ''}</span>
         </label>
       )}
       <label>Light Radius
         <input type="number" value={lightRadius} onChange={e => setLightRadius(Number(e.target.value))} className="vtt-input" min={0} />
+        <span className="vtt-unit-hint">{canvas?.scene?.gridSize ? `${Math.round(lightRadius / canvas.scene.gridSize)} sq` : ''}</span>
       </label>
       {lightRadius > 0 && (
         <>
@@ -727,6 +732,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [activeTool, setActiveTool] = useState('pan')
   const [showAddToken, setShowAddToken] = useState(false)
   const [showTokenPanel, setShowTokenPanel] = useState(false)
+  const [showScenePanel, setShowScenePanel] = useState(false)
   const [showActorPanel, setShowActorPanel] = useState(false)
   const [showBgPanel, setShowBgPanel] = useState(false)
   const [showLighting, setShowLighting] = useState(false)
@@ -770,6 +776,7 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       case 'party': win.open('party'); break
       case 'add-token': setShowAddToken(true); break
       case 'tokens-panel': setShowTokenPanel(p => !p); break
+      case 'scenes': setShowScenePanel(p => !p); break
       case 'actors-panel': setShowActorPanel(p => !p); break
       case 'bg': setShowBgPanel(p => !p); break
       case 'lighting': setShowLighting(p => !p); break
@@ -806,6 +813,9 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
       <div className="vtt-panels-container">
         {(activeWidgets.includes('tokens') || showTokenPanel) && (
           <TokenPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} />
+        )}
+        {(activeWidgets.includes('scenes') || showScenePanel) && (
+          <VttScenePanel canvas={canvas} eventBus={eventBus} connectedUsers={connectedUsers} />
         )}
         {(activeWidgets.includes('actors') || showActorPanel) && (
           <ActorPanel canvas={canvas} eventBus={eventBus} scene={scene} isDm={isDm} session={session} connectedUsers={connectedUsers} />

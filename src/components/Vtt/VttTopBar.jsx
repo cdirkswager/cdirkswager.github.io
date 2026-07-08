@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 const WIDGETS = [
+  { id: 'scenes', label: 'Scenes', dmOnly: true },
   { id: 'tokens', label: 'Tokens', dmOnly: true },
   { id: 'actors', label: 'Actors', dmOnly: false },
   { id: 'bg', label: 'Map BG', dmOnly: true },
@@ -40,6 +41,7 @@ export default function VttTopBar({ isDm, onAction, onToolSelect, activeTool, ac
     { id: 'party', label: 'Party', hotkey: 'P' },
     { type: 'divider' },
     { id: 'add-token', label: 'Add Token', hotkey: null, dmOnly: true },
+    { id: 'scenes', label: 'Scenes Panel', hotkey: null, dmOnly: true },
     { id: 'tokens-panel', label: 'Tokens Panel', hotkey: null, dmOnly: true },
     { id: 'actors-panel', label: 'Actors Panel', hotkey: null },
     { id: 'bg', label: 'Background Map', hotkey: null, dmOnly: true },
