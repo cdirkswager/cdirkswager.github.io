@@ -78,7 +78,6 @@ export class SceneManager {
       this._userScenes.set(userId, sceneId)
     }
     this.eventBus?.emit('scenes-changed', {})
-    this.eventBus?.emitRecord('scene', 'move-all-users', { sceneId })
   }
 
   toJSON() {

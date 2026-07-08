@@ -386,6 +386,67 @@ export function createSyncBridge(canvas, eventBus) {
     eventBus.emitRecord('wall', 'updated', { id: wall.id, doorState: newState })
   }
 
+  /* Switch to the server's active scene after init replay */
+  unsubs.push(eventBus.on('scene:init-active', ({ sceneId }) => {
+    if (sceneManager && sceneId && sceneManager._scenes.has(sceneId)) {
+      sceneManager.switchScene(sceneId)
+    }
+  }))
+
+  /* Scene switching — DM calls sceneManager.switchScene, remote clients receive event */
+  unsubs.push(eventBus.on('scene:switched', (data) => {
+    if (sceneManager && data.sceneId) {
+      sceneManager.switchScene(data.sceneId)
+    }
+  }))
+
+  /* User presence updates */
+  unsubs.push(eventBus.on('scene:user-presence', (data) => {
+    if (sceneManager && data.userId && data.sceneId) {
+      sceneManager.setUserScene(data.userId, data.sceneId)
+    }
+  }))
+
+  /* Scene switching from remote clients */
+  unsubs.push(eventBus.on('ephemeral', (data) => {
+    if (data.type === 'scene:switched' && sceneManager && data.sceneId) {
+      sceneManager.switchScene(data.sceneId)
+    }
+    if (data.type === 'scene:move-all-users' && sceneManager && data.sceneId) {
+      for (const userId of sceneManager.userScenes.keys()) {
+        sceneManager.userScenes.set(userId, data.sceneId)
+      }
+      eventBus.emit('scenes-changed', {})
+    }
+  }))
+
+  /* New scene created remotely */
+  unsubs.push(eventBus.on('scene:created', (data) => {
+    if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
+    const hadServerScenes = _hadServerScenes
+    _hadServerScenes = true
+    const s = Scene.fromJSON(data)
+    sceneManager.add(s)
+    /* First server scene: switch away from the local default so the
+       active scene ID matches the DM's scene (needed for lighting sync). */
+    if (!hadServerScenes) {
+      const localDefaults = sceneManager.scenes.filter(sc => sc._isLocalDefault)
+      for (const d of localDefaults) {
+        if (d.id !== sceneManager.activeScene?.id) {
+          sceneManager.remove(d.id)
+        } else {
+          sceneManager.switchScene(s.id)
+          sceneManager.remove(d.id)
+        }
+      }
+    }
+  }))
+
+  /* Scene deleted remotely */
+  unsubs.push(eventBus.on('scene:deleted', (data) => {
+    if (sceneManager) sceneManager.remove(data.id)
+  }))
+
   eventBus.emit('sync-bridge:ready', {})
 
   controller.syncViewpointToAllVisionTokens()
@@ -425,66 +486,6 @@ export function createSyncBridge(canvas, eventBus) {
       eventBus.emitRecord('scene', 'created', localDefault.toJSON())
     }
   }
-
-  /* Switch to the server's active scene after init replay */
-  unsubs.push(eventBus.on('scene:init-active', ({ sceneId }) => {
-    if (sceneManager && sceneId && sceneManager._scenes.has(sceneId)) {
-      sceneManager.switchScene(sceneId)
-    }
-  }))
-
-  /* Scene switching — DM calls sceneManager.switchScene, remote clients receive event */
-  unsubs.push(eventBus.on('scene:switched', (data) => {
-    if (sceneManager && data.sceneId) {
-      sceneManager.switchScene(data.sceneId)
-    }
-  }))
-
-  /* User presence updates */
-  unsubs.push(eventBus.on('scene:user-presence', (data) => {
-    if (sceneManager && data.userId && data.sceneId) {
-      sceneManager.setUserScene(data.userId, data.sceneId)
-    }
-  }))
-
-  /* Scene switching from remote clients */
-  unsubs.push(eventBus.on('ephemeral', (data) => {
-    if (data.type === 'scene:switched' && sceneManager && data.sceneId) {
-      sceneManager.switchScene(data.sceneId)
-    }
-    if (data.type === 'scene:move-all-users' && sceneManager && data.sceneId) {
-      for (const userId of sceneManager.userScenes.keys()) {
-        sceneManager.setUserScene(userId, data.sceneId)
-      }
-    }
-  }))
-
-  /* New scene created remotely */
-  unsubs.push(eventBus.on('scene:created', (data) => {
-    if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
-    const hadServerScenes = _hadServerScenes
-    _hadServerScenes = true
-    const s = Scene.fromJSON(data)
-    sceneManager.add(s)
-    /* First server scene: switch away from the local default so the
-       active scene ID matches the DM's scene (needed for lighting sync). */
-    if (!hadServerScenes) {
-      const localDefaults = sceneManager.scenes.filter(sc => sc._isLocalDefault)
-      for (const d of localDefaults) {
-        if (d.id !== sceneManager.activeScene?.id) {
-          sceneManager.remove(d.id)
-        } else {
-          sceneManager.switchScene(s.id)
-          sceneManager.remove(d.id)
-        }
-      }
-    }
-  }))
-
-  /* Scene deleted remotely */
-  unsubs.push(eventBus.on('scene:deleted', (data) => {
-    if (sceneManager) sceneManager.remove(data.id)
-  }))
 
   /* Wire moveAllUsersToScene to emit ephemeral (syncs to all clients) */
   const origMoveAll = sceneManager?.moveAllUsersToScene
