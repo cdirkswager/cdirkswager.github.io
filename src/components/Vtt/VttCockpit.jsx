@@ -700,6 +700,25 @@ function ActorDetail({ actor, items, isDm, session, eventBus, canvas, scene, con
 
           <button onClick={handleSave} className="btn btn-sm vtt-connect-btn" style={{ marginTop: 8 }}>Save Actor</button>
 
+          {actor.actorType === 'scene-portal' && (
+            <>
+              <hr className="vtt-divider" />
+              <h5>Scene Portal</h5>
+              <label>Target Scene
+                <select value={actor.attributes?.sceneId ?? ''} onChange={e => {
+                  const sid = e.target.value
+                  actor.attributes = { ...actor.attributes, sceneId: sid || null }
+                  handleSave()
+                }} className="vtt-input">
+                  <option value="">— Select scene —</option>
+                  {(canvas?.sceneManager?.scenes ?? []).map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
           <hr className="vtt-divider" />
           <h5>Inventory ({items.length})</h5>
           <button onClick={handleAddItem} className="btn btn-sm vtt-action-btn">+ Item</button>
@@ -747,7 +766,8 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
   const [focusActorId, setFocusActorId] = useState(null)
   useVttHotkeys({ dispatch: win.dispatch, hasTop: !!win.top })
 
-  /* Clicking a loot-pile token opens the loot panel bound to that pile. */
+  /* Clicking a loot-pile token opens the loot panel.
+     Clicking a scene-portal token switches to the linked scene. */
   useEffect(() => {
     const controller = canvas?.controller
     if (!controller) return
@@ -755,6 +775,13 @@ export default function VttCockpit({ canvas, eventBus, scene, isDm, session, con
     controller.onTokenClicked = (tokenData) => {
       const actor = controller.actorMap?.get(tokenData?.actorId)
       if (actor?.actorType === 'loot-pile') { setLootPileId(actor.id); win.open('loot') }
+      else if (actor?.actorType === 'scene-portal') {
+        const sceneId = actor.attributes?.sceneId
+        const sm = canvas?.sceneManager
+        if (sceneId && sm?.scenes.some(s => s.id === sceneId)) {
+          sm.switchScene(sceneId)
+        }
+      }
       else prev?.(tokenData)
     }
     return () => { if (canvas?.controller) canvas.controller.onTokenClicked = prev }

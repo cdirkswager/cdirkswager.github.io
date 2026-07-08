@@ -40,6 +40,15 @@ export class Actor {
     })
   }
 
+  static createScenePortal({ name, sceneId } = {}) {
+    return new Actor({
+      name: name ?? 'Scene Portal',
+      actorType: 'scene-portal',
+      ownership: { default: 'owner', users: {} },
+      attributes: { sceneId: sceneId ?? null },
+    })
+  }
+
   toJSON() {
     return {
       type: 'actor',

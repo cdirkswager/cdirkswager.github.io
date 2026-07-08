@@ -609,7 +609,9 @@ export class CanvasController {
     if (!this.userId) return false
     if (token.actorId) {
       const actor = this.actorMap.get(token.actorId)
-      if (actor) return getAccessLevel({ userId: this.userId, role: 'player' }, actor) === 'owner'
+      if (!actor) return false
+      if (actor.actorType === 'loot-pile' || actor.actorType === 'scene-portal') return true
+      return getAccessLevel({ userId: this.userId, role: 'player' }, actor) === 'owner'
     }
     return token.userId === this.userId
   }
