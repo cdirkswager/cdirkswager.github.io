@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Scene } from '../../vtt/canvas/Scene.js'
 
 export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }) {
@@ -11,6 +11,17 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
   const [editingName, setEditingName] = useState(null)
   const [editNameValue, setEditNameValue] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+
+  /* rAF throttle for expensive refreshLighting calls (e.g., slider drag) */
+  const lightingRafRef = useRef(null)
+  const scheduleRefreshLighting = useCallback(() => {
+    if (lightingRafRef.current) return
+    lightingRafRef.current = requestAnimationFrame(() => {
+      lightingRafRef.current = null
+      if (canvas?.refreshLighting) canvas.refreshLighting()
+    })
+  }, [canvas])
+  useEffect(() => () => { if (lightingRafRef.current) cancelAnimationFrame(lightingRafRef.current) }, [])
 
   const userLookup = new Map((connectedUsers ?? []).map(u => [u.userId, u.username ?? u.userId]))
 
@@ -140,15 +151,15 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     setScenes([...sceneManager.scenes])
   }, [sceneManager, eventBus])
 
-  /* Detail panel: ambient light */
+  /* Detail panel: ambient light (throttled via rAF) */
   const handleSetAmbient = useCallback((sceneId, e) => {
     const val = Number(e.target.value)
     emitSceneUpdate(sceneId, { ambientLight: val })
     if (canvas?.scene?.id === sceneId) {
       canvas.scene.ambientLight = val
-      canvas.refreshLighting()
+      scheduleRefreshLighting()
     }
-  }, [emitSceneUpdate, canvas])
+  }, [emitSceneUpdate, canvas, scheduleRefreshLighting])
 
   /* Detail panel: view from token */
   const handleViewpointSelect = useCallback((sceneId, e) => {

@@ -298,11 +298,13 @@ export function createSyncBridge(canvas, eventBus) {
     const s = scene()
     if (!s || data.id !== s.id) return
     if ('lightingEnabled' in data) {
+      if (s.lightingEnabled === data.lightingEnabled) return
       s.lightingEnabled = data.lightingEnabled
       renderer.setLightingEnabled(data.lightingEnabled)
       if (data.lightingEnabled) controller.refreshLighting()
     }
     if ('ambientLight' in data) {
+      if (s.ambientLight === data.ambientLight) return
       s.ambientLight = data.ambientLight
       controller.refreshLighting()
     }
