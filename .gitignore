@@ -10,3 +10,11 @@ local-server/node_modules/
 local-server/data/
 local-server/public/node_modules/
 
+# Sensitive - DO NOT COMMIT
+secrets/
+cookies.txt
+backup-*.json
+
+# Large build artifacts
+mods.zip
+
