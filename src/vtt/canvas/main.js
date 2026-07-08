@@ -77,7 +77,7 @@ export async function createVttCanvas(mountEl, options = {}) {
   return {
     renderer,
     controller,
-    scene,
+    get scene() { return sceneManager.activeScene },
     sceneManager,
     eventBus,
     addTile: (tileOpts) => {

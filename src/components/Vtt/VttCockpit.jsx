@@ -360,7 +360,9 @@ function LightingPanel({ canvas, isDm, eventBus }) {
       setLighting(canvas.scene.lightingEnabled)
       setAmbient(canvas.scene.ambientLight ?? 0)
     }
-    return eventBus.on('scene:updated', refresh)
+    const unsub1 = eventBus.on('scene:updated', refresh)
+    const unsub2 = eventBus.on('scene:switched', refresh)
+    return () => { unsub1(); unsub2() }
   }, [eventBus, canvas])
 
   const maybeEmitSceneUpdate = useCallback((changes) => {

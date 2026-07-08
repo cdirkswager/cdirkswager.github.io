@@ -18,6 +18,21 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers }) {
     return eventBus?.on('scenes-changed', refresh)
   }, [sceneManager, eventBus])
 
+  /* Auto-register connected users into userScenes */
+  useEffect(() => {
+    if (!sceneManager || !connectedUsers) return
+    let changed = false
+    for (const u of connectedUsers) {
+      if (!sceneManager.userScenes.has(u.userId)) {
+        sceneManager.setUserScene(u.userId, sceneManager.activeScene?.id)
+        changed = true
+      }
+    }
+    if (changed) {
+      setUserScenes(new Map(sceneManager.userScenes))
+    }
+  }, [sceneManager, connectedUsers])
+
   const handleSwitch = useCallback((sceneId) => {
     if (!sceneManager || !eventBus) return
     sceneManager.switchScene(sceneId)

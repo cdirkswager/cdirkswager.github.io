@@ -538,7 +538,7 @@
   background: rgba(201,168,76,.1) }
 
 /* dropdowns */
-.vtt-topbar-dropdown { position: absolute; top: 100%; margin-top: 4px; z-index: 30;
+.vtt-topbar-dropdown { position: absolute; top: 100%; margin-top: 4px; z-index: 100;
   min-width: 180px; background: linear-gradient(180deg, var(--vtt-panel), var(--vtt-bg));
   border: 1px solid var(--vtt-frame-lit); border-radius: 6px; padding: 4px;
   box-shadow: 0 12px 36px rgba(0,0,0,.6); font-family: var(--vtt-ui); font-size: 13px;

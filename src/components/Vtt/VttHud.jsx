@@ -140,10 +140,20 @@ function ActorPreview({ canvas, eventBus }) {
 }
 
 export default function VttHud({ canvas, eventBus, scene, isDm, win, onOpenScreen }) {
+  const [minimapVisible, setMinimapVisible] = useState(true)
+
   return (
     <div className="vtt-hud">
-      <div className="vtt-hud-section">
-        <Minimap canvas={canvas} scene={scene} />
+      <div className="vtt-hud-section" style={{ alignItems: 'flex-end' }}>
+        <button className="vtt-hud-btn" onClick={() => setMinimapVisible(v => !v)} title="Toggle minimap" style={{ marginBottom: 4 }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1" width="6" height="6" rx="1" />
+            <rect x="9" y="1" width="6" height="6" rx="1" />
+            <rect x="1" y="9" width="6" height="6" rx="1" />
+            <rect x="9" y="9" width="6" height="6" rx="1" />
+          </svg>
+        </button>
+        {minimapVisible && <Minimap canvas={canvas} scene={scene} />}
       </div>
 
       <div className="vtt-hud-section vtt-hud-actions">

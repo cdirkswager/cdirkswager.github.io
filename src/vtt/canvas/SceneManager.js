@@ -45,8 +45,10 @@ export class SceneManager {
     if (!scene || sceneId === this._activeSceneId) return
     this._activeSceneId = sceneId
     this.renderer.loadScene(scene)
+    this.renderer.setLightingEnabled(scene.lightingEnabled)
+    this.controller.ambientLight = scene.ambientLight ?? 0
     this.controller._spatialIndex.invalidate()
-    this.controller.invalidateLighting()
+    this.controller.refreshLighting()
     this.controller.syncViewpointToOwnedTokens()
     this.controller.syncViewpointToAllVisionTokens()
     this.eventBus?.emit('scene:switched', { sceneId })
