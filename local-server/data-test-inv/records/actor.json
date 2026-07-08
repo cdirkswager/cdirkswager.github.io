@@ -1,0 +1,109 @@
+[
+  {
+    "id": "aacf5ee6-a0ec-4f6b-a3e1-2b4bb62c263a",
+    "type": "actor",
+    "name": "Lyra",
+    "actorType": "character",
+    "ownership": {
+      "default": "none",
+      "users": {
+        "alice-1": "owner"
+      }
+    },
+    "attributes": {
+      "attunement": {
+        "max": 3
+      }
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783487370643,
+    "createdAt": 1783487370643
+  },
+  {
+    "id": "04e3f80e-0bc5-4498-b8b7-fefffa731b21",
+    "type": "actor",
+    "name": "Thane",
+    "actorType": "character",
+    "ownership": {
+      "default": "none",
+      "users": {
+        "bob-1": "owner"
+      }
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783487370644,
+    "createdAt": 1783487370644
+  },
+  {
+    "id": "3386c16c-b76c-477e-943c-3b7d072153cb",
+    "type": "actor",
+    "name": "Party Stash",
+    "actorType": "party-stash",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783487370644,
+    "createdAt": 1783487370644
+  },
+  {
+    "id": "231ef9a7-9988-4b39-95ef-99abc508ae4a",
+    "type": "actor",
+    "name": "Chest",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "createdBy": "dm-1",
+    "updatedAt": 1783487370645,
+    "createdAt": 1783487370645
+  },
+  {
+    "type": "actor",
+    "id": "d97b7d59-4385-4f78-9ab3-1e43a1234d2b",
+    "name": "Dropped",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "attributes": {
+      "schema": 1,
+      "currency": {
+        "pp": 0,
+        "gp": 0,
+        "ep": 0,
+        "sp": 0,
+        "cp": 0
+      }
+    },
+    "createdBy": "alice-1",
+    "createdAt": 1783487370775,
+    "updatedAt": 1783487370775
+  },
+  {
+    "type": "actor",
+    "id": "b0de1ce8-6b45-4f8f-9b21-6ac6718537bb",
+    "name": "Coins",
+    "actorType": "loot-pile",
+    "ownership": {
+      "default": "owner",
+      "users": {}
+    },
+    "attributes": {
+      "schema": 1,
+      "currency": {
+        "pp": 0,
+        "gp": 0,
+        "ep": 0,
+        "sp": 0,
+        "cp": 0
+      }
+    },
+    "createdBy": "alice-1",
+    "createdAt": 1783487370778,
+    "updatedAt": 1783487370778
+  }
+]

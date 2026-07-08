@@ -3,27 +3,41 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://dirkagility.github.io/Hunt-Website",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "pages:dev": "wrangler pages dev dist --kv=HUNT_DATA --d1=HUNT_DB",
+    "deploy": "npm run build && npm run db:migrate && wrangler pages deploy dist",
+    "pages:deploy": "wrangler pages deploy dist",
+    "db:migrate": "wrangler d1 migrations apply hunt-db",
+    "db:execute": "wrangler d1 execute hunt-db",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "animate.css": "^4.1.1",
+    "pixi.js": "^8.19.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "gh-pages": "^6.2.0",
-    "postcss": "^8.4.49",
-    "vite": "^6.0.3"
+    "autoprefixer": "^10.5.0",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
+    "vite": "^6.0.3",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.96.0"
   }
 }

@@ -237,11 +237,15 @@
 }
 
 @media (max-width: 480px) {
+  .rating-group {
+    gap: 3px;
+  }
+
   .rating-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 0.75rem;
-    min-height: 32px;
+    width: 44px;
+    height: 44px;
+    font-size: 0.85rem;
+    min-height: 44px;
   }
 
   .radio-label,

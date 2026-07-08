@@ -1,0 +1,14 @@
+{
+  "name": "local-game-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local game server for VTT — Stage 1 Foundation",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.2"
+  }
+}

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VTT Sync Test</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
+header { background: #16213e; padding: 16px 24px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+header h1 { font-size: 18px; color: #e94560; margin: 0; }
+#status { font-size: 13px; padding: 4px 12px; border-radius: 4px; }
+#status.connected { background: #1b5e20; color: #a5d6a7; }
+#status.disconnected { background: #b71c1c; color: #ffcdd2; }
+#status.connecting { background: #e65100; color: #ffe0b2; }
+main { display: flex; flex: 1; gap: 0; }
+.col { flex: 1; padding: 16px; border-right: 1px solid #0f3460; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.col:last-child { border-right: none; }
+label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+input, select, textarea, button { font: inherit; }
+input, select { background: #16213e; border: 1px solid #0f3460; color: #e0e0e0; padding: 8px 12px; border-radius: 4px; }
+input:focus, select:focus { outline: none; border-color: #e94560; }
+button { background: #0f3460; color: #e0e0e0; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+button:hover { background: #1a5276; }
+button.danger { background: #b71c1c; }
+button.danger:hover { background: #d32f2f; }
+button.primary { background: #e94560; }
+button.primary:hover { background: #ff6b81; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-row { display: flex; gap: 8px; }
+.field-row > * { flex: 1; }
+#log { background: #0d1117; border: 1px solid #0f3460; border-radius: 4px; padding: 8px; font-family: 'Menlo', monospace; font-size: 12px; overflow-y: auto; min-height: 100px; flex: 1; white-space: pre-wrap; word-break: break-all; }
+.log-entry { color: #8b949e; }
+.log-entry.error { color: #f85149; }
+.log-entry.ok { color: #7ee787; }
+.log-entry.info { color: #79c0ff; }
+.log-entry.warn { color: #d29922; }
+#identity { font-size: 13px; background: #16213e; border: 1px solid #0f3460; border-radius: 4px; padding: 8px 12px; display: none; }
+#identity dt { color: #888; font-size: 11px; text-transform: uppercase; }
+#identity dd { color: #e0e0e0; margin: 0 0 4px 16px; }
+#records { list-style: none; background: #16213e; border: 1px solid #0f3460; border-radius: 4px; overflow-y: auto; min-height: 60px; }
+#records li { padding: 6px 8px; border-bottom: 1px solid #0f3460; font-size: 12px; display: flex; justify-content: space-between; gap: 8px; }
+#records li:last-child { border-bottom: none; }
+#records .rec-type { color: #e94560; font-weight: bold; }
+#records .rec-id { color: #888; font-family: monospace; font-size: 11px; }
+#records .rec-owner { color: #79c0ff; font-size: 11px; }
+#records .rec-detail { color: #8b949e; font-size: 11px; }
+.rec-actions button { font-size: 11px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>VTT Sync Test</h1>
+  <span id="status" class="disconnected">Disconnected</span>
+  <div style="flex:1"></div>
+  <label>Token: <input type="text" id="tokenInput" size="40" placeholder="Paste VTT JWT from site" style="font-size:12px"></label>
+  <button id="connectBtn" class="primary" onclick="connect()">Connect</button>
+</header>
+
+<main>
+  <div class="col">
+    <div id="identity"></div>
+    <div class="field">
+      <label>Create Record</label>
+      <div class="field-row">
+        <select id="recType">
+          <option value="token">Token</option>
+          <option value="template">Template</option>
+          <option value="wall">Wall</option>
+        </select>
+        <input type="text" id="recLabel" placeholder="Label (optional)">
+      </div>
+      <div class="field-row">
+        <input type="number" id="recX" placeholder="X" value="100">
+        <input type="number" id="recY" placeholder="Y" value="100">
+      </div>
+      <button onclick="createRecord()" class="primary">Create</button>
+    </div>
+    <div class="field">
+      <label>Actions</label>
+      <div class="field-row">
+        <button onclick="sendPing()">Send Ping (ephemeral)</button>
+        <button class="danger" onclick="disconnect()">Disconnect</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <label>Records (<span id="recCount">0</span>)</label>
+    <ul id="records"></ul>
+  </div>
+
+  <div class="col" style="display:flex;flex-direction:column;min-height:0">
+    <label>Event Log</label>
+    <pre id="log"></pre>
+  </div>
+</main>
+
+<script>
+// ─── Inline EventBus ─────────────────────────────────
+class EventBus {
+  constructor() {
+    this._listeners = {}
+  }
+  on(event, fn) {
+    ;(this._listeners[event] ??= []).push(fn)
+    return () => this.off(event, fn)
+  }
+  off(event, fn) {
+    const list = this._listeners[event]
+    if (!list) return
+    const idx = list.indexOf(fn)
+    if (idx !== -1) list.splice(idx, 1)
+  }
+  emit(event, payload) {
+    const list = this._listeners[event]
+    if (!list) return
+    for (const fn of list) {
+      try { fn(payload) } catch (e) { console.warn('EventBus error', event, e) }
+    }
+  }
+  emitRecord(resource, action, data) {
+    this.emit(`${resource}:${action}`, data)
+    this.emit('record:changed', { resource, action, data })
+  }
+  emitEphemeral(type, payload) {
+    this.emit('ephemeral', { type, ...payload })
+  }
+  destroy() { this._listeners = {} }
+}
+
+// ─── Inline VttSyncClient ────────────────────────────
+class VttSyncClient {
+  constructor({ eventBus, getToken, url }) {
+    if (!eventBus || !getToken || !url) throw new Error('VttSyncClient requires eventBus, getToken, and url')
+    this.eventBus = eventBus
+    this.getToken = getToken
+    this.url = url
+    this.ws = null
+    this.reconnectDelay = 2000
+    this._sending = false
+    this._destroyed = false
+    this._unsubs = []
+  }
+  connect() {
+    if (this._destroyed) return
+    const token = this.getToken()
+    if (!token) {
+      console.warn('[VttSyncClient] No token available')
+      return
+    }
+    this.ws = new WebSocket(`${this.url}?token=${token}`)
+    this.ws.onopen = () => {
+      console.log('[VttSyncClient] Connected')
+      this._subscribe()
+    }
+    this.ws.onmessage = (e) => {
+      try { this._onMessage(JSON.parse(e.data)) } catch (err) { console.warn('[VttSyncClient] Invalid message', err) }
+    }
+    this.ws.onclose = () => {
+      console.log('[VttSyncClient] Disconnected')
+      this._unsubscribe()
+      if (!this._destroyed) setTimeout(() => this.connect(), this.reconnectDelay)
+    }
+    this.ws.onerror = () => {}
+  }
+  _subscribe() {
+    this._unsubs.push(this.eventBus.on('record:changed', (e) => this._onRecordChanged(e)))
+    this._unsubs.push(this.eventBus.on('ephemeral', (e) => this._onEphemeral(e)))
+  }
+  _unsubscribe() {
+    for (const unsub of this._unsubs) unsub()
+    this._unsubs = []
+  }
+  _onMessage(msg) {
+    switch (msg.type) {
+      case 'init':
+        this._sending = true
+        for (const [type, records] of Object.entries(msg.recordsByType || {})) {
+          for (const record of records) {
+            this.eventBus.emitRecord(type, 'created', record)
+          }
+        }
+        this._sending = false
+        if (onInit) onInit(msg.identity, msg.recordsByType || {})
+        break
+      case 'record-created':
+        this._sending = true
+        this.eventBus.emitRecord(msg.record.type, 'created', msg.record)
+        this._sending = false
+        if (onRecordCreated) onRecordCreated(msg.record)
+        break
+      case 'record-updated':
+        this._sending = true
+        this.eventBus.emitRecord(msg.record.type, 'updated', msg.record)
+        this._sending = false
+        if (onRecordUpdated) onRecordUpdated(msg.record)
+        break
+      case 'record-deleted':
+        this._sending = true
+        this.eventBus.emitRecord(msg.kind, 'deleted', { id: msg.recordId })
+        this._sending = false
+        if (onRecordDeleted) onRecordDeleted(msg.kind, msg.recordId)
+        break
+      case 'ephemeral':
+        if (onEphemeral) onEphemeral(msg)
+        break
+      case 'record-created-ack':
+      case 'record-updated-ack':
+        break
+      case 'error':
+        if (onServerError) onServerError(msg.message)
+        break
+    }
+  }
+  _onRecordChanged(e) {
+    if (this._sending || !this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    switch (e.action) {
+      case 'created':
+        this.ws.send(JSON.stringify({ type: 'create-record', record: { ...e.data, type: e.resource } }))
+        break
+      case 'updated':
+        this.ws.send(JSON.stringify({ type: 'update-record', kind: e.resource, recordId: e.data.id, changes: e.data }))
+        break
+      case 'deleted':
+        this.ws.send(JSON.stringify({ type: 'delete-record', kind: e.resource, recordId: e.data.id }))
+        break
+    }
+  }
+  _onEphemeral(e) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'ephemeral', payload: e }))
+    }
+  }
+  disconnect() {
+    this._destroyed = true
+    this._unsubscribe()
+    if (this.ws) {
+      this.ws.onclose = null
+      this.ws.close()
+      this.ws = null
+    }
+  }
+}
+
+// ─── App state ───────────────────────────────────────
+let bus = new EventBus()
+let sync = null
+let records = {} // type -> [record]
+let myIdentity = null
+
+// Callbacks set by VttSyncClient
+let onInit = null
+let onRecordCreated = null
+let onRecordUpdated = null
+let onRecordDeleted = null
+let onEphemeral = null
+let onServerError = null
+
+// ─── Logging ─────────────────────────────────────────
+function log(msg, cls = '') {
+  const el = document.getElementById('log')
+  const ts = new Date().toLocaleTimeString()
+  el.appendChild(Object.assign(document.createElement('div'), {
+    className: 'log-entry' + (cls ? ' ' + cls : ''),
+    textContent: `[${ts}] ${msg}`,
+  }))
+  el.scrollTop = el.scrollHeight
+}
+
+// ─── Status ──────────────────────────────────────────
+function setStatus(text, cls) {
+  const s = document.getElementById('status')
+  s.textContent = text
+  s.className = cls
+}
+
+// ─── Records UI ──────────────────────────────────────
+function renderRecords() {
+  const el = document.getElementById('records')
+  const count = document.getElementById('recCount')
+  el.innerHTML = ''
+  let total = 0
+  for (const [type, list] of Object.entries(records)) {
+    for (const rec of list) {
+      total++
+      const li = document.createElement('li')
+      const info = document.createElement('span')
+      const detail = JSON.stringify({ x: rec.x, y: rec.y, ...(rec.shape ? { shape: rec.shape, radius: rec.radius } : {}) })
+      info.innerHTML = `<span class="rec-type">${type}</span> <span class="rec-id">${rec.id.slice(0,8)}</span> <span class="rec-owner">${rec.owner || rec.createdBy || '?'}</span> <span class="rec-detail">${detail}</span>`
+      li.appendChild(info)
+      if (rec.label) {
+        const label = document.createElement('span')
+        label.textContent = rec.label
+        label.style.cssText = 'color:#d29922;font-size:11px'
+        li.appendChild(label)
+      }
+      el.appendChild(li)
+    }
+  }
+  document.getElementById('recCount').textContent = total
+}
+
+// ─── Connect / Disconnect ────────────────────────────
+function connect() {
+  const token = document.getElementById('tokenInput').value.trim()
+  if (!token) {
+    log('Enter a VTT JWT token first', 'error')
+    return
+  }
+
+  setStatus('Connecting...', 'connecting')
+
+  sync = new VttSyncClient({
+    eventBus: bus,
+    getToken: () => token,
+    url: `ws://${location.host}`,
+  })
+
+  onInit = (identity, recordsByType) => {
+    myIdentity = identity
+    records = {}
+    for (const [type, list] of Object.entries(recordsByType)) {
+      records[type] = [...list]
+    }
+    renderRecords()
+
+    const idEl = document.getElementById('identity')
+    idEl.style.display = 'block'
+    idEl.innerHTML = `
+      <dl>
+        <dt>User</dt><dd>${identity.username} (${identity.userId})</dd>
+        <dt>Role</dt><dd>${identity.role}</dd>
+      </dl>`
+    setStatus(`Connected as ${identity.username} (${identity.role})`, 'connected')
+    log(`Connected as ${identity.username} (${identity.role}, ${identity.userId})`, 'ok')
+    document.getElementById('connectBtn').disabled = true
+  }
+
+  onRecordCreated = (record) => {
+    const type = record.type
+    if (!records[type]) records[type] = []
+    records[type].push(record)
+    renderRecords()
+    log(`+ ${record.type} ${record.id.slice(0,8)}${record.label ? ' "' + record.label + '"' : ''}`, 'info')
+  }
+
+  onRecordUpdated = (record) => {
+    const type = record.type
+    if (!records[type]) records[type] = []
+    const idx = records[type].findIndex(r => r.id === record.id)
+    if (idx >= 0) records[type][idx] = record
+    else records[type].push(record)
+    renderRecords()
+    log(`~ ${record.type} ${record.id.slice(0,8)} updated`, 'info')
+  }
+
+  onRecordDeleted = (kind, id) => {
+    if (!records[kind]) return
+    records[kind] = records[kind].filter(r => r.id !== id)
+    renderRecords()
+    log(`- ${kind} ${id.slice(0,8)} deleted`, 'warn')
+  }
+
+  onEphemeral = (msg) => {
+    log(`[ephemeral] ${msg.payload.type} from ${msg.userId.slice(0,8)}: ${JSON.stringify(msg.payload)}`, 'info')
+  }
+
+  onServerError = (message) => {
+    log(`Server error: ${message}`, 'error')
+  }
+
+  sync.connect()
+}
+
+function disconnect() {
+  if (sync) {
+    sync.disconnect()
+    sync = null
+  }
+  setStatus('Disconnected', 'disconnected')
+  document.getElementById('connectBtn').disabled = false
+  document.getElementById('identity').style.display = 'none'
+  records = {}
+  renderRecords()
+  log('Disconnected', 'warn')
+}
+
+// ─── Create Record ───────────────────────────────────
+function createRecord() {
+  if (!sync) { log('Connect first', 'error'); return }
+  const type = document.getElementById('recType').value
+  const label = document.getElementById('recLabel').value.trim()
+  const x = parseInt(document.getElementById('recX').value) || 0
+  const y = parseInt(document.getElementById('recY').value) || 0
+
+  const record = {
+    id: crypto.randomUUID(),
+    type,
+    x, y,
+    owner: myIdentity?.userId || 'unknown',
+  }
+  if (label) record.label = label
+
+  bus.emitRecord(type, 'created', record)
+  log(`Created ${type} ${record.id.slice(0,8)} locally`, 'ok')
+}
+
+// ─── Ping ────────────────────────────────────────────
+function sendPing() {
+  if (!sync) { log('Connect first', 'error'); return }
+  bus.emitEphemeral('ping', { x: Math.floor(Math.random() * 500), y: Math.floor(Math.random() * 500) })
+  log('Ping sent', 'info')
+}
+
+// ─── Window events ───────────────────────────────────
+window.addEventListener('beforeunload', () => {
+  if (sync) sync.disconnect()
+})
+
+log('Open this page in two browser tabs, get a VTT JWT from the site, and paste it in both tabs.', 'info')
+log('Steps:', 'info')
+log('  1. Log into your VTT site (hunt-website.pages.dev)', 'info')
+log('  2. Open the browser console and run:', 'info')
+log('     fetch("/api/auth/vtt-token",{method:"POST",credentials:"include"})', 'info')
+log('     .then(r=>r.json()).then(d=>console.log(d.token))', 'info')
+log('  3. Copy the token and paste it above in both tabs', 'info')
+log('  4. Click Connect in both tabs', 'info')
+log('  5. Create a record in Tab 1 — it appears in Tab 2', 'info')
+</script>
+</body>
+</html>

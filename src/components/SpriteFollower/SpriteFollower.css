@@ -1,0 +1,13 @@
+.sprite-follower {
+  position: absolute;
+  z-index: 9999;
+  width: 80px;
+  height: auto;
+  pointer-events: none;
+  image-rendering: pixelated;
+  will-change: transform;
+}
+
+.sprite-follower.sitting {
+  width: 40px;
+}

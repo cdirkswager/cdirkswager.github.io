@@ -58,7 +58,36 @@
   padding: 20px 24px 24px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.column-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
+
+.column-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 40px;
+  font-size: 0.85rem;
+}
+
+.column-option:hover {
+  border-color: var(--accent-gold);
+}
+
+.column-option.active {
+  border-color: var(--accent-gold);
+  background: rgba(201, 168, 76, 0.1);
+}
+
+.column-option input[type="radio"] {
+  display: none;
+}
+

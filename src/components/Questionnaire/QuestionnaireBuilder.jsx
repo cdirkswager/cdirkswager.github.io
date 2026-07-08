@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getQuestionnaire, saveQuestionnaire } from '../../data/store'
+import { getQuestionnaire, saveQuestionnaire, getPlayers, createNotification } from '../../data/store'
 import './Questionnaire.css'
 
 const questionTypes = [
@@ -36,6 +36,7 @@ export default function QuestionnaireBuilder() {
     title: '',
     description: '',
     questions: [],
+    assignedTo: [],
   })
   const [editingQ, setEditingQ] = useState(null)
   const [saved, setSaved] = useState(false)
@@ -43,7 +44,7 @@ export default function QuestionnaireBuilder() {
   useEffect(() => {
     if (id) {
       const q = getQuestionnaire(id)
-      if (q) setForm({ title: q.title, description: q.description || '', questions: q.questions || [] })
+      if (q) setForm({ title: q.title, description: q.description || '', questions: q.questions || [], assignedTo: q.assignedTo || [] })
     }
   }, [id])
 
@@ -93,25 +94,30 @@ export default function QuestionnaireBuilder() {
     updateQuestion(qIndex, { options })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) return
     const cleanQuestions = form.questions.map(q => {
-      const cleaned = { ...q }
-      if (['select', 'radio', 'checkbox'].includes(q.type)) {
-        cleaned.options = q.options.filter(o => o.trim())
-      } else {
-        delete cleaned.options
-      }
-      if (q.type !== 'scale') {
-        delete cleaned.scaleMin
-        delete cleaned.scaleMax
-        delete cleaned.scaleStart
-        delete cleaned.scaleEnd
-      }
+      const cleaned = { id: q.id, type: q.type, label: q.label, required: q.required }
+      if (q.type === 'text' || q.type === 'textarea') cleaned.placeholder = q.placeholder
+      if (q.type === 'number') { cleaned.min = q.min; cleaned.max = q.max }
+      if (['select', 'radio', 'checkbox'].includes(q.type)) cleaned.options = q.options?.filter(o => o.trim()) || []
+      if (q.type === 'scale') { cleaned.scaleMin = q.scaleMin; cleaned.scaleMax = q.scaleMax; cleaned.scaleStart = q.scaleStart; cleaned.scaleEnd = q.scaleEnd }
       return cleaned
     })
-    const saved_q = saveQuestionnaire({ ...form, questions: cleanQuestions, id: id || undefined })
+    const prevAssigned = id ? (getQuestionnaire(id)?.assignedTo || []) : []
+    const saved_q = await saveQuestionnaire({ ...form, assignedTo: form.assignedTo, questions: cleanQuestions, id: id || undefined })
+    // Notify newly assigned players
+    const newPlayers = (form.assignedTo || []).filter(pid => !prevAssigned.includes(pid))
+    for (const pid of newPlayers) {
+      await createNotification({
+        playerId: pid,
+        type: 'questionnaire',
+        title: `📝 Questionnaire: ${form.title}`,
+        message: form.description || 'The DM has assigned a questionnaire for your character.',
+        link: `/questionnaire/${saved_q.id}`,
+      })
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     if (!id) navigate(`/dm/questionnaire/${saved_q.id}`, { replace: true })
@@ -151,6 +157,44 @@ export default function QuestionnaireBuilder() {
                 placeholder="Tell me about your character's past..."
                 rows={2}
               />
+            </div>
+          </div>
+
+          <div className="card gold-border mb-2">
+            <div className="mb-2">
+              <label>Assign to Players</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                {getPlayers().map(p => {
+                  const checked = form.assignedTo?.includes(p.id)
+                  return (
+                    <label key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                      padding: '6px 12px', border: `1px solid ${checked ? 'var(--accent-gold)' : 'var(--border-light)'}`,
+                      borderRadius: 'var(--radius)', background: checked ? 'rgba(201,148,42,0.08)' : 'transparent',
+                      transition: 'all 0.15s', fontSize: '0.85rem',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...(form.assignedTo || []), p.id]
+                            : (form.assignedTo || []).filter(id => id !== p.id)
+                          setForm({ ...form, assignedTo: next })
+                        }}
+                        style={{ width: 'auto', minHeight: 'auto', margin: 0 }}
+                      />
+                      <span style={{ color: 'var(--text-primary)' }}>{p.name}</span>
+                    </label>
+                  )
+                })}
+                {getPlayers().length === 0 && (
+                  <p className="text-muted" style={{ fontSize: '0.85rem' }}>No players yet.</p>
+                )}
+              </div>
+              <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+                Assigned players will see a notification on their character page.
+              </p>
             </div>
           </div>
 

@@ -1,0 +1,80 @@
+.sprite-grid-container {
+  margin-top: 48px;
+}
+
+.sprite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.sprite-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.sprite-card:hover {
+  border-color: var(--accent-gold) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(201, 168, 76, 0.15);
+}
+
+.sprite-card:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.sprite-card.active {
+  border-color: var(--accent-magic) !important;
+  box-shadow: 0 0 20px rgba(106, 76, 201, 0.25);
+}
+
+.sprite-card.populated {
+  cursor: pointer;
+}
+
+.sprite-card-visual {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sprite-card-img {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+.sprite-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px dashed var(--border-light);
+}
+
+.sprite-card-question {
+  font-size: 2rem;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  line-height: 1;
+}
+
+.sprite-card-name {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+}

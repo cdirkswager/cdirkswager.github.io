@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getQuestionnaire, getPlayers, saveResponse, getResponses } from '../../data/store'
+import { getSession } from '../../data/auth'
 import './Questionnaire.css'
 
 export default function Questionnaire() {
@@ -18,6 +19,15 @@ export default function Questionnaire() {
     setResponses(getResponses(id))
   }, [id])
 
+  const session = getSession()
+  const isAssigned = questionnaire?.assignedTo?.includes(session?.playerId)
+
+  useEffect(() => {
+    if (isAssigned && session?.playerId) {
+      setPlayerId(session.playerId)
+    }
+  }, [isAssigned, session])
+
   if (!questionnaire) {
     return (
       <div className="page container text-center">
@@ -28,10 +38,10 @@ export default function Questionnaire() {
     )
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!playerId) return
-    saveResponse({ questionnaireId: id, playerId, answers })
+    await saveResponse({ questionnaireId: id, playerId, answers })
     setSubmitted(true)
     setResponses(getResponses(id))
   }
@@ -55,9 +65,9 @@ export default function Questionnaire() {
           <div className="animate__animated animate__fadeIn">
             <h2 className="text-gold mb-2">✅ Submitted!</h2>
             <p className="mb-3">Your responses have been recorded.</p>
-            <Link to={`/questionnaire/${id}`} className="btn btn-primary">
+            <button className="btn btn-primary" onClick={() => { setSubmitted(false); setAnswers({}); setPlayerId('') }}>
               📝 Submit Another Response
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -74,6 +84,16 @@ export default function Questionnaire() {
               <p className="text-muted mt-1">{questionnaire.description}</p>
             )}
           </div>
+
+          {isAssigned && (
+            <div style={{
+              background: 'rgba(201,148,42,0.08)', border: '1px solid rgba(201,148,42,0.3)',
+              borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 20,
+              fontSize: '0.9rem', color: 'var(--accent-gold)',
+            }}>
+              📋 This questionnaire has been assigned to you by the DM.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="questionnaire-form">
             <div className="mb-3">
