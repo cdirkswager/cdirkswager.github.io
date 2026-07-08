@@ -6,16 +6,13 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
   const [scenes, setScenes] = useState(sceneManager ? [...sceneManager.scenes] : [])
   const [activeId, setActiveId] = useState(sceneManager?.activeScene?.id ?? null)
   const [userScenes, setUserScenes] = useState(new Map(sceneManager?.userScenes ?? []))
-
-  /* Lighting & Vision state */
-  const [lighting, setLighting] = useState(canvas?.scene?.lightingEnabled ?? false)
-  const [ambient, setAmbient] = useState(canvas?.scene?.ambientLight ?? 0)
-  const [gridUnit, setGridUnit] = useState(canvas?.scene?.gridUnit ?? 5)
-  const [gridUnitLabel, setGridUnitLabel] = useState(canvas?.scene?.gridUnitLabel ?? 'ft')
-  const [viewAll, setViewAll] = useState(canvas?.controller?.viewAll ?? false)
-  const [viewpointId, setViewpointId] = useState(canvas?.controller?._viewpointTokenIds?.[0] ?? '')
   const [tokens, setTokens] = useState(canvas?.scene ? [...canvas.scene.tokens] : [])
-  const [sceneName, setSceneName] = useState(canvas?.scene?.name ?? '')
+  const [expandedSceneId, setExpandedSceneId] = useState(null)
+  const [editingName, setEditingName] = useState(null)
+  const [editNameValue, setEditNameValue] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+
+  const userLookup = new Map((connectedUsers ?? []).map(u => [u.userId, u.username ?? u.userId]))
 
   useEffect(() => {
     if (!sceneManager) return
@@ -28,7 +25,6 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     return eventBus?.on('scenes-changed', refresh)
   }, [sceneManager, eventBus])
 
-  /* Auto-register connected users into userScenes */
   useEffect(() => {
     if (!sceneManager || !connectedUsers) return
     let changed = false
@@ -43,7 +39,6 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     }
   }, [sceneManager, connectedUsers])
 
-  /* Sync token list when tokens change */
   useEffect(() => {
     if (!eventBus || !canvas?.scene) return
     const sync = () => setTokens([...canvas.scene.tokens])
@@ -54,31 +49,19 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     return () => { unsub1(); unsub2(); unsub3() }
   }, [eventBus, canvas])
 
-  /* Sync lighting state from scene record changes */
+  /* Auto-collapse detail panel when switching scenes */
   useEffect(() => {
-    if (!eventBus || !canvas?.scene) return
-    const refresh = () => {
-      setLighting(canvas.scene.lightingEnabled)
-      setAmbient(canvas.scene.ambientLight ?? 0)
-      setSceneName(canvas.scene.name)
-      setGridUnit(canvas.scene.gridUnit ?? 5)
-      setGridUnitLabel(canvas.scene.gridUnitLabel ?? 'ft')
-    }
-    const unsub1 = eventBus.on('scene:updated', refresh)
-    const unsub2 = eventBus.on('scene:switched', () => {
-      refresh()
-      setTokens([...canvas.scene.tokens])
-      setViewAll(canvas.controller?.viewAll ?? false)
-      setViewpointId(canvas.controller?._viewpointTokenIds?.[0] ?? '')
-    })
-    return () => { unsub1(); unsub2() }
-  }, [eventBus, canvas])
+    if (!eventBus) return
+    return eventBus.on('scene:switched', () => setExpandedSceneId(null))
+  }, [eventBus])
 
-  const maybeEmitSceneUpdate = useCallback((changes) => {
-    if (!canvas?.scene || !eventBus) return
-    Object.assign(canvas.scene, changes)
-    eventBus.emitRecord('scene', 'updated', { id: canvas.scene.id, ...changes })
-  }, [canvas, eventBus])
+  const emitSceneUpdate = useCallback((sceneId, changes) => {
+    if (!eventBus) return
+    const s = sceneManager?.scenes.find(x => x.id === sceneId)
+    if (s) Object.assign(s, changes)
+    eventBus.emitRecord('scene', 'updated', { id: sceneId, ...changes })
+    setScenes(sceneManager ? [...sceneManager.scenes] : [])
+  }, [eventBus, sceneManager])
 
   const handleSwitch = useCallback((sceneId) => {
     if (!sceneManager || !eventBus) return
@@ -97,6 +80,7 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     if (!sceneManager || !eventBus || sceneId === activeId) return
     sceneManager.remove(sceneId)
     eventBus.emitRecord('scene', 'deleted', { id: sceneId })
+    setDeleteConfirmId(null)
   }, [sceneManager, eventBus, activeId])
 
   const handleMoveAll = useCallback(() => {
@@ -104,96 +88,239 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
     sceneManager.moveAllUsersToScene(activeId)
   }, [sceneManager, activeId])
 
-  /* Lighting & Vision handlers */
-  const handleToggleLighting = useCallback(() => {
-    const next = !lighting
-    setLighting(next)
-    canvas.setLightingEnabled(next)
-    canvas.scene.lightingEnabled = next
-    maybeEmitSceneUpdate({ lightingEnabled: next })
-    if (next) canvas.refreshLighting()
-  }, [canvas, lighting, maybeEmitSceneUpdate])
-
-  const handleSetAmbient = useCallback((e) => {
-    const val = Number(e.target.value)
-    setAmbient(val)
-    canvas.scene.ambientLight = val
-    maybeEmitSceneUpdate({ ambientLight: val })
-    canvas.refreshLighting()
-  }, [canvas, maybeEmitSceneUpdate])
-
-  const handleGridUnitChange = useCallback((e) => {
-    const val = Number(e.target.value)
-    setGridUnit(val)
-    if (canvas?.scene) {
-      canvas.scene.gridUnit = val
-      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, val, canvas.scene.gridUnitLabel)
+  /* Eyeball toggle per scene row */
+  const handleToggleSceneLighting = useCallback((sceneId) => {
+    const s = sceneManager?.scenes.find(x => x.id === sceneId)
+    if (!s || !eventBus) return
+    const next = !s.lightingEnabled
+    s.lightingEnabled = next
+    eventBus.emitRecord('scene', 'updated', { id: sceneId, lightingEnabled: next })
+    if (canvas?.scene?.id === sceneId) {
+      canvas.setLightingEnabled(next)
+      if (next) canvas.refreshLighting()
     }
-  }, [canvas])
+    setScenes([...sceneManager.scenes])
+  }, [sceneManager, eventBus, canvas])
 
-  const handleGridUnitLabelChange = useCallback((e) => {
-    const val = e.target.value
-    setGridUnitLabel(val)
-    if (canvas?.scene) {
-      canvas.scene.gridUnitLabel = val
-      canvas.renderer.rulerLayer.setGrid(canvas.scene.gridSize, canvas.scene.gridType, canvas.scene.gridUnit, val)
-    }
-  }, [canvas])
+  /* Name editing */
+  const handleStartEditName = useCallback((sceneId, current) => {
+    setEditingName(sceneId)
+    setEditNameValue(current)
+  }, [])
 
-  const handleToggleViewAll = useCallback(() => {
-    const next = !viewAll
-    setViewAll(next)
-    if (canvas?.controller) {
-      canvas.controller.viewAll = next
+  const handleSaveName = useCallback(() => {
+    if (!editingName || !editNameValue || !eventBus || !sceneManager) return
+    const s = sceneManager.scenes.find(x => x.id === editingName)
+    if (s) s.name = editNameValue
+    eventBus.emitRecord('scene', 'updated', { id: editingName, name: editNameValue })
+    if (canvas?.scene?.id === editingName) canvas.scene.name = editNameValue
+    setEditingName(null)
+    setEditNameValue('')
+    setScenes([...sceneManager.scenes])
+  }, [editingName, editNameValue, eventBus, sceneManager, canvas])
+
+  const handleCancelEditName = useCallback(() => {
+    setEditingName(null)
+    setEditNameValue('')
+  }, [])
+
+  const handleNameKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') handleSaveName()
+    else if (e.key === 'Escape') handleCancelEditName()
+  }, [handleSaveName, handleCancelEditName])
+
+  /* Detail panel: map size */
+  const handleMapSizeChange = useCallback((sceneId, dim, gridVal) => {
+    const s = sceneManager?.scenes.find(x => x.id === sceneId)
+    if (!s || !eventBus) return
+    const px = Math.round(gridVal * s.gridSize)
+    if (dim === 'width') s.width = px
+    else s.height = px
+    eventBus.emitRecord('scene', 'updated', { id: sceneId, width: s.width, height: s.height })
+    setScenes([...sceneManager.scenes])
+  }, [sceneManager, eventBus])
+
+  /* Detail panel: ambient light */
+  const handleSetAmbient = useCallback((sceneId, e) => {
+    const val = Number(e.target.value)
+    emitSceneUpdate(sceneId, { ambientLight: val })
+    if (canvas?.scene?.id === sceneId) {
+      canvas.scene.ambientLight = val
       canvas.refreshLighting()
     }
-  }, [canvas, viewAll])
+  }, [emitSceneUpdate, canvas])
 
-  const handleViewpointSelect = useCallback((e) => {
+  /* Detail panel: view from token */
+  const handleViewpointSelect = useCallback((sceneId, e) => {
     const id = e.target.value
-    setViewpointId(id)
     if (!canvas?.controller) return
     if (id) {
       canvas.controller.viewAll = false
-      setViewAll(false)
       canvas.setViewpoint(id)
     } else {
       canvas.controller.setViewpoint([])
       canvas.controller.viewAll = true
-      setViewAll(true)
       canvas.refreshLighting()
     }
+    if (canvas?.scene?.id !== sceneId) return
   }, [canvas])
 
-  const handleNameChange = useCallback((e) => {
-    const val = e.target.value
-    setSceneName(val)
-    canvas.scene.name = val
-    maybeEmitSceneUpdate({ name: val })
-  }, [canvas, maybeEmitSceneUpdate])
+  /* Detail panel: grid unit */
+  const handleGridUnitChange = useCallback((sceneId, e) => {
+    const val = Number(e.target.value)
+    emitSceneUpdate(sceneId, { gridUnit: val })
+    if (canvas?.scene?.id === sceneId && canvas.renderer?.rulerLayer) {
+      const s = sceneManager?.scenes.find(x => x.id === sceneId)
+      if (s) canvas.renderer.rulerLayer.setGrid(s.gridSize, s.gridType, val, s.gridUnitLabel)
+    }
+  }, [emitSceneUpdate, canvas, sceneManager])
 
-  const userLookup = new Map((connectedUsers ?? []).map(u => [u.userId, u.username ?? u.userId]))
+  const handleGridUnitLabelChange = useCallback((sceneId, e) => {
+    const val = e.target.value
+    emitSceneUpdate(sceneId, { gridUnitLabel: val })
+    if (canvas?.scene?.id === sceneId && canvas.renderer?.rulerLayer) {
+      const s = sceneManager?.scenes.find(x => x.id === sceneId)
+      if (s) canvas.renderer.rulerLayer.setGrid(s.gridSize, s.gridType, s.gridUnit, val)
+    }
+  }, [emitSceneUpdate, canvas, sceneManager])
+
+  /* Render a detail panel for an expanded scene */
+  const renderDetailPanel = (s) => {
+    const sw = Math.round(s.width / s.gridSize)
+    const sh = Math.round(s.height / s.gridSize)
+    return (
+      <div className="vtt-scene-detail" key={`detail-${s.id}`}>
+        <div className="vtt-scene-detail-row">
+          <span className="vtt-scene-detail-label">Map Size</span>
+          <input
+            type="number" min="1" step="1"
+            className="vtt-input vtt-scene-detail-size"
+            value={sw}
+            onChange={(e) => handleMapSizeChange(s.id, 'width', Number(e.target.value))}
+            disabled={!isDm}
+          />
+          <span className="vtt-scene-detail-x">&times;</span>
+          <input
+            type="number" min="1" step="1"
+            className="vtt-input vtt-scene-detail-size"
+            value={sh}
+            onChange={(e) => handleMapSizeChange(s.id, 'height', Number(e.target.value))}
+            disabled={!isDm}
+          />
+          <span className="vtt-scene-detail-unit">cells</span>
+        </div>
+
+        {isDm && (
+          <>
+            <div className="vtt-scene-detail-row">
+              <span className="vtt-scene-detail-label">Ambient Light</span>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                className="vtt-range vtt-scene-detail-range"
+                value={s.ambientLight ?? 0}
+                onChange={(e) => handleSetAmbient(s.id, e)}
+              />
+              <span className="vtt-scene-detail-value">{Math.round((s.ambientLight ?? 0) * 100)}%</span>
+            </div>
+
+            <div className="vtt-scene-detail-row">
+              <span className="vtt-scene-detail-label">View from</span>
+              <select
+                className="vtt-input"
+                value={canvas?.controller?._viewpointTokenIds?.[0] ?? ''}
+                onChange={(e) => handleViewpointSelect(s.id, e)}
+                disabled={canvas?.scene?.id !== s.id}
+              >
+                <option value="">&mdash; None (view all) &mdash;</option>
+                {tokens.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <hr className="vtt-divider" />
+
+            <h5 className="vtt-scene-detail-section">Grid</h5>
+            <div className="vtt-scene-detail-row">
+              <span className="vtt-scene-detail-label">Per cell</span>
+              <input
+                type="number" min="0.1" step="1"
+                className="vtt-input vtt-scene-detail-sm"
+                value={s.gridUnit ?? 5}
+                onChange={(e) => handleGridUnitChange(s.id, e)}
+              />
+              <input
+                type="text"
+                className="vtt-input vtt-scene-detail-sm"
+                value={s.gridUnitLabel ?? 'ft'}
+                onChange={(e) => handleGridUnitLabelChange(s.id, e)}
+                placeholder="ft"
+              />
+            </div>
+          </>
+        )}
+
+        {isDm && s.id !== activeId && (
+          <>
+            <hr className="vtt-divider" />
+            {deleteConfirmId === s.id ? (
+              <div className="vtt-scene-detail-confirm">
+                <span className="vtt-scene-detail-confirm-text">Delete &ldquo;{s.name}&rdquo;?</span>
+                <button
+                  className="btn btn-sm vtt-danger-btn"
+                  onClick={() => handleDelete(s.id)}
+                >Yes, delete</button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => setDeleteConfirmId(null)}
+                >Cancel</button>
+              </div>
+            ) : (
+              <button
+                className="btn btn-sm vtt-danger-btn vtt-scene-detail-delete"
+                onClick={() => setDeleteConfirmId(s.id)}
+              >Delete Scene</button>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="vtt-panel vtt-scene-panel">
-      <h4>Scenes ({scenes.length})</h4>
-      {isDm && <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Scene</button>}
+      <div className="vtt-scene-panel-header">
+        <h4>Scenes ({scenes.length})</h4>
+        {isDm && <button onClick={handleCreate} className="btn btn-sm vtt-action-btn">+ Scene</button>}
+      </div>
       <div className="vtt-scene-list">
         {scenes.map(s => {
-          const sw = Math.round(s.width / s.gridSize)
-          const sh = Math.round(s.height / s.gridSize)
           const usersOnScene = []
           for (const [uid, sid] of userScenes) {
             if (sid === s.id) usersOnScene.push(uid)
           }
+          const isExpanded = expandedSceneId === s.id
           return (
-            <div
-              key={s.id}
-              className={`vtt-scene-item ${s.id === activeId ? 'active' : ''}`}
-            >
+            <div key={s.id} className={`vtt-scene-item ${s.id === activeId ? 'active' : ''}`}>
               <div className="vtt-scene-item-main" onClick={() => handleSwitch(s.id)}>
-                <span className="vtt-scene-name">{s.name}</span>
-                <span className="vtt-scene-size">{sw}×{sh}</span>
+                {editingName === s.id ? (
+                  <input
+                    type="text"
+                    className="vtt-input vtt-scene-name-input"
+                    value={editNameValue}
+                    onChange={(e) => setEditNameValue(e.target.value)}
+                    onBlur={handleSaveName}
+                    onKeyDown={handleNameKeyDown}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="vtt-scene-name"
+                    onDoubleClick={(e) => { e.stopPropagation(); handleStartEditName(s.id, s.name) }}
+                    title="Double-click to rename"
+                  >{s.name}</span>
+                )}
               </div>
               {usersOnScene.length > 0 && (
                 <div className="vtt-scene-users">
@@ -204,72 +331,25 @@ export default function VttScenePanel({ canvas, eventBus, connectedUsers, isDm }
                   ))}
                 </div>
               )}
-              {isDm && s.id !== activeId && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(s.id) }}
-                  className="btn btn-sm vtt-disconnect-btn"
-                  title="Delete scene"
-                >✕</button>
-              )}
+              <button
+                className={`btn btn-sm vtt-icon-btn ${s.lightingEnabled ? 'vtt-lighting-on' : ''}`}
+                onClick={(e) => { e.stopPropagation(); handleToggleSceneLighting(s.id) }}
+                title={s.lightingEnabled ? 'Disable lighting' : 'Enable lighting'}
+              >{s.lightingEnabled ? '\u25C9' : '\u25CE'}</button>
+              <button
+                className={`btn btn-sm vtt-icon-btn ${isExpanded ? 'vtt-expand-active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); setExpandedSceneId(isExpanded ? null : s.id) }}
+                title="Scene settings"
+              >{isExpanded ? '\u25BC' : '\u25B6'}</button>
+              {isExpanded && renderDetailPanel(s)}
             </div>
           )
         })}
       </div>
       {isDm && activeId && (
-        <button onClick={handleMoveAll} className="btn btn-sm vtt-action-btn" style={{ marginTop: 8, width: '100%' }}>
-          Move all users to current scene
+        <button onClick={handleMoveAll} className="btn btn-sm vtt-action-btn vtt-move-all-btn">
+          Move all users here
         </button>
-      )}
-
-      <hr className="vtt-divider" />
-
-      {canvas?.scene && (
-        <div className="vtt-scene-settings">
-          <h4>Active Scene Settings</h4>
-
-          {isDm && (
-            <label>Name
-              <input type="text" value={sceneName} onChange={handleNameChange} className="vtt-input" />
-            </label>
-          )}
-
-          <label className="vtt-toggle">
-            <input type="checkbox" checked={lighting} onChange={handleToggleLighting} />
-            Lighting
-          </label>
-
-          <label>Ambient Light (0-1)
-            <input type="range" min="0" max="1" step="0.05" value={ambient} onChange={handleSetAmbient} className="vtt-range" />
-          </label>
-
-          {isDm && (
-            <>
-              <label className="vtt-toggle">
-                <input type="checkbox" checked={viewAll} onChange={handleToggleViewAll} />
-                GM View All
-              </label>
-
-              <label>View from token
-                <select value={viewpointId} onChange={handleViewpointSelect} className="vtt-input">
-                  <option value="">— None (view all) —</option>
-                  {tokens.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <hr className="vtt-divider" />
-
-              <h4>Grid & Ruler</h4>
-              <label>Unit per grid cell
-                <input type="number" min="0.1" step="1" value={gridUnit} onChange={handleGridUnitChange} className="vtt-input" />
-              </label>
-              <label>Unit label
-                <input type="text" value={gridUnitLabel} onChange={handleGridUnitLabelChange} className="vtt-input" placeholder="e.g. ft, m" />
-              </label>
-            </>
-          )}
-        </div>
       )}
     </div>
   )

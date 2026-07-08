@@ -442,9 +442,14 @@ export function createSyncBridge(canvas, eventBus) {
     }
   }))
 
-  /* Scene deleted remotely */
+  /* Scene deleted remotely — if the deleted scene is active, switch away first */
   unsubs.push(eventBus.on('scene:deleted', (data) => {
-    if (sceneManager) sceneManager.remove(data.id)
+    if (!sceneManager) return
+    if (sceneManager.activeScene?.id === data.id) {
+      const other = sceneManager.scenes.find(s => s.id !== data.id)
+      if (other) sceneManager.switchScene(other.id)
+    }
+    sceneManager.remove(data.id)
   }))
 
   eventBus.emit('sync-bridge:ready', {})

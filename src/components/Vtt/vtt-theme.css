@@ -647,7 +647,7 @@
 /* scene panel */
 .vtt-scene-panel .vtt-scene-list { max-height: 260px; overflow-y: auto; margin-top: 4px }
 .vtt-scene-item {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   padding: 6px 8px; border-radius: 4px; cursor: pointer;
   border-bottom: 1px solid var(--vtt-frame); font-size: 13px;
 }
@@ -660,6 +660,91 @@
 .vtt-scene-user-dot {
   font-size: 10px; color: var(--vtt-muted); background: var(--vtt-panel-3);
   border-radius: 3px; padding: 0 4px; line-height: 16px; white-space: nowrap;
+}
+
+/* redesigned scene panel header */
+.vtt-scene-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--vtt-frame); padding-bottom: 6px; margin-bottom: 4px;
+}
+.vtt-scene-panel-header h4 { margin: 0; border: none; padding: 0 }
+
+/* icon button for eyeball and expand arrows */
+.vtt-icon-btn {
+  background: none !important; border: none !important;
+  color: var(--vtt-muted); font-size: 14px; padding: 2px !important;
+  cursor: pointer; line-height: 1; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.vtt-icon-btn:hover { color: var(--vtt-gold) !important }
+.vtt-lighting-on { color: var(--vtt-gold) !important }
+.vtt-expand-active { color: var(--vtt-gold) !important }
+
+/* inline name editor */
+.vtt-scene-name-input {
+  padding: 1px 4px !important; font-size: 13px !important;
+  width: 100%; min-width: 60px;
+}
+
+/* detail panel */
+.vtt-scene-detail {
+  width: 100%; margin-top: 4px; padding: 8px;
+  background: var(--vtt-panel-2); border-radius: 4px;
+  border: 1px solid var(--vtt-frame);
+}
+.vtt-scene-detail-row {
+  display: flex; align-items: center; gap: 6px;
+  margin: 4px 0; font-size: 12px;
+}
+.vtt-scene-detail-label {
+  color: var(--vtt-text); min-width: 68px; font-size: 12px;
+}
+.vtt-scene-detail-size {
+  width: 48px !important; padding: 2px 4px !important;
+  font-size: 12px !important; text-align: center !important;
+}
+.vtt-scene-detail-x {
+  color: var(--vtt-faint); font-size: 14px;
+}
+.vtt-scene-detail-unit {
+  color: var(--vtt-faint); font-size: 11px; margin-left: 2px;
+}
+.vtt-scene-detail-range {
+  flex: 1; margin: 0;
+}
+.vtt-scene-detail-value {
+  color: var(--vtt-text); font-size: 11px; min-width: 32px; text-align: right;
+}
+.vtt-scene-detail-sm {
+  width: 52px !important; padding: 2px 4px !important;
+  font-size: 12px !important; text-align: center !important;
+}
+.vtt-scene-detail-section {
+  margin: 6px 0 2px; font-size: 12px; color: var(--vtt-gold-dim);
+  font-weight: 600;
+}
+
+/* danger / delete button */
+.vtt-danger-btn {
+  background: transparent !important; color: #ff4444 !important;
+  border: 1px solid #ff4444 !important;
+}
+.vtt-danger-btn:hover {
+  background: rgba(255,68,68,.12) !important;
+}
+.vtt-scene-detail-delete {
+  width: 100%; margin-top: 4px;
+}
+.vtt-scene-detail-confirm {
+  display: flex; align-items: center; gap: 6px; margin-top: 4px;
+}
+.vtt-scene-detail-confirm-text {
+  color: #ff4444; font-size: 12px; flex: 1;
+}
+
+/* move all users button */
+.vtt-move-all-btn {
+  margin-top: 8px; width: 100%;
 }
 
 /* responsive */
