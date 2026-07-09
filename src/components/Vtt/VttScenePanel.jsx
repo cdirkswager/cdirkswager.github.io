@@ -56,13 +56,12 @@ export default function VttScenePanel({ canvas, actions, eventBus, connectedUser
     setScenes(sceneManager ? [...sceneManager.scenes] : [])
   }, [actions, sceneManager])
 
-  /* DM row click = activate (moves everyone, server-gated).
-     Player row click = view locally only. */
+  /* Clicking a scene row moves only YOU — for DM and players alike.
+     Pulling everyone is a deliberate act via the "Move all users here"
+     button (actions.pullAllUsers), never a side effect of navigating. */
   const handleSwitch = useCallback((sceneId) => {
-    if (!actions) return
-    if (isDm) actions.activateScene(sceneId)
-    else actions.viewScene(sceneId)
-  }, [actions, isDm])
+    actions?.viewScene(sceneId)
+  }, [actions])
 
   const handleCreate = useCallback(() => {
     actions?.createScene(`Scene ${scenes.length + 1}`)

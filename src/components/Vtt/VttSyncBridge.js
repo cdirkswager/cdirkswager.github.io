@@ -22,27 +22,70 @@ export function createSyncBridge(canvas, eventBus) {
   const unsubs = []
   let _hadServerScenes = false
 
-  function removeTokenFromCanvas(id) {
-    const existing = scene().getToken(id)
-    if (!existing) return
-    renderer.removeToken(id)
-    scene().removeToken(id)
-    controller.invalidateLighting()
+  /* ── Scene-aware token routing ──────────────────────────────────
+     Tokens carry a sceneId. The previous handlers compared it against
+     the *currently active* scene and silently dropped any mismatch —
+     so a client sitting on scene A permanently lost every token that
+     belonged to scene B, and re-loading scene B showed an empty map.
+     Now every token is stored on the Scene it belongs to; only the
+     active scene's tokens get sprites. Tokens whose scene hasn't
+     arrived yet (record replay is not ordered) are buffered and
+     flushed when that scene is created. */
+  const _orphanTokens = new Map()   // sceneId -> token data[]
+
+  function sceneById(sceneId) {
+    if (!sceneId) return scene()
+    return sceneManager?._scenes.get(sceneId) ?? null
+  }
+
+  /** Find a token across every loaded scene, plus its owning scene. */
+  function findToken(id, sceneId) {
+    const direct = sceneById(sceneId)
+    if (direct) {
+      const t = direct.getToken(id)
+      if (t) return { token: t, scene: direct }
+    }
+    for (const s of sceneManager?.scenes ?? []) {
+      const t = s.getToken(id)
+      if (t) return { token: t, scene: s }
+    }
+    return { token: null, scene: null }
+  }
+
+  function attachToken(data) {
+    const target = sceneById(data.sceneId)
+    if (!target) {
+      /* Scene not loaded yet — buffer until scene:created. */
+      const list = _orphanTokens.get(data.sceneId) ?? []
+      list.push(data)
+      _orphanTokens.set(data.sceneId, list)
+      return
+    }
+    if (target.getToken(data.id)) return
+    const token = new Token({ ...data, sceneId: target.id })
+    target.addToken(token)
+    /* Only the viewed scene gets a sprite. */
+    if (target.id === sceneManager?.activeScene?.id) {
+      renderer.addToken(token)
+      controller.invalidateLighting()
+      controller.syncViewpointToOwnedTokens()
+      controller.syncViewpointToAllVisionTokens()
+    }
+  }
+
+  function flushOrphanTokens(sceneId) {
+    const list = _orphanTokens.get(sceneId)
+    if (!list) return
+    _orphanTokens.delete(sceneId)
+    for (const data of list) attachToken(data)
   }
 
   unsubs.push(eventBus.on('token:created', (data) => {
-    if (scene().getToken(data.id)) return
-    if (data.sceneId && data.sceneId !== sceneManager.activeScene?.id) return
-    const token = new Token(data)
-    canvas.addToken(token)
-    controller.invalidateLighting()
-    controller.syncViewpointToOwnedTokens()
-    controller.syncViewpointToAllVisionTokens()
+    attachToken(data)
   }))
 
   unsubs.push(eventBus.on('token:updated', (data) => {
-    if (data.sceneId && data.sceneId !== sceneManager.activeScene?.id) return
-    const token = scene().getToken(data.id)
+    const { token, scene: owner } = findToken(data.id, data.sceneId)
     if (!token) return
     const prevUserId = token.userId
     token.name = data.name ?? token.name
@@ -60,6 +103,8 @@ export function createSyncBridge(canvas, eventBus) {
     token.lightColor = data.lightColor ?? token.lightColor
     token.lightIntensity = data.lightIntensity ?? token.lightIntensity
     if ('actorId' in data) token.actorId = data.actorId
+    /* Off-screen scenes have no sprites to update. */
+    if (owner?.id !== sceneManager?.activeScene?.id) return
     renderer.updateTokenPosition(token.id, token.x, token.y)
     if ('userId' in data && data.userId !== prevUserId) {
       controller.syncViewpointToOwnedTokens()
@@ -69,15 +114,26 @@ export function createSyncBridge(canvas, eventBus) {
   }))
 
   unsubs.push(eventBus.on('token:deleted', (data) => {
-    removeTokenFromCanvas(data.id)
+    const { token, scene: owner } = findToken(data.id, data.sceneId)
+    if (!token || !owner) return
+    if (owner.id === sceneManager?.activeScene?.id) {
+      renderer.removeToken(token.id)
+    }
+    owner.removeToken(token.id)
+    controller.invalidateLighting()
     controller.syncViewpointToOwnedTokens()
     controller.syncViewpointToAllVisionTokens()
   }))
 
   unsubs.push(eventBus.on('wall:created', (data) => {
-    const s = scene()
-    if (s.getWall(data.id)) return
-    s.addWall(data instanceof Wall ? data : new Wall(data))
+    /* Legacy walls (no sceneId) adopt whichever scene is active when they
+       load, preserving the old behavior for existing saves. */
+    const target = sceneById(data.sceneId)
+    if (!target) return
+    if (target.getWall(data.id)) return
+    const wall = data instanceof Wall ? data : new Wall({ ...data, sceneId: target.id })
+    target.addWall(wall)
+    if (target.id !== sceneManager?.activeScene?.id) return
     renderer.redrawWalls()
     controller._spatialIndex.invalidate()
     controller.invalidateLighting()
@@ -210,6 +266,8 @@ export function createSyncBridge(canvas, eventBus) {
   }
 
   controller.onWallCreated = (wall) => {
+    /* Stamp the scene so the wall doesn't leak into every other scene. */
+    if (wall && !wall.sceneId) wall.sceneId = sceneManager?.activeScene?.id ?? null
     eventBus.emitRecord('wall', 'created', wall.toJSON ? wall.toJSON() : wall)
   }
 
@@ -288,24 +346,29 @@ export function createSyncBridge(canvas, eventBus) {
 
   /* New scene created remotely */
   unsubs.push(eventBus.on('scene:created', (data) => {
-    if (!sceneManager || sceneManager.scenes.some(s => s.id === data.id)) return
-    const hadServerScenes = _hadServerScenes
-    _hadServerScenes = true
-    const s = Scene.fromJSON(data)
-    sceneManager.add(s)
-    /* First server scene: switch away from the local default so the
-       active scene ID matches the DM's scene (needed for lighting sync). */
-    if (!hadServerScenes) {
-      const localDefaults = sceneManager.scenes.filter(sc => sc._isLocalDefault)
-      for (const d of localDefaults) {
-        if (d.id !== sceneManager.activeScene?.id) {
-          sceneManager.remove(d.id)
-        } else {
-          sceneManager.switchScene(s.id)
-          sceneManager.remove(d.id)
+    if (!sceneManager) return
+    if (!sceneManager.scenes.some(s => s.id === data.id)) {
+      const hadServerScenes = _hadServerScenes
+      _hadServerScenes = true
+      const s = Scene.fromJSON(data)
+      sceneManager.add(s)
+      /* First server scene: switch away from the local default so the
+         active scene ID matches the DM's scene (needed for lighting sync). */
+      if (!hadServerScenes) {
+        const localDefaults = sceneManager.scenes.filter(sc => sc._isLocalDefault)
+        for (const d of localDefaults) {
+          if (d.id !== sceneManager.activeScene?.id) {
+            sceneManager.remove(d.id)
+          } else {
+            sceneManager.switchScene(s.id)
+            sceneManager.remove(d.id)
+          }
         }
       }
     }
+    /* Always flush: tokens may have been buffered for this scene even if
+       the scene object itself was already registered. */
+    flushOrphanTokens(data.id)
   }))
 
   /* Scene deleted remotely — if the deleted scene is active, switch away first */

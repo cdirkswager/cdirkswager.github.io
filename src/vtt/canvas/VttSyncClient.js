@@ -134,8 +134,15 @@ export class VttSyncClient {
       this.eventBus.emit('presence', { users: this._lastPresence })
     }
     if (!this._initRecords) return
-    for (const [type, recs] of Object.entries(this._initRecords)) {
-      for (const record of recs) {
+    /* Scenes MUST hydrate before anything that references a sceneId.
+       Server kind ordering is not guaranteed, so enforce it here. */
+    const KIND_ORDER = ['scene', 'actor', 'item', 'token', 'wall', 'tile', 'template']
+    const kinds = Object.keys(this._initRecords).sort((a, b) => {
+      const ia = KIND_ORDER.indexOf(a), ib = KIND_ORDER.indexOf(b)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
+    for (const type of kinds) {
+      for (const record of this._initRecords[type]) {
         this.eventBus.emitRecord(type, 'created', record, undefined, 'remote')
       }
     }

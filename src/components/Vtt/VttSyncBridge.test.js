@@ -150,3 +150,145 @@ describe('VttSyncBridge — presence roster sync', () => {
     destroy()
   })
 })
+
+/* ── Multi-scene token routing ─────────────────────────────────────
+   These cover the class of bug where a client viewing scene A silently
+   discarded every record belonging to scene B. */
+
+function sceneStub(id) {
+  const tokens = []
+  const walls = []
+  return {
+    id, tokens, walls,
+    ambientLight: 0, lightingEnabled: false,
+    getToken: (tid) => tokens.find(t => t.id === tid) ?? null,
+    addToken: (t) => tokens.push(t),
+    removeToken: (tid) => { const i = tokens.findIndex(t => t.id === tid); if (i > -1) tokens.splice(i, 1) },
+    getWall: (wid) => walls.find(w => w.id === wid) ?? null,
+    addWall: (w) => walls.push(w),
+  }
+}
+
+function multiSceneCanvas(activeId, sceneIds) {
+  const scenes = new Map(sceneIds.map(id => [id, sceneStub(id)]))
+  const controller = {
+    userId: 'me', actorMap: new Map(), itemMap: new Map(),
+    invalidateLighting() {}, refreshLighting() {},
+    syncViewpointToOwnedTokens() {}, syncViewpointToAllVisionTokens() {},
+    _spatialIndex: { invalidate() {} },
+  }
+  const sceneManager = {
+    _scenes: scenes,
+    get scenes() { return [...scenes.values()] },
+    get activeScene() { return scenes.get(activeId) },
+    userScenes: new Map(),
+    setUserScene() {}, removeUser() {}, switchScene() {},
+    moveAllUsersToScene() {},
+  }
+  const sprites = []
+  return {
+    controller, sceneManager,
+    get scene() { return scenes.get(activeId) },
+    renderer: {
+      addToken: (t) => sprites.push(t.id),
+      removeToken: (id) => { const i = sprites.indexOf(id); if (i > -1) sprites.splice(i, 1) },
+      updateTokenPosition() {}, redrawWalls() {},
+    },
+    addToken() {},
+    _sprites: sprites,
+    _sceneStub: (id) => scenes.get(id),
+  }
+}
+
+describe('VttSyncBridge — tokens belong to their own scene', () => {
+  it('stores a token for a NON-active scene instead of dropping it', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('token', 'created', { id: 't1', sceneId: 'sceneB', x: 5, y: 5 }, undefined, 'remote')
+
+    // Kept on scene B's model...
+    expect(canvas._sceneStub('sceneB').getToken('t1')).toBeTruthy()
+    // ...but no sprite, since B isn't being viewed.
+    expect(canvas._sprites).not.toContain('t1')
+    // ...and it did NOT leak onto the active scene.
+    expect(canvas._sceneStub('sceneA').getToken('t1')).toBeNull()
+    destroy()
+  })
+
+  it('renders a token for the ACTIVE scene', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('token', 'created', { id: 't2', sceneId: 'sceneA' }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneA').getToken('t2')).toBeTruthy()
+    expect(canvas._sprites).toContain('t2')
+    destroy()
+  })
+
+  it('buffers a token whose scene has not loaded yet, then flushes on scene:created', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    // Token arrives before its scene (unordered replay).
+    bus.emitRecord('token', 'created', { id: 't3', sceneId: 'sceneC' }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneA').getToken('t3')).toBeNull()  // not misfiled
+
+    // Scene C shows up — register it, then announce it.
+    canvas.sceneManager._scenes.set('sceneC', sceneStub('sceneC'))
+    canvas.sceneManager.add = () => {}
+    canvas.sceneManager.remove = () => {}
+    bus.emitRecord('scene', 'created', { id: 'sceneC', name: 'C' }, undefined, 'remote')
+
+    expect(canvas._sceneStub('sceneC').getToken('t3')).toBeTruthy()
+    destroy()
+  })
+
+  it('updates a token that lives on a non-active scene without touching sprites', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('token', 'created', { id: 't4', sceneId: 'sceneB', x: 0 }, undefined, 'remote')
+    bus.emitRecord('token', 'updated', { id: 't4', sceneId: 'sceneB', x: 42 }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneB').getToken('t4').x).toBe(42)
+    destroy()
+  })
+
+  it('deletes a token from whichever scene owns it', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('token', 'created', { id: 't5', sceneId: 'sceneB' }, undefined, 'remote')
+    bus.emitRecord('token', 'deleted', { id: 't5', sceneId: 'sceneB' }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneB').getToken('t5')).toBeNull()
+    destroy()
+  })
+})
+
+describe('VttSyncBridge — walls belong to their own scene', () => {
+  it('does not leak a scene-B wall onto scene A', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('wall', 'created', { id: 'w1', sceneId: 'sceneB', x: 0, y: 0, x2: 1, y2: 1 }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneB').getWall('w1')).toBeTruthy()
+    expect(canvas._sceneStub('sceneA').getWall('w1')).toBeNull()
+    destroy()
+  })
+
+  it('legacy walls with no sceneId adopt the active scene', () => {
+    const bus = new EventBus()
+    const canvas = multiSceneCanvas('sceneA', ['sceneA', 'sceneB'])
+    const destroy = createSyncBridge(canvas, bus)
+
+    bus.emitRecord('wall', 'created', { id: 'w2', x: 0, y: 0, x2: 1, y2: 1 }, undefined, 'remote')
+    expect(canvas._sceneStub('sceneA').getWall('w2')).toBeTruthy()
+    destroy()
+  })
+})

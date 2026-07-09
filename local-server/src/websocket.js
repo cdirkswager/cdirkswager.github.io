@@ -114,6 +114,12 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
   })
 
   let _activeSceneId = null
+  /* On restart, scene records already exist on disk — adopt the first as
+     the landing scene rather than waiting for a DM broadcast. */
+  try {
+    const persisted = store.getAll('scene')
+    if (persisted.length) _activeSceneId = persisted[0].id
+  } catch {}
 
   /* Server-authoritative user -> viewed-scene map. Fed by
      scene:user-presence ephemerals and DM scene verbs; exposed to
@@ -199,6 +205,13 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
           createdAt: Date.now(),
         }
         store.insert(kind, record)
+        /* First scene becomes the default landing scene for new joiners.
+           Previously _activeSceneId was only ever set by a DM broadcast,
+           so on a fresh server it stayed null and joiners were stranded
+           on their own local default scene. */
+        if (kind === 'scene' && !_activeSceneId) {
+          _activeSceneId = record.id
+        }
         const event = { type: 'record-created', record, kind, by: identity.username }
         broadcast(event, ws)
         ws.send(JSON.stringify({ type: 'record-created-ack', record, kind }))

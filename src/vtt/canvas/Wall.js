@@ -1,7 +1,7 @@
 export const WALL_TYPES = ['solid', 'door', 'secret', 'see-through', 'terrain']
 
 export class Wall {
-  constructor({ id, x, y, x2, y2, type, doorState, hidden } = {}) {
+  constructor({ id, x, y, x2, y2, type, doorState, hidden, sceneId } = {}) {
     this.id = id ?? crypto.randomUUID()
     this.x = x ?? 0
     this.y = y ?? 0
@@ -10,6 +10,9 @@ export class Wall {
     this.type = WALL_TYPES.includes(type) ? type : 'solid'
     this.doorState = doorState !== undefined ? doorState : (this.type === 'door' ? 'closed' : null)
     this.hidden = hidden !== undefined ? hidden : (this.type === 'secret')
+    /* Which scene this wall belongs to. Walls without one are legacy
+       records; they attach to whichever scene loads them. */
+    this.sceneId = sceneId ?? null
   }
 
   get midpoint() {
@@ -28,6 +31,7 @@ export class Wall {
       type: this.type,
       doorState: this.doorState,
       hidden: this.hidden,
+      sceneId: this.sceneId,
     }
   }
 
