@@ -102,9 +102,10 @@ async function start() {
     console.log(`║  Data:    ${config.dataDir}                           ║`)
     console.log('╚══════════════════════════════════════════════════════════╝')
     console.log('')
-    console.log('  Players connect from the site\'s /vtt page \u2014 no join code needed.')
+    console.log('  Players connect from the site\u2019s /vtt page — no join code needed.')
     console.log('')
   })
+}
 
 start().catch(e => {
   console.error('Failed to start server:', e)

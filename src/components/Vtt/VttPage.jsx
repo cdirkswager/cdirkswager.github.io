@@ -89,7 +89,7 @@ export default function VttPage() {
     const resolvedUrl = serverUrl.trim() || getServerUrl()
 
     setConnectionState('connecting')
-    setConnectionMessage('Looking for the game server\u2026')
+    setConnectionMessage('Looking for the game server…')
 
     const alive = await pingServer(resolvedUrl)
     if (!alive) {
@@ -119,7 +119,7 @@ export default function VttPage() {
     })
 
     connectorRef.current = connector
-    setConnectionMessage('Connecting\u2026')
+    setConnectionMessage('Connecting…')
 
     await connector.connect()
   }, [serverUrl, isDm])
@@ -193,44 +193,26 @@ export default function VttPage() {
           <h2>VTT Canvas</h2>
           <p className="vtt-subtitle">
             {isDm
-              ? 'Host or join a game session. The local server must be running.'
-              : 'Enter a join code or server URL to connect to a game session.'}
+              ? 'Start the local server, then connect to the shared canvas.'
+              : 'Connect to the shared canvas once the DM has started the server.'}
           </p>
 
           <div className="vtt-connect-form">
             <div className="vtt-input-group">
-              <label htmlFor="join-code">Join Code</label>
-              <input
-                id="join-code"
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="Enter 6-character code"
-                maxLength={6}
-                className="vtt-input"
-              />
-            </div>
-
-            <div className="vtt-input-group">
-              <label htmlFor="server-url">Server URL (optional)</label>
+              <label htmlFor="server-url">Server address (optional)</label>
               <input
                 id="server-url"
                 type="text"
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
-                placeholder={`e.g. ${FALLBACK_SERVER}`}
+                placeholder={getServerUrl().replace(/^wss?:\/\//, '')}
                 className="vtt-input"
               />
+              <span className="vtt-input-hint">Leave blank to use the default server.</span>
             </div>
 
-            {isDm && (
-              <button onClick={handleRegisterServer} className="btn btn-sm vtt-register-btn">
-                Register Server & Get Code
-              </button>
-            )}
-
             <button onClick={handleConnect} className="btn vtt-connect-btn" disabled={connectionState === 'connecting'}>
-              {connectionState === 'connecting' ? 'Connecting...' : 'Connect'}
+              {connectionState === 'connecting' ? 'Connecting…' : 'Connect'}
             </button>
           </div>
 
@@ -242,9 +224,8 @@ export default function VttPage() {
             <h3>How to play:</h3>
             <ol>
               <li>The DM runs the local server (see README for instructions)</li>
-              <li>DM clicks "Register Server" and shares the 6-character code</li>
-              <li>Players enter the code and click "Connect"</li>
-              <li>Everyone sees each other's tokens move in real time</li>
+              <li>Everyone opens this page and clicks &ldquo;Connect&rdquo;</li>
+              <li>You all share one canvas and see each other&rsquo;s tokens move in real time</li>
             </ol>
           </div>
         </div>

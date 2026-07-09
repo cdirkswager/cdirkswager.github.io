@@ -84,18 +84,9 @@
   background: #5a52e0;
 }
 
-.vtt-register-btn {
-  background: #28a745;
-  color: #fff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.vtt-register-btn:hover {
-  background: #218838;
+.vtt-input-hint {
+  color: #888;
+  font-size: 0.75rem;
 }
 
 .vtt-status {
