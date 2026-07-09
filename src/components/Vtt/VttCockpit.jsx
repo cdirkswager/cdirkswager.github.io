@@ -10,6 +10,8 @@ import AddTokenModal from './cockpit/AddTokenModal.jsx'
 import TokenPanel from './cockpit/TokenPanel.jsx'
 import BackgroundPanel from './cockpit/BackgroundPanel.jsx'
 import ActorPanel from './cockpit/ActorPanel.jsx'
+import CombatTracker from './cockpit/CombatTracker.jsx'
+import UnitPanel from './cockpit/UnitPanel.jsx'
 import './vtt-theme.css'
 
 /**
