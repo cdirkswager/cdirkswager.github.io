@@ -6,6 +6,7 @@ import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
 import { createSyncBridge } from './VttSyncBridge.js'
 import { createGameActions } from '../../vtt/GameActions.js'
+import { WorldStore } from '../../vtt/WorldStore.js'
 import './VttPage.css'
 
 class VttErrorBoundary extends Component {
@@ -45,6 +46,7 @@ export default function VttPage() {
   const [connectedUsers, setConnectedUsers] = useState([])
   const [canvas, setCanvas] = useState(null)
   const [actions, setActions] = useState(null)
+  const [worldReady, setWorldReady] = useState(false)
   const [canvasKey, setCanvasKey] = useState(0)
 
   const eventBusRef = useRef(null)
@@ -52,6 +54,7 @@ export default function VttPage() {
   const connectionStateRef = useRef('idle')
   const destroyBridgeRef = useRef(null)
   const actionsRef = useRef(null)
+  const worldRef = useRef(null)
 
   const session = currentUser()
   const dmCheck = session?.role === 'dm'
@@ -66,6 +69,8 @@ export default function VttPage() {
       destroyBridgeRef.current = null
       actionsRef.current?.destroy()
       actionsRef.current = null
+      worldRef.current?.destroy()
+      worldRef.current = null
       if (connectorRef.current) {
         connectorRef.current.disconnect()
       }
@@ -105,6 +110,13 @@ export default function VttPage() {
     if (!eventBusRef.current) {
       eventBusRef.current = new EventBus()
     }
+    /* The world store binds BEFORE connecting: the init snapshot hydrates
+       it atomically, and only then ('world:ready') does the canvas mount.
+       Reconnects rehydrate the same store ('world:resynced'). */
+    if (!worldRef.current) {
+      worldRef.current = new WorldStore(eventBusRef.current).bind()
+      eventBusRef.current.on('world:ready', () => setWorldReady(true))
+    }
 
     const connector = new VttConnector({
       eventBus: eventBusRef.current,
@@ -130,6 +142,9 @@ export default function VttPage() {
     actionsRef.current?.destroy()
     actionsRef.current = null
     setActions(null)
+    worldRef.current?.destroy()
+    worldRef.current = null
+    setWorldReady(false)
     if (connectorRef.current) {
       connectorRef.current.disconnect()
       connectorRef.current = null
@@ -242,10 +257,15 @@ export default function VttPage() {
             onDisconnect={handleDisconnect}
           />
           <VttErrorBoundary key={canvasKey} onReset={handleCanvasReset}>
-            <VttCanvasMount
-              eventBus={eventBusRef.current}
-              onReady={handleCanvasReady}
-            />
+            {worldReady ? (
+              <VttCanvasMount
+                eventBus={eventBusRef.current}
+                world={worldRef.current}
+                onReady={handleCanvasReady}
+              />
+            ) : (
+              <div className="vtt-loading">Loading world…</div>
+            )}
           </VttErrorBoundary>
         </div>
       )}

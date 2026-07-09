@@ -194,13 +194,12 @@ describe('GameActions — scene verbs', () => {
     expect(canvas.sceneManager.removed).toHaveLength(0)
   })
 
-  it('updateScene mutates the model and emits a scene update record', () => {
+  it('updateScene is a pure record emission (WorldStore applies it)', () => {
     const recs = []
     bus.on('record:changed', (e) => recs.push(e))
-    canvas.sceneManager.scenes.push({ id: 's5', gridSize: 100, gridType: 'square' })
     actions.updateScene('s5', { name: 'Crypt' })
-    expect(canvas.sceneManager.scenes.find(s => s.id === 's5').name).toBe('Crypt')
     const u = recs.find(e => e.resource === 'scene' && e.action === 'updated')
     expect(u.data).toMatchObject({ id: 's5', name: 'Crypt' })
+    expect(u.origin).toBe('local')
   })
 })

@@ -167,6 +167,10 @@ export default function VttCockpit({ canvas, actions, eventBus, scene, isDm, ses
         )}
       </div>
 
+      {/* Tactical layer: always-on overlays, not widget-toggled. */}
+      <CombatTracker canvas={canvas} actions={actions} eventBus={eventBus} isDm={isDm} />
+      <UnitPanel canvas={canvas} actions={actions} eventBus={eventBus} session={session} isDm={isDm} />
+
       {showAddToken && (
         <AddTokenModal canvas={canvas} eventBus={eventBus} onClose={() => setShowAddToken(false)} userId={session?.userId} />
       )}

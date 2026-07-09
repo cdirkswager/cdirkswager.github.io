@@ -753,3 +753,134 @@
   .inv-right { display: none }
   .inv-frame { height: 96vh }
 }
+
+/* ── Tactical layer ─────────────────────────────────────────────── */
+
+.combat-tracker {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(14, 14, 28, 0.92);
+  border: 1px solid #3a3a5c;
+  border-radius: 10px;
+  padding: 8px 12px;
+  z-index: 60;
+  backdrop-filter: blur(4px);
+}
+.combat-tracker--idle { background: transparent; border: none; backdrop-filter: none; }
+.combat-round {
+  color: #ffc83d;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.combat-order { display: flex; gap: 6px; max-width: 52vw; overflow-x: auto; }
+.combatant {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #1c1c34;
+  border: 1px solid #34345a;
+  color: #cfd2ff;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.combatant:hover { border-color: #5a5aff; }
+.combatant--active {
+  background: #2c2410;
+  border-color: #ffc83d;
+  color: #ffe9a8;
+  transform: translateY(-2px);
+  box-shadow: 0 0 10px rgba(255, 200, 61, 0.35);
+}
+.combatant-init {
+  background: #101024;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #8f95d8;
+}
+.combatant--active .combatant-init { color: #ffc83d; }
+.combat-controls { display: flex; gap: 6px; }
+.combat-btn {
+  background: #26264a;
+  border: 1px solid #3c3c6a;
+  color: #dfe1ff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.combat-btn:hover { background: #323260; }
+.combat-btn--start {
+  background: #6c2222;
+  border-color: #a03a3a;
+  font-weight: 700;
+  padding: 6px 14px;
+}
+.combat-btn--start:hover { background: #8a2c2c; }
+.combat-btn--next { background: #234a23; border-color: #3a7a3a; font-weight: 700; }
+.combat-btn--next:hover { background: #2d5f2d; }
+.combat-btn--end { background: #3a1a1a; }
+
+.unit-panel {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  background: rgba(14, 14, 28, 0.94);
+  border: 1px solid #3a3a5c;
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 240px;
+  z-index: 60;
+  backdrop-filter: blur(4px);
+}
+.unit-portrait { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex: none; border: 1px solid #44446e; }
+.unit-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.unit-portrait-fallback {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: #26264a; color: #9aa0e8;
+  font-size: 1.6rem; font-weight: 700;
+}
+.unit-body { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.unit-name { color: #fff; font-weight: 700; font-size: 0.95rem; }
+.unit-hpbar {
+  position: relative;
+  height: 16px;
+  background: #101020;
+  border: 1px solid #34345a;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.unit-hpfill { height: 100%; transition: width 0.25s; }
+.unit-hpfill--ok { background: linear-gradient(180deg, #49e06a, #2f9c47); }
+.unit-hpfill--warn { background: linear-gradient(180deg, #ffd35d, #cc9a22); }
+.unit-hpfill--danger { background: linear-gradient(180deg, #ff6a6a, #b83030); }
+.unit-hptext {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.72rem; font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+}
+.unit-hp-controls { display: flex; gap: 4px; }
+.unit-hp-controls button, .unit-set-hp, .unit-speed-edit {
+  background: #26264a; border: 1px solid #3c3c6a; color: #dfe1ff;
+  border-radius: 5px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem;
+}
+.unit-hp-controls button:hover { background: #323260; }
+.unit-meta { display: flex; align-items: center; gap: 6px; color: #9aa0d0; font-size: 0.78rem; }

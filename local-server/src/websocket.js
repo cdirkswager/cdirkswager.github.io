@@ -114,11 +114,24 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
   })
 
   let _activeSceneId = null
-  /* On restart, scene records already exist on disk — adopt the first as
-     the landing scene rather than waiting for a DM broadcast. */
+  /* The SERVER owns the default scene. On a fresh table it creates one,
+     so every client — DM or player, whoever connects first — receives a
+     world that already contains a scene. Clients invent nothing. */
   try {
-    const persisted = store.getAll('scene')
-    if (persisted.length) _activeSceneId = persisted[0].id
+    let persisted = store.getAll('scene')
+    if (!persisted.length) {
+      store.insert('scene', {
+        id: crypto.randomUUID(),
+        name: 'Scene 1',
+        width: 4000, height: 3000,
+        gridType: 'square', gridSize: 100, gridUnit: 5, gridUnitLabel: 'ft',
+        backgroundColor: '#2a2a2a',
+        lightingEnabled: false, ambientLight: 0,
+        createdBy: 'server', createdAt: Date.now(), updatedAt: Date.now(),
+      })
+      persisted = store.getAll('scene')
+    }
+    _activeSceneId = persisted[0].id
   } catch {}
 
   /* Server-authoritative user -> viewed-scene map. Fed by

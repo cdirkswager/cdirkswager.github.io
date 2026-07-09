@@ -89,6 +89,8 @@ function TokenPropEditor({ token, onSave, actors, canvas }) {
   const [lightRadius, setLightRadius] = useState(token.lightRadius)
   const [lightColor, setLightColor] = useState('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
   const [lightIntensity, setLightIntensity] = useState(token.lightIntensity ?? 1)
+  const [maxHp, setMaxHp] = useState(token.maxHp ?? '')
+  const [speed, setSpeed] = useState(token.speed ?? 30)
 
   useEffect(() => {
     setName(token.name)
@@ -101,11 +103,17 @@ function TokenPropEditor({ token, onSave, actors, canvas }) {
     setLightRadius(token.lightRadius)
     setLightColor('#' + (token.lightColor ?? 0xffeedd).toString(16).padStart(6, '0'))
     setLightIntensity(token.lightIntensity ?? 1)
+    setMaxHp(token.maxHp ?? '')
+    setSpeed(token.speed ?? 30)
   }, [token])
 
   const handleSubmit = useCallback((e) => {
     e.preventDefault()
     onSave({
+      maxHp: maxHp === '' ? null : Number(maxHp),
+      /* Raising max HP heals to full only when HP was never set. */
+      ...(maxHp !== '' && (token.hp == null) ? { hp: Number(maxHp) } : {}),
+      speed: Number(speed) || 30,
       name,
       width: w,
       height: h,
@@ -144,6 +152,15 @@ function TokenPropEditor({ token, onSave, actors, canvas }) {
           </select>
         </label>
       )}
+
+      <hr className="vtt-divider" />
+      <h4>Tactical</h4>
+      <label>Max HP
+        <input type="number" value={maxHp} onChange={e => setMaxHp(e.target.value)} className="vtt-input" min={0} placeholder="none" />
+      </label>
+      <label>Speed ({canvas?.scene?.gridUnitLabel || 'ft'})
+        <input type="number" value={speed} onChange={e => setSpeed(Number(e.target.value))} className="vtt-input" min={0} step={5} />
+      </label>
 
       <hr className="vtt-divider" />
       <h4>Vision & Lighting</h4>

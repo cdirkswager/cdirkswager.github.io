@@ -15,8 +15,17 @@ export class VttSyncClient {
     this._reconnectAttempts = 0
     this._maxReconnectAttempts = 30
     this._maxReconnectDelay = 30000
-    this._initRecords = null
     this._lastPresence = null
+    /* Live events that arrive between the init snapshot and the bridge
+       subscribing are buffered, then flushed on 'sync-bridge:ready' —
+       nothing can slip through the mount gap. */
+    this._bridgeReady = false
+    this._preReadyBuffer = []
+  }
+
+  _emitOrBuffer(fn) {
+    if (this._bridgeReady) fn()
+    else this._preReadyBuffer.push(fn)
   }
 
   async connect() {
@@ -129,26 +138,18 @@ export class VttSyncClient {
   }
 
   replayInitRecords() {
-    /* Re-emit the latest presence so late-mounting UI catches up. */
+    /* Record replay is gone — the WorldStore hydrates from the snapshot
+       the moment 'init' arrives. This now (a) marks the bridge ready,
+       (b) flushes live events that raced the mount, (c) replays the
+       latest presence roster for late-mounting UI. */
+    this._bridgeReady = true
+    const buffered = this._preReadyBuffer
+    this._preReadyBuffer = []
+    for (const fn of buffered) {
+      try { fn() } catch (e) { console.warn('[sync] buffered event failed:', e) }
+    }
     if (this._lastPresence) {
       this.eventBus.emit('presence', { users: this._lastPresence })
-    }
-    if (!this._initRecords) return
-    /* Scenes MUST hydrate before anything that references a sceneId.
-       Server kind ordering is not guaranteed, so enforce it here. */
-    const KIND_ORDER = ['scene', 'actor', 'item', 'token', 'wall', 'tile', 'template']
-    const kinds = Object.keys(this._initRecords).sort((a, b) => {
-      const ia = KIND_ORDER.indexOf(a), ib = KIND_ORDER.indexOf(b)
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
-    })
-    for (const type of kinds) {
-      for (const record of this._initRecords[type]) {
-        this.eventBus.emitRecord(type, 'created', record, undefined, 'remote')
-      }
-    }
-    if (this._initActiveSceneId) {
-      this.eventBus.emit('scene:init-active', { sceneId: this._initActiveSceneId })
-      this._initActiveSceneId = null
     }
   }
 
@@ -165,30 +166,35 @@ export class VttSyncClient {
         this._reconnectAttempts = 0
         this._authFailed = false
 
-        // Store records for replay; the sync bridge may not be ready yet
-        this._initRecords = msg.recordsByType || {}
-        this._initActiveSceneId = msg.activeSceneId ?? null
+        /* Hand the full snapshot to the WorldStore, which hydrates the
+           entire replica atomically BEFORE the canvas mounts. On
+           reconnect this same event triggers a clean rehydrate — the
+           client can never end up permanently diverged. */
+        this.eventBus.emit('world:snapshot', {
+          recordsByType: msg.recordsByType || {},
+          activeSceneId: msg.activeSceneId ?? null,
+        })
 
         if (this.onAuthenticated) this.onAuthenticated()
         break
 
       case 'record-created':
-        this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'created', msg.record, undefined, 'remote')
+        this._emitOrBuffer(() => this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'created', msg.record, undefined, 'remote'))
         break
 
       case 'record-updated':
-        this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'updated', msg.record, undefined, 'remote')
+        this._emitOrBuffer(() => this.eventBus.emitRecord(msg.kind ?? msg.record.type, 'updated', msg.record, undefined, 'remote'))
         break
 
       case 'record-deleted':
-        this.eventBus.emitRecord(msg.kind, 'deleted', { id: msg.recordId }, undefined, 'remote')
+        this._emitOrBuffer(() => this.eventBus.emitRecord(msg.kind, 'deleted', { id: msg.recordId }, undefined, 'remote'))
         break
 
       case 'ephemeral':
         /* Re-emitted with origin 'remote' so _onEphemeral never sends it
            back to the server (the echo-loop bug class). fromUserId lets
            display layers attribute the message. */
-        this.eventBus.emitEphemeral(msg.payload.type, { ...msg.payload, fromUserId: msg.userId, fromUsername: msg.by }, 'remote')
+        this._emitOrBuffer(() => this.eventBus.emitEphemeral(msg.payload.type, { ...msg.payload, fromUserId: msg.userId, fromUsername: msg.by }, 'remote'))
         break
 
       case 'presence':
@@ -211,6 +217,12 @@ export class VttSyncClient {
       case 'error':
         if (msg.opId) {
           this.eventBus.emit('sync-error', msg)
+        } else if (this._authenticated) {
+          /* Post-auth denial without an opId (e.g. a rejected verb that
+             wasn't sent optimistically). Surface it — but it is NOT an
+             auth failure and must not poison reconnects. */
+          this.eventBus.emit('sync-error', msg)
+          console.warn('[VttSyncClient] Server denied an action:', msg.message)
         } else {
           // Auth failure — do NOT reconnect; surface the error
           console.error('[VttSyncClient] Server error:', msg.message)
