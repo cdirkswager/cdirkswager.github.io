@@ -16,6 +16,8 @@ import { EventBus } from './EventBus.js'
 import { VttSyncClient } from './VttSyncClient.js'
 import { registerRule, getRule, listRules, setActive, getActive, measure } from './DistanceRules.js'
 import { getCoveredCells } from './CellCoverage.js'
+import { WorldStore } from '../WorldStore.js'
+import { createRenderSync } from '../RenderSync.js'
 
 export {
   CanvasRenderer, CanvasController, Scene, SceneManager,
@@ -29,6 +31,15 @@ export {
   VttSyncClient,
 }
 
+/**
+ * createVttCanvas — mounts the Pixi canvas over an authoritative world.
+ *
+ * Redesigned model: the client INVENTS NOTHING. Pass a hydrated
+ * WorldStore (options.world) built from the server snapshot; the canvas
+ * is a projection of it (RenderSync). Offline/demo callers may omit
+ * options.world, in which case an empty store hydrates locally and
+ * fabricates its single starter scene.
+ */
 export async function createVttCanvas(mountEl, options = {}) {
   const renderer = new CanvasRenderer()
   await renderer.init(mountEl)
@@ -38,36 +49,25 @@ export async function createVttCanvas(mountEl, options = {}) {
 
   const eventBus = options.eventBus ?? new EventBus()
 
-  const scene = new Scene({
-    name: options.sceneName ?? 'New Map',
-    width: options.width ?? 4000,
-    height: options.height ?? 3000,
-    gridType: options.gridType ?? 'square',
-    gridSize: options.gridSize ?? 100,
-    backgroundColor: options.backgroundColor ?? '#2a2a2a',
-  })
-  scene._isLocalDefault = true
-
-  const sceneManager = new SceneManager({ renderer, controller, eventBus })
-  sceneManager.add(scene)
-
-  if (options.sceneManagerData) {
-    const restored = SceneManager.fromJSON(options.sceneManagerData, { renderer, controller, eventBus })
-    for (const s of restored.scenes) {
-      if (!sceneManager._scenes.has(s.id)) sceneManager.add(s)
-    }
-    if (restored._activeSceneId && restored._scenes.has(restored._activeSceneId)) {
-      sceneManager._activeSceneId = restored._activeSceneId
-    }
-    for (const [userId, sceneId] of restored._userScenes) {
-      sceneManager._userScenes.set(userId, sceneId)
-    }
+  /* The world: provided (connected) or locally hydrated (offline). */
+  let world = options.world ?? null
+  let _ownWorld = false
+  if (!world) {
+    world = new WorldStore(eventBus).bind()
+    world.hydrate({}, null)
+    _ownWorld = true
   }
 
-  renderer.loadScene(sceneManager.activeScene)
-  /* Ensure spatial index is rebuilt for any pre-existing scene walls */
-  controller._spatialIndex.invalidate()
-  controller.refreshLighting()
+  const sceneManager = new SceneManager({ world, renderer, controller, eventBus })
+
+  /* The inventory system, loot panels, and GameActions item verbs all
+     read controller.actorMap / controller.itemMap. Alias them to the
+     WorldStore's maps — SAME Map references — so the store's single
+     mutation router is what every reader sees. (The old bridge filled
+     these from a second routing path; that path no longer exists.) */
+  controller.actorMap = world.actors
+  controller.itemMap = world.items
+
   renderer.rulerLayer.setEventBus(eventBus)
   renderer.pingLayer.setEventBus(eventBus)
 
@@ -75,9 +75,20 @@ export async function createVttCanvas(mountEl, options = {}) {
     eventBus.emitEphemeral('ping', { x, y })
   }
 
-  return {
+  /* Base selection wiring: token clicks surface on the bus so the
+     tactical layer (rings, range overlay, unit panel) can react.
+     UI code may chain onTokenClicked; it should call the previous
+     handler, as the cockpit already does. */
+  controller.onTokenClicked = (token) => {
+    eventBus.emit('token-selected', { tokenId: token?.id ?? null })
+  }
+
+  const canvasApi = {
     renderer,
     controller,
+    world,
+    /* Tactical grid snap for token drags (see VttSyncBridge drag-end). */
+    gridSnap: true,
     get scene() { return sceneManager.activeScene },
     sceneManager,
     eventBus,
@@ -131,10 +142,18 @@ export async function createVttCanvas(mountEl, options = {}) {
     setViewpoint: (tokenId) => controller.setViewpoint(tokenId),
     refreshLighting: () => controller.refreshLighting(),
     destroy: () => {
+      renderSync.destroy()
+      if (_ownWorld) world.destroy()
       controller.destroy()
       renderer.destroy()
       eventBus.destroy()
     },
     switchScene: (sceneId) => sceneManager.switchScene(sceneId),
   }
+
+  /* Projection: the ONE render path (first paint, scene switches,
+     incremental effects, resync after reconnect). */
+  const renderSync = createRenderSync({ world, canvas: canvasApi, eventBus })
+
+  return canvasApi
 }

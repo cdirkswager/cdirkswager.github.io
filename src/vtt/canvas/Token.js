@@ -1,5 +1,5 @@
 export class Token {
-  constructor({ id, name, src, x, y, width, height, rotation, locked, visible, elevation, sightRange, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity, userId, actorId, iconType, sceneId } = {}) {
+  constructor({ id, name, src, x, y, width, height, rotation, locked, visible, elevation, sightRange, visionEnabled, darkvisionRange, lightRadius, lightColor, lightIntensity, userId, actorId, iconType, sceneId, hp, maxHp, speed } = {}) {
     this.id = id ?? crypto.randomUUID()
     this.name = name ?? 'Token'
     this.src = src ?? ''
@@ -21,6 +21,11 @@ export class Token {
     this.actorId = actorId ?? null
     this.iconType = iconType ?? null
     this.sceneId = sceneId ?? null
+    /* Tactical stats. maxHp <= 0 means "no HP bar". speed is in scene
+       grid units (ft by default); used for the movement-range overlay. */
+    this.hp = hp ?? null
+    this.maxHp = maxHp ?? null
+    this.speed = speed ?? 30
   }
 
   get centerX() { return this.x + this.width / 2 }
@@ -49,6 +54,9 @@ export class Token {
       actorId: this.actorId,
       iconType: this.iconType,
       sceneId: this.sceneId,
+      hp: this.hp,
+      maxHp: this.maxHp,
+      speed: this.speed,
     }
   }
 }

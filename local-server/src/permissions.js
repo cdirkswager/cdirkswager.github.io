@@ -31,6 +31,7 @@ function ownRecord(identity, existing) {
  */
 export function denyCreate(kind, record, identity, ctx) {
   if (kind === 'scene' && !isDm(identity)) return 'Permission denied: only the DM can create scenes'
+  if (kind === 'combat' && !isDm(identity)) return 'Permission denied: only the DM runs combat'
   if (kind === 'actor' && !isDm(identity)) return 'Permission denied: only DM can create actors'
 
   if (kind === 'item') {
@@ -58,7 +59,7 @@ export function denyCreate(kind, record, identity, ctx) {
  */
 export function denyMutate(kind, existing, identity, ctx) {
   let permitted
-  if (kind === 'scene') {
+  if (kind === 'scene' || kind === 'combat') {
     permitted = isDm(identity)
   } else if (kind === 'actor') {
     permitted = actorAccess(identity, existing)

@@ -1,6 +1,7 @@
 import { Actor } from './canvas/Actor.js'
 import { Item } from './canvas/Item.js'
 import { Scene } from './canvas/Scene.js'
+import { createCombat, nextTurn, previousTurn } from './combat.js'
 
 /**
  * GameActions — the explicit command layer between the UI and the sync spine.
@@ -23,6 +24,7 @@ import { Scene } from './canvas/Scene.js'
 export function createGameActions({ canvas, eventBus }) {
   const controller = canvas.controller
   const sceneManager = canvas.sceneManager
+  const world = canvas.world
   const unsubs = []
   const _pendingOps = new Map()
   let _opSeq = 0
@@ -234,39 +236,74 @@ export function createGameActions({ canvas, eventBus }) {
   }
 
   function createScene(name) {
-    if (!sceneManager) return
-    const s = new Scene({ name: name ?? `Scene ${sceneManager.scenes.length + 1}` })
-    sceneManager.add(s)
+    const s = new Scene({ name: name ?? `Scene ${(world?.sceneList.length ?? 0) + 1}` })
+    /* One mutation path: emit the record; WorldStore applies it (origin
+       'local' applies optimistically, server echo is idempotent). */
     eventBus.emitRecord('scene', 'created', s.toJSON())
     return s
   }
 
   function deleteScene(sceneId) {
-    if (!sceneManager || sceneId === sceneManager.activeScene?.id) return
-    sceneManager.remove(sceneId)
+    if (sceneId === world?.viewedSceneId) return
     eventBus.emitRecord('scene', 'deleted', { id: sceneId })
   }
 
-  /** Apply model changes to a scene, mirror canvas side effects if it is
-      the viewed scene, and sync. Single home for the mutate-then-emit
-      pattern that used to be copy-pasted per panel handler. */
+  /** Scene updates are a pure record emission: WorldStore mutates the
+      model, RenderSync mirrors canvas side effects if the scene is the
+      one being viewed. No hand-rolled canvas pokes here anymore. */
   function updateScene(sceneId, changes) {
-    if (!sceneManager) return
-    const s = sceneManager.scenes.find(x => x.id === sceneId)
-    if (!s) return
-    Object.assign(s, changes)
     eventBus.emitRecord('scene', 'updated', { id: sceneId, ...changes })
+  }
 
-    if (canvas.scene?.id === sceneId) {
-      if ('lightingEnabled' in changes) {
-        canvas.setLightingEnabled(changes.lightingEnabled)
-        if (changes.lightingEnabled) canvas.refreshLighting()
-      }
-      if ('gridUnit' in changes || 'gridUnitLabel' in changes) {
-        canvas.renderer?.rulerLayer?.setGrid(s.gridSize, s.gridType, s.gridUnit, s.gridUnitLabel)
-      }
-    }
-    eventBus.emit('scenes-changed', {})
+  /* ── Tactical verbs ─────────────────────────────────────────────── */
+
+  /** DM: roll initiative for every visible token on the viewed scene. */
+  function startCombat() {
+    const scene = world?.viewedScene
+    if (!scene) return
+    const tokens = scene.tokens.filter(t => t.visible !== false)
+    if (!tokens.length) return
+    const combat = createCombat(scene.id, tokens)
+    eventBus.emitRecord('combat', world?.combat ? 'updated' : 'created', combat)
+    return combat
+  }
+
+  function advanceTurn() {
+    if (!world?.combat) return
+    eventBus.emitRecord('combat', 'updated', { id: 'combat', ...nextTurn(world.combat) })
+  }
+
+  function rewindTurn() {
+    if (!world?.combat) return
+    eventBus.emitRecord('combat', 'updated', { id: 'combat', ...previousTurn(world.combat) })
+  }
+
+  function endCombat() {
+    if (!world?.combat) return
+    eventBus.emitRecord('combat', 'deleted', { id: 'combat' })
+  }
+
+  /** Adjust a token's hit points (delta may be negative for damage). */
+  function adjustTokenHp(tokenId, delta) {
+    const { token } = world?.findToken(tokenId) ?? {}
+    if (!token || !(token.maxHp > 0)) return
+    const hp = Math.max(0, Math.min((token.hp ?? token.maxHp) + delta, token.maxHp))
+    eventBus.emitRecord('token', 'updated', { id: tokenId, sceneId: token.sceneId, hp })
+  }
+
+  function setTokenStats(tokenId, { hp, maxHp, speed }) {
+    const { token } = world?.findToken(tokenId) ?? {}
+    if (!token) return
+    const changes = { id: tokenId, sceneId: token.sceneId }
+    if (hp !== undefined) changes.hp = hp
+    if (maxHp !== undefined) changes.maxHp = maxHp
+    if (speed !== undefined) changes.speed = speed
+    eventBus.emitRecord('token', 'updated', changes)
+  }
+
+  function toggleGridSnap() {
+    canvas.gridSnap = canvas.gridSnap === false
+    return canvas.gridSnap
   }
 
   function destroy() {
@@ -280,6 +317,8 @@ export function createGameActions({ canvas, eventBus }) {
     setAttunement, setIdentified, deleteItem, dropItem, createLootPile,
     viewScene, activateScene, pullAllUsers,
     createScene, deleteScene, updateScene,
+    startCombat, advanceTurn, rewindTurn, endCombat,
+    adjustTokenHp, setTokenStats, toggleGridSnap,
     destroy,
   }
 }

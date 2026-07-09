@@ -22,6 +22,9 @@ describe('VttSyncClient — ephemeral echo protection', () => {
     ws = fakeWs()
     client.ws = ws
     client._subscribe()
+    /* Live events are gated behind bridge readiness (pre-mount buffer);
+       these tests exercise the steady state. */
+    client._bridgeReady = true
   })
 
   it('sends locally emitted ephemerals to the server', () => {

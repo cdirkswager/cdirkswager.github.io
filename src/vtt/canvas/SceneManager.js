@@ -1,62 +1,41 @@
-import { Scene } from './Scene.js'
-
+/**
+ * SceneManager — thin view controller over the WorldStore.
+ *
+ * The store owns all scenes; this class owns "what is this client
+ * looking at" and the render transition when that changes, plus the
+ * user-presence map that drives the scene panel's user dots.
+ *
+ * The pre-redesign SceneManager owned its own scene Map, which meant a
+ * second source of truth beside the sync layer — the origin of the
+ * dropped-token and wrong-scene bugs. That Map is gone.
+ */
 export class SceneManager {
-  constructor({ renderer, controller, eventBus }) {
+  constructor({ world, renderer, controller, eventBus }) {
+    this.world = world
     this.renderer = renderer
     this.controller = controller
     this.eventBus = eventBus
-    this._scenes = new Map()
-    this._activeSceneId = null
     this._userScenes = new Map()
   }
 
-  get activeScene() {
-    return this._scenes.get(this._activeSceneId) ?? null
-  }
+  /* The scene this client is viewing. Kept under the historical name
+     `activeScene` because the controller/renderer/panels read it. */
+  get activeScene() { return this.world.viewedScene }
+  get scenes() { return this.world.sceneList }
+  get userScenes() { return this._userScenes }
+  /* Back-compat for callers that poked the raw map. */
+  get _scenes() { return this.world.scenes }
 
-  get scenes() {
-    return Array.from(this._scenes.values())
-  }
-
-  get userScenes() {
-    return this._userScenes
-  }
-
-  add(scene) {
-    this._scenes.set(scene.id, scene)
-    if (!this._activeSceneId) {
-      this._activeSceneId = scene.id
-    }
-    this.eventBus?.emit('scenes-changed', {})
-    return scene
-  }
-
-  remove(sceneId) {
-    if (sceneId === this._activeSceneId) return
-    this._scenes.delete(sceneId)
-    for (const [userId, sId] of this._userScenes) {
-      if (sId === sceneId) this._userScenes.delete(userId)
-    }
-    this.eventBus?.emit('scenes-changed', {})
-  }
-
+  /** View a scene: pure projection from the store — nothing can be lost.
+      Rendering happens in RenderSync (subscribed to 'world:view-scene'),
+      so there is exactly one render path for local, remote, and resync
+      scene changes. */
   switchScene(sceneId) {
-    const scene = this._scenes.get(sceneId)
-    if (!scene || sceneId === this._activeSceneId) return
-    this._activeSceneId = sceneId
-    this.renderer.loadScene(scene)
-    this.renderer.setLightingEnabled(scene.lightingEnabled)
-    this.controller.ambientLight = scene.ambientLight ?? 0
-    this.controller._spatialIndex.invalidate()
-    /* Viewpoint syncs schedule a single coalesced lighting refresh via
-       invalidateLighting — previously this block recomputed the full
-       vision raycast three times back-to-back. */
-    this.controller.syncViewpointToOwnedTokens()
-    this.controller.syncViewpointToAllVisionTokens()
-    this.controller.invalidateLighting()
+    if (!this.world.setViewedScene(sceneId)) return
     this.eventBus?.emit('scene:switched', { sceneId })
-    this.eventBus?.emit('scenes-changed', {})
   }
+
+  /* ── User presence (scene panel dots) ─────────────────────────── */
 
   setUserScene(userId, sceneId) {
     this._userScenes.set(userId, sceneId)
@@ -81,27 +60,5 @@ export class SceneManager {
       this._userScenes.set(userId, sceneId)
     }
     this.eventBus?.emit('scenes-changed', {})
-  }
-
-  toJSON() {
-    return {
-      activeSceneId: this._activeSceneId,
-      scenes: this.scenes.map(s => s.toJSON()),
-      userScenes: Array.from(this._userScenes.entries()).map(([userId, sceneId]) => ({ userId, sceneId })),
-    }
-  }
-
-  static fromJSON(data, { renderer, controller, eventBus }) {
-    const sm = new SceneManager({ renderer, controller, eventBus })
-    for (const sd of data.scenes ?? []) {
-      sm.add(Scene.fromJSON(sd))
-    }
-    if (data.activeSceneId && sm._scenes.has(data.activeSceneId)) {
-      sm._activeSceneId = data.activeSceneId
-    }
-    for (const entry of data.userScenes ?? []) {
-      sm._userScenes.set(entry.userId, entry.sceneId)
-    }
-    return sm
   }
 }

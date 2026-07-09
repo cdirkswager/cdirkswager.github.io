@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export default function VttCanvasMount({ eventBus, onReady }) {
+export default function VttCanvasMount({ eventBus, world, onReady }) {
   const mountRef = useRef(null)
   const canvasRef = useRef(null)
   const [error, setError] = useState(null)
@@ -14,13 +14,10 @@ export default function VttCanvasMount({ eventBus, onReady }) {
       try {
         const { createVttCanvas } = await import('../../vtt/canvas/main.js')
         const canvas = await createVttCanvas(mountRef.current, {
-          sceneName: 'Campaign Map',
-          width: 4000,
-          height: 3000,
-          gridType: 'square',
-          gridSize: 100,
-          backgroundColor: '#2a2a2a',
           eventBus,
+          /* Server-authoritative: the world was hydrated from the server
+             snapshot BEFORE this mount. The canvas invents nothing. */
+          world,
         })
 
         if (destroyed) {
@@ -57,7 +54,7 @@ export default function VttCanvasMount({ eventBus, onReady }) {
         canvasRef.current = null
       }
     }
-  }, [eventBus, onReady])
+  }, [eventBus, world, onReady])
 
   if (error) {
     return (
