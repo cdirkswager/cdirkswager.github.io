@@ -8,6 +8,11 @@ export class PingLayer {
     this.container.eventMode = 'none'
     this._eventBus = null
     this._unsub = null
+    this._currentSceneId = null
+  }
+
+  setCurrentSceneId(sceneId) {
+    this._currentSceneId = sceneId
   }
 
   setEventBus(bus) {
@@ -16,6 +21,10 @@ export class PingLayer {
     if (bus) {
       this._unsub = bus.on('ephemeral', (e) => {
         if (e.type === 'ping') {
+          /* Only show pings for the scene the viewer is currently on.
+             Local pings always pass through (no sceneId filtering for own
+             actions); remote pings must match the current scene. */
+          if (e.sceneId && e.sceneId !== this._currentSceneId && e.origin !== 'local') return
           const fromUserId = e.fromUserId || 'local'
           const fromUsername = e.fromUsername || ''
           this.showPing(e.x, e.y, fromUserId, fromUsername)
