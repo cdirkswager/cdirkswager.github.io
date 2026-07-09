@@ -1,7 +1,7 @@
 import { Component, useState, useRef, useCallback, useEffect } from 'react'
 import VttCanvasMount from './VttCanvasMount'
 import VttCockpit from './VttCockpit'
-import { lookupServer, registerServer, getVttGameToken, VttConnector } from '../../data/vtt.js'
+import { getServerUrl, pingServer, getVttGameToken, VttConnector } from '../../data/vtt.js'
 import { EventBus } from '../../vtt/canvas/EventBus.js'
 import { currentUser } from '../../data/auth.js'
 import { createSyncBridge } from './VttSyncBridge.js'
@@ -37,10 +37,7 @@ class VttErrorBoundary extends Component {
   }
 }
 
-const FALLBACK_SERVER = 'localhost:3001'
-
 export default function VttPage() {
-  const [joinCode, setJoinCode] = useState('')
   const [serverUrl, setServerUrl] = useState('')
   const [connectionState, setConnectionState] = useState('idle')
   const [connectionMessage, setConnectionMessage] = useState('')
@@ -85,23 +82,24 @@ export default function VttPage() {
       connectorRef.current = null
     }
 
-    let resolvedUrl = serverUrl || FALLBACK_SERVER
+    /* Single shared server: use the configured URL, or an override typed
+       into the optional field. Detect that it's actually running before
+       attempting the WebSocket + auth handshake, so "server isn't up" is
+       a clear message instead of a generic connection timeout. */
+    const resolvedUrl = serverUrl.trim() || getServerUrl()
 
-    if (joinCode.trim()) {
-      try {
-        const lookupResult = await lookupServer(joinCode)
-        if (lookupResult) {
-          resolvedUrl = lookupResult
-        } else {
-          setConnectionState('error')
-          setConnectionMessage('Join code not found or expired')
-          return
-        }
-      } catch (e) {
-        setConnectionState('error')
-        setConnectionMessage(e.message || 'Failed to look up server')
-        return
-      }
+    setConnectionState('connecting')
+    setConnectionMessage('Looking for the game server\u2026')
+
+    const alive = await pingServer(resolvedUrl)
+    if (!alive) {
+      setConnectionState('error')
+      setConnectionMessage(
+        isDm
+          ? 'Server not detected. Start the local server (see README), then Connect.'
+          : 'The game server isn\u2019t running yet. Ask the DM to start it, then try again.'
+      )
+      return
     }
 
     if (!eventBusRef.current) {
@@ -121,11 +119,10 @@ export default function VttPage() {
     })
 
     connectorRef.current = connector
-    setConnectionState('connecting')
-    setConnectionMessage('Connecting...')
+    setConnectionMessage('Connecting\u2026')
 
-    const connected = await connector.connect()
-  }, [joinCode, serverUrl])
+    await connector.connect()
+  }, [serverUrl, isDm])
 
   const handleDisconnect = useCallback(() => {
     destroyBridgeRef.current?.()
@@ -143,22 +140,6 @@ export default function VttPage() {
     setConnectionMessage('Disconnected')
     setConnectedUsers([])
   }, [])
-
-  const handleRegisterServer = useCallback(async () => {
-    if (!serverUrl.trim()) return
-
-    try {
-      const result = await registerServer(serverUrl)
-      if (result && result.code) {
-        setConnectionMessage(`Server registered! Share this code: ${result.code}`)
-        setJoinCode(result.code)
-      } else {
-        setConnectionMessage('Failed to register server')
-      }
-    } catch (e) {
-      setConnectionMessage(e.message || 'Registration failed')
-    }
-  }, [serverUrl])
 
   const handleCanvasReady = useCallback((c) => {
     setCanvas(c)

@@ -87,36 +87,9 @@ const server = createServer(async (req, res) => {
 const wsHub = createWebSocketHub(server, authVerifier, store, eventBus)
 
 // --- Start ---
-async function registerWithCloudflare(config) {
-  const token = config.authToken
-  const serverUrl = config.serverUrl
-  if (!token || !serverUrl) return null
-
-  try {
-    const res = await fetch(`${config.siteBaseUrl}/api/game/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Session-Token': token },
-      body: JSON.stringify({ serverUrl }),
-    })
-    const data = await res.json()
-    if (data.ok) {
-      console.log(`[discovery] Registered! Join code: ${data.code}  (expires in 2h)`)
-      return data.code
-    } else {
-      console.warn(`[discovery] Registration failed: ${data.error}`)
-    }
-  } catch (e) {
-    console.warn(`[discovery] Could not register: ${e.message}`)
-  }
-  return null
-}
-
-// --- Start ---
 async function start() {
   await authVerifier.init()
   console.log('[auth] Public key loaded')
-
-  const joinCode = await registerWithCloudflare(config)
 
   server.listen(config.port, () => {
     console.log('')
@@ -127,20 +100,11 @@ async function start() {
     console.log('║  Auth:    JWT (RS256) via site                             ║')
     console.log(`║  Site:    ${config.siteBaseUrl}                        ║`)
     console.log(`║  Data:    ${config.dataDir}                           ║`)
-    if (joinCode) {
-      console.log(`║  Join:    ${joinCode}                                      ║`)
-    } else if (config.authToken && config.serverUrl) {
-      console.log(`║  Join:    (registration failed)                           ║`)
-    }
     console.log('╚══════════════════════════════════════════════════════════╝')
-    if (!joinCode) {
-      console.log('')
-      console.log('  To register for discovery, set LGS_AUTH_TOKEN and LGS_SERVER_URL')
-      console.log('  or call: curl -X POST .../api/game/register -H "X-Session-Token: ..."')
-    }
+    console.log('')
+    console.log('  Players connect from the site\'s /vtt page \u2014 no join code needed.')
     console.log('')
   })
-}
 
 start().catch(e => {
   console.error('Failed to start server:', e)

@@ -19,8 +19,6 @@ export function loadConfig() {
   if (process.env.LGS_DATA_DIR) config.dataDir = resolve(process.env.LGS_DATA_DIR)
   if (process.env.LGS_PUBLIC_KEY_PATH) config.publicKeyPath = resolve(process.env.LGS_PUBLIC_KEY_PATH)
   if (process.env.LGS_SITE_BASE_URL) config.siteBaseUrl = process.env.LGS_SITE_BASE_URL
-  if (process.env.LGS_SERVER_URL) config.serverUrl = process.env.LGS_SERVER_URL
-  if (process.env.LGS_AUTH_TOKEN) config.authToken = process.env.LGS_AUTH_TOKEN
 
   // Ensure data directory exists
   if (!existsSync(config.dataDir)) {

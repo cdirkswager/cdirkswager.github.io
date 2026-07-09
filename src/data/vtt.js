@@ -1,23 +1,41 @@
-import { getVttToken } from './auth'
-import api, { get, post } from './api'
+import { post } from './api'
 
 const DEFAULT_SERVER_URL = 'ws://localhost:3001'
+
+export function getServerUrl() {
+  let url
+  try { url = import.meta.env.VITE_VTT_SERVER_URL } catch {}
+  return normalizeWsUrl(url || DEFAULT_SERVER_URL)
+}
+
+export function normalizeWsUrl(input) {
+  const url = (input || '').trim() || DEFAULT_SERVER_URL
+  if (url.startsWith('ws://') || url.startsWith('wss://')) return url
+  return 'ws://' + url
+}
+
+function httpOriginOf(wsUrl) {
+  return normalizeWsUrl(wsUrl).replace(/^ws/, 'http')
+}
 
 export async function getVttGameToken() {
   const data = await post('/auth/vtt-token')
   return data.ok ? data.token : null
 }
 
-export async function lookupServer(joinCode) {
-  const data = await get('/game/lookup/' + joinCode.toUpperCase())
-  if (!data.ok || !data.serverUrl) return null
-  return data.serverUrl
-}
-
-export async function registerServer(serverUrl) {
-  const data = await post('/game/register', { serverUrl })
-  if (!data.ok || !data.code) return null
-  return { code: data.code, serverUrl: serverUrl }
+export async function pingServer(wsUrl = getServerUrl()) {
+  const origin = httpOriginOf(wsUrl)
+  try {
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 3000)
+    const res = await fetch(origin + '/api/health', { signal: controller.signal })
+    clearTimeout(t)
+    if (!res.ok) return false
+    const data = await res.json().catch(() => null)
+    return !!(data && data.ok)
+  } catch {
+    return false
+  }
 }
 
 export class VttConnector {
@@ -41,16 +59,11 @@ export class VttConnector {
       return false
     }
 
-    let url = this.serverUrl || DEFAULT_SERVER_URL
-    if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
-      url = 'ws://' + url
-    }
+    const url = normalizeWsUrl(this.serverUrl || getServerUrl())
 
     try {
-      // Import dynamically to avoid bundling in non-VTT paths
       const mod = await import('../vtt/canvas/VttSyncClient.js')
 
-      // Resolve directly from the auth callbacks — no state polling.
       return await new Promise((resolve) => {
         let done = false
         const finish = (ok) => {
@@ -64,7 +77,6 @@ export class VttConnector {
           finish(false)
         }, 15000)
 
-        // Pass this.getToken through directly so VttSyncClient fetches a fresh token on every connect/reconnect
         this.syncClient = new mod.VttSyncClient({
           eventBus: this.eventBus,
           getToken: this.getToken,
@@ -79,7 +91,6 @@ export class VttConnector {
           },
         })
 
-        // Start the WebSocket connection — VttSyncClient calls getToken() fresh each time
         this.syncClient.connect()
       })
     } catch (e) {
