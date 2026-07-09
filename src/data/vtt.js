@@ -23,11 +23,6 @@ export function normalizeWsUrl(input) {
   return 'ws://' + url
 }
 
-/** Derive the http(s) origin of a ws(s) URL, for the health check. */
-function httpOriginOf(wsUrl) {
-  return normalizeWsUrl(wsUrl).replace(/^ws/, 'http')
-}
-
 export async function getVttGameToken() {
   const data = await post('/auth/vtt-token')
   return data.ok ? data.token : null
@@ -35,22 +30,53 @@ export async function getVttGameToken() {
 
 /**
  * Detect whether the game server is running.
- * Hits GET /api/health (already served by the local server) with a short
- * timeout. Returns true if it answers ok, false otherwise.
+ *
+ * This deliberately probes over WebSocket rather than fetching
+ * /api/health. A plain HTTP fetch from the deployed HTTPS site to a
+ * loopback address is blocked twice over: by CORS (the local server
+ * sends no Access-Control-Allow-Origin) and by the browser's Local
+ * Network Access / Private Network Access gate, which auto-denies
+ * public-site -> localhost requests.
+ *
+ * WebSockets are subject to neither: they bypass CORS entirely, and
+ * loopback origins are exempt from mixed-content blocking. Since the
+ * VTT's real connection is a WebSocket to this same URL, a successful
+ * handshake here is a strictly accurate predictor that connecting will
+ * work — detection can never be blocked while the real connection would
+ * have succeeded.
+ *
+ * The server completes the upgrade before validating the token, so the
+ * socket opens even though this probe sends no credentials; it is closed
+ * immediately after.
  */
-export async function pingServer(wsUrl = getServerUrl()) {
-  const origin = httpOriginOf(wsUrl)
-  try {
-    const controller = new AbortController()
-    const t = setTimeout(() => controller.abort(), 3000)
-    const res = await fetch(origin + '/api/health', { signal: controller.signal })
-    clearTimeout(t)
-    if (!res.ok) return false
-    const data = await res.json().catch(() => null)
-    return !!(data && data.ok)
-  } catch {
-    return false
-  }
+export function pingServer(wsUrl = getServerUrl(), timeoutMs = 2500) {
+  const url = normalizeWsUrl(wsUrl)
+  return new Promise((resolve) => {
+    let settled = false
+    let ws = null
+
+    const done = (alive) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      try { ws?.close() } catch {}
+      resolve(alive)
+    }
+
+    const timer = setTimeout(() => done(false), timeoutMs)
+
+    try {
+      ws = new WebSocket(url + '?probe=1')
+    } catch {
+      done(false)
+      return
+    }
+
+    ws.onopen = () => done(true)
+    ws.onerror = () => done(false)
+    /* A close that arrives before open means we never reached the server. */
+    ws.onclose = () => done(false)
+  })
 }
 
 export class VttConnector {

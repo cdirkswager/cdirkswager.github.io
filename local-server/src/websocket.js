@@ -62,6 +62,14 @@ export function createWebSocketHub(server, authVerifier, store, eventBus) {
     const url = new URL(req.url, 'http://localhost')
     const token = url.searchParams.get('token')
 
+    /* Liveness probe from the connect panel: the client opens a socket
+       with no token purely to confirm the server is reachable, then
+       closes it. Not an auth failure — don't log it as one. */
+    if (!token) {
+      ws.close()
+      return
+    }
+
     console.log(`[WS] inbound connection, token present: ${!!token}, tokenLen: ${token?.length ?? 0}`)
 
     const identity = authVerifier.verifyToken(token)

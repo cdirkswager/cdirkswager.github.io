@@ -26,7 +26,7 @@ Any logged-in user can navigate to `/vtt` on the deployed site. The existing log
 
 1. DM starts the local server (step 1 above).
 2. DM navigates to `/vtt` and clicks **"Connect"**. The page detects the
-   running server (via `GET /api/health`), obtains a VTT token, and connects.
+   running server (via a short WebSocket probe), obtains a VTT token, and connects.
 
 There is a single shared canvas — no session to create and no code to share.
 
@@ -72,7 +72,7 @@ This is the headline acceptance test:
 Browser (logged-in user)
     │
     ├─ GET /api/auth/vtt-token ─→ Cloudflare Pages Function → signed JWT
-    ├─ GET <server>/api/health ─→ Local Server → { ok: true }  (detection)
+    ├─ ws://<server>:3001?probe=1 ─→ Local Server → handshake  (detection)
     │
     └─ WebSocket ws://<server>:3001?token=<jwt>
             │
