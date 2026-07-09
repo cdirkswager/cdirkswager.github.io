@@ -70,9 +70,11 @@ export async function createVttCanvas(mountEl, options = {}) {
 
   renderer.rulerLayer.setEventBus(eventBus)
   renderer.pingLayer.setEventBus(eventBus)
+  renderer.pingLayer.setCurrentSceneId(world.viewedSceneId)
+  eventBus.on('world:view-scene', ({ sceneId }) => renderer.pingLayer.setCurrentSceneId(sceneId))
 
   controller.onPing = (x, y) => {
-    eventBus.emitEphemeral('ping', { x, y })
+    eventBus.emitEphemeral('ping', { x, y, sceneId: world.viewedSceneId })
   }
 
   /* Base selection wiring: token clicks surface on the bus so the

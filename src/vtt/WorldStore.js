@@ -255,7 +255,10 @@ export class WorldStore {
     if (action === 'updated') {
       const s = this.scenes.get(data.id)
       if (!s) return null
-      const { id, ...changes } = data
+      /* Token/wall/tile/template arrays in the server's full scene record
+         are stale — these are managed by their own CRUD events, so never
+         overwrite the live collections with server-archeology empties. */
+      const { id, tokens, walls, tiles, templates, ...changes } = data
       Object.assign(s, changes)
       this.eventBus.emit('scenes-changed', {})
       return { sceneId: s.id, data: changes }
